@@ -93,20 +93,20 @@ def p(n):
 
 
 def ce(n):
-    """Per tenant: the attachment circuit to the PE and the site LAN, eBGP announcing the LAN. The first tenant lives in the
-    CE's default VRF, every further tenant in its own VRF (`vrf name <tenant>`), so the tenants never meet on the CE either."""
-    out = identity(n)
+    """Per tenant: its own VRF on the CE (`vrf name <tenant>`) holding the attachment circuit to the PE and the site LAN, with an
+    eBGP session announcing the LAN — the CE's default VRF carries only management, so the tenants never meet on the CE either."""
+    out = identity(n) + ["# VyOS/FRR insist on a default-VRF BGP instance while VRF instances exist: an empty one (no neighbours, no networks)",
+                         f"set protocols bgp system-as {n['asn']}"]
     tenants = sorted({p["tenant"] for p in n["ports"] if p.get("tenant")})
     for i, vrf in enumerate(tenants):
         pe_port = next(p for p in n["ports"] if p.get("tenant") == vrf and NODES[p["peer"]]["role"] == "pe")
         lan = next(p for p in n["ports"] if p.get("tenant") == vrf and NODES[p["peer"]]["role"] == "host")
         pe_ip = str(ipaddress.ip_interface(pe_port["ip"]).network.network_address + 1); lan_net = ipaddress.ip_interface(lan["ip"]).network
-        v = "" if i == 0 else f"vrf name {vrf} "   # prefix for everything that lives in the tenant VRF
-        out += [f"# {vrf}: attachment circuit to {pe_port['peer']} and the {n['dc']} LAN ({'default VRF' if i == 0 else 'VRF ' + vrf} on the CE)"]
-        if i: out += [f"set vrf name {vrf} table {SVC['tenants'][vrf]['table']}", f"set interfaces ethernet {pe_port['name']} vrf {vrf}", f"set interfaces ethernet {lan['name']} vrf {vrf}"]
-        out += [f"set interfaces ethernet {pe_port['name']} address {pe_port['ip']}", f"set interfaces ethernet {pe_port['name']} description '{pe_port['peer']} {pe_port['peer_port']} ({vrf})'",
+        v = f"vrf name {vrf} "   # prefix for everything that lives in the tenant VRF
+        out += [f"# {vrf}: VRF {vrf} on the CE holds the attachment circuit to {pe_port['peer']} and the {n['dc']} LAN",
+                f"set vrf name {vrf} table {SVC['tenants'][vrf]['table']}", f"set interfaces ethernet {pe_port['name']} vrf {vrf}", f"set interfaces ethernet {lan['name']} vrf {vrf}",f"set interfaces ethernet {pe_port['name']} address {pe_port['ip']}", f"set interfaces ethernet {pe_port['name']} description '{pe_port['peer']} {pe_port['peer_port']} ({vrf})'",
                 f"set interfaces ethernet {lan['name']} address {lan['ip']}", f"set interfaces ethernet {lan['name']} description '{n['dc']} LAN {vrf}: {lan['peer']}'",
-                f"set {v}protocols bgp system-as {n['asn']}", f"set {v}protocols bgp parameters router-id {n['router_id'] if i == 0 else str(lan_net.network_address + 1)}",
+                f"set {v}protocols bgp system-as {n['asn']}", f"set {v}protocols bgp parameters router-id {lan_net.network_address + 1}",
                 f"set {v}protocols bgp neighbor {pe_ip} remote-as {SVC['core_as']}", f"set {v}protocols bgp neighbor {pe_ip} description '{pe_port['peer']} ({vrf})'",
                 f"set {v}protocols bgp neighbor {pe_ip} address-family ipv4-unicast", f"set {v}protocols bgp address-family ipv4-unicast network {lan_net}"]
     return out

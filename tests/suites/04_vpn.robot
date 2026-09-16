@@ -2,7 +2,7 @@
 Documentation     BGP L3VPN over SRv6, per tenant: the route reflector has every PE as an established VPNv4 client and
 ...               every data-centre LAN of every tenant; every PE imports the other LANs of a tenant into that tenant's VRF
 ...               only, with an SRv6 SID from the right locator, and the kernel VRF carries them as seg6-encapsulated routes;
-...               every CE learns the other LANs of each tenant over the eBGP session of that tenant.
+...               every CE learns the other LANs of each tenant in that tenant's own VRF, over that VRF's eBGP session.
 Resource          ../resources/common.resource
 Suite Teardown    Suite Teardown Close Connections
 
@@ -65,11 +65,17 @@ The kernel VRF on every PE carries the remote LANs as SRv6-encapsulated routes, 
         END
     END
 
-Every CE learns the other three data-centre LANs of each tenant from its PE over that tenant's eBGP session
+Every CE learns the other three data-centre LANs of each tenant from its PE, in that tenant's own VRF
+    FOR    ${ce}    IN    @{CES}
+        ${dflt}=    Vyos    ${ce}    show ip route
+        Should Not Match Regexp    ${dflt}    (?m)^B    msg=${ce}: the default VRF must carry no BGP routes (tenants live in their VRFs)
+        ${bgp}=    Vyos    ${ce}    show ip bgp summary
+        Should Contain    ${bgp}    No BGP neighbors found in VRF default    msg=${ce}: a BGP session in the default VRF
+    END
     FOR    ${t}    IN    @{TENANTS}
         FOR    ${dc}    IN    @{SITES}[${t}]
             ${d}=    Set Variable    ${SITES}[${t}][${dc}]
-            ${v}=    Set Variable If    $d["ce_vrf"]    vrf ${t} ${SPACE}    ${EMPTY}
+            ${v}=    Set Variable    vrf ${t} ${SPACE}
             ${sum}=    Vyos    ${d}[ce]    show ip bgp ${v}summary
             Should Match Regexp    ${sum}    (?m)^${d}[pe_wan_ip]\\s+4\\s+${CORE_AS}\\s.*\\s[1-9]\\d*\\s    msg=${d}[ce]: eBGP to ${d}[pe] (${t}) not Established with prefixes
             ${rib}=    Vyos    ${d}[ce]    show ip route ${v}bgp

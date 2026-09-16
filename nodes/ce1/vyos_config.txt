@@ -7,18 +7,23 @@ set service lldp interface all
 set interfaces ethernet eth0 address 10.3.0.31/24
 set interfaces ethernet eth0 description 'OOB management'
 set protocols static route 10.0.0.0/8 next-hop 10.3.0.1
-# tenant-a: attachment circuit to pe1 and the dc1 LAN (default VRF on the CE)
+# VyOS/FRR insist on a default-VRF BGP instance while VRF instances exist: an empty one (no neighbours, no networks)
+set protocols bgp system-as 65001
+# tenant-a: VRF tenant-a on the CE holds the attachment circuit to pe1 and the dc1 LAN
+set vrf name tenant-a table 100
+set interfaces ethernet eth1 vrf tenant-a
+set interfaces ethernet eth2 vrf tenant-a
 set interfaces ethernet eth1 address 172.16.1.2/30
 set interfaces ethernet eth1 description 'pe1 eth3 (tenant-a)'
 set interfaces ethernet eth2 address 172.20.1.1/24
 set interfaces ethernet eth2 description 'dc1 LAN tenant-a: dc1-h1'
-set protocols bgp system-as 65001
-set protocols bgp parameters router-id 172.20.1.1
-set protocols bgp neighbor 172.16.1.1 remote-as 65000
-set protocols bgp neighbor 172.16.1.1 description 'pe1 (tenant-a)'
-set protocols bgp neighbor 172.16.1.1 address-family ipv4-unicast
-set protocols bgp address-family ipv4-unicast network 172.20.1.0/24
-# tenant-b: attachment circuit to pe1 and the dc1 LAN (VRF tenant-b on the CE)
+set vrf name tenant-a protocols bgp system-as 65001
+set vrf name tenant-a protocols bgp parameters router-id 172.20.1.1
+set vrf name tenant-a protocols bgp neighbor 172.16.1.1 remote-as 65000
+set vrf name tenant-a protocols bgp neighbor 172.16.1.1 description 'pe1 (tenant-a)'
+set vrf name tenant-a protocols bgp neighbor 172.16.1.1 address-family ipv4-unicast
+set vrf name tenant-a protocols bgp address-family ipv4-unicast network 172.20.1.0/24
+# tenant-b: VRF tenant-b on the CE holds the attachment circuit to pe1 and the dc1 LAN
 set vrf name tenant-b table 200
 set interfaces ethernet eth3 vrf tenant-b
 set interfaces ethernet eth4 vrf tenant-b

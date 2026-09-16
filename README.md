@@ -2,16 +2,15 @@
 
 A segment-routing-over-IPv6 service-provider core simulated on one Linux host with libvirt/KVM: four **VyOS PEs**
 (one per data centre), three **VyOS P routers** in a triangle (p1 is also the VPNv4 route reflector), a **VyOS CE**
-per data centre serving **two tenants** — `tenant-a` (host h1, the CE's default VRF) and `tenant-b` (host h2, VRF
-`tenant-b` on the CE) — each over its own attachment circuit into its own VRF on the PE, and a **CirrOS host** per
-tenant per site. The core is IPv6-only with IS-IS level-2 carrying the SRv6 locators; each tenant's IPv4 prefixes travel
+per data centre serving **two tenants** — `tenant-a` (host h1) and `tenant-b` (host h2) — each in its own VRF on the
+CE and over its own attachment circuit into its own VRF on the PE, and a **CirrOS host** per tenant per site. The core is IPv6-only with IS-IS level-2 carrying the SRv6 locators; each tenant's IPv4 prefixes travel
 as BGP VPNv4 routes whose next hop is that tenant's **SRv6 End.DT4 SID** on the remote PE, so every h1 reaches every
 other h1, every h2 every other h2, and the two never meet — not even at the same site. Nineteen VMs, about 13 GiB of
 RAM, all VyOS nodes 1 vCPU / 1 GiB.
 
 ```
  hosts (CirrOS)   dc1-h1 172.20.1.2  dc1-h2 172.21.1.2   … the same in dc2, dc3, dc4 (172.20.n / 172.21.n)
-                   | eth2 (default VRF)  | eth4 (VRF tenant-b)
+                   | eth2 (VRF tenant-a) | eth4 (VRF tenant-b)
  CEs   (VyOS)     ce1 AS65001 — eBGP to pe1 once per tenant      ce2 AS65002         ce3 AS65003         ce4 AS65004
                    | eth1 172.16.n.0/30 → PE VRF tenant-a          |                   |                   |
                    | eth3 172.17.n.0/30 → PE VRF tenant-b          |                   |                   |
@@ -42,7 +41,7 @@ Credentials: VyOS `vyos`/`vyos` (`./lab.sh ssh pe1`), CirrOS `cirros`/`gocubsgo`
 | SRv6 | one locator per node from `fd00:c::/40` (block 40 / node 24 / function 16 bits → a /64 each), advertised by IS-IS (`segment-routing srv6`) and also carried by the passive `dum0` interface that holds the local SIDs; encapsulation source = loopback | every PE and P |
 | Service | one VRF per tenant on every PE — `tenant-a` (table 100, RT 65000:100, RD 65000:10*n*) and `tenant-b` (table 200, RT 65000:200, RD 65000:20*n*) — each with its own attachment circuit and eBGP session to the CE, VPNv4 to the route reflector over the IPv6 loopbacks with `capability extended-nexthop`, `sid vpn export auto` → one End.DT4 SID per tenant | PEs |
 | Route reflection | p1, peer-group `RR-CLIENTS`, VPNv4 only — p2/p3 run no BGP and know nothing about the tenant | p1 |
-| Access | the CE keeps the tenants apart too: tenant-a lives in its default VRF (eth1 to the PE, eth2 LAN `172.20.n.0/24`, host h1), tenant-b in VRF `tenant-b` (eth3 to the PE, eth4 LAN `172.21.n.0/24`, host h2); each VRF runs its own eBGP session announcing its LAN and learning the other three | CEs, hosts |
+| Access | the CE keeps the tenants apart too: VRF `tenant-a` (eth1 to the PE, eth2 LAN `172.20.n.0/24`, host h1) and VRF `tenant-b` (eth3 to the PE, eth4 LAN `172.21.n.0/24`, host h2); each VRF runs its own eBGP session announcing its LAN and learning the other three; the CE's default VRF carries only OOB management (plus the empty default BGP instance VyOS insists on while VRF instances exist) | CEs, hosts |
 
 What the data plane looks like on a PE (`sudo ip route show vrf tenant-a` / `sudo ip -6 route | grep seg6local`):
 ```
@@ -87,7 +86,7 @@ the whole lab as JSON (what the tests read; a future Nautobot seed would too).
 | 01 management | every node on the OOB network with SSH, host names, host LAN addresses, MTU 9000 on all core links, config saved |
 | 02 underlay | exactly the expected IS-IS L2 adjacencies (2/4/6/4/2), every loopback via IS-IS, PE↔PE pings incl. 1600-byte DF (headroom for the encapsulation) |
 | 03 srv6 | locator Up with 40/24/16 on all 7 nodes, all 7 in `show isis segment-routing srv6 node`, all locators in every RIB, End / End.X SIDs and exactly one End.DT4 SID per tenant VRF in the kernel, seg6 enabled per core interface |
-| 04 vpn | per tenant: 4 RR clients Established, every LAN under its RD at the RR, remote LANs imported into the right VRF only (no prefix of the other tenant) with a SID inside the right locator and a recursive seg6 route, CEs learn the other three LANs over the tenant's own session (default VRF / VRF tenant-b) |
+| 04 vpn | per tenant: 4 RR clients Established, every LAN under its RD at the RR, remote LANs imported into the right VRF only (no prefix of the other tenant) with a SID inside the right locator and a recursive seg6 route, CEs learn the other three LANs in the tenant's own VRF over that VRF's session, nothing in the default VRF |
 | 05 end to end | every host reaches every host of its tenant (2 × 4×3 pings) and **none of the other tenant's**, not even at the same site; dc1→dc3 traffic transits p2 with `tcpdump` showing `IP6 fd00:a::1 > fd00:c:3:…` both ways; P routers hold no VRF and no tenant routes |
 
 Every run captures `show configuration commands` of all VyOS nodes before and after and diffs them (`results/<ts>/configs/`).

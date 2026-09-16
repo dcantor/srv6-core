@@ -32,7 +32,7 @@ for ce in CES:
         SITES[t][NODES[ce]["dc"]] = {"tenant": t, "ce": ce, "pe": pe, "host": lan_port["peer"], "lan": lan_port["prefix"], "host_ip": NODES[lan_port["peer"]]["ports"][0]["ip"].split("/")[0],
                                      "ce_lan_ip": lan_port["ip"].split("/")[0], "pe_ce_prefix": pe_port["prefix"], "ce_wan_ip": pe_port["ip"].split("/")[0],
                                      "pe_wan_ip": next(x for x in NODES[pe]["ports"] if x["peer"] == ce and x["tenant"] == t)["ip"].split("/")[0],
-                                     "rd": f"{CORE_AS}:{VRF_TABLE[t] + NODES[pe]['idx']}", "ce_vrf": None if t == TENANTS[0] else t}
+                                     "rd": f"{CORE_AS}:{VRF_TABLE[t] + NODES[pe]['idx']}", "ce_vrf": t}
 DCS = SITES[TENANTS[0]]                                   # first tenant, kept for the suites that only need one
 HOST_IP = {s["host"]: s["host_ip"] for t in SITES.values() for s in t.values()}
 HOST_TENANT = {s["host"]: t for t, sites in SITES.items() for s in sites.values()}
