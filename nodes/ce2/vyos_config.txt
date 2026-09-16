@@ -1,0 +1,21 @@
+# ce2: CE in dc2 — day-0 pushed over the serial console by lab.sh bootstrap; rendered by tools/gen_configs.py
+set system host-name ce2
+set system domain-name lab.local
+set system login user vyos authentication plaintext-password vyos
+set service ssh port 22
+set service lldp interface all
+set interfaces ethernet eth0 address 10.3.0.32/24
+set interfaces ethernet eth0 description 'OOB management'
+set protocols static route 10.0.0.0/8 next-hop 10.3.0.1
+# attachment circuit to pe2 (VRF tenant-a on the PE side) and the dc2 LAN
+set interfaces ethernet eth1 address 172.16.2.2/30
+set interfaces ethernet eth1 description 'pe2 eth3 (tenant-a)'
+set interfaces ethernet eth2 address 172.20.2.1/24
+set interfaces ethernet eth2 description 'dc2 LAN: host2'
+# eBGP to the PE: announce the LAN, learn the other data centres
+set protocols bgp system-as 65002
+set protocols bgp parameters router-id 172.20.2.1
+set protocols bgp neighbor 172.16.2.1 remote-as 65000
+set protocols bgp neighbor 172.16.2.1 description 'pe2'
+set protocols bgp neighbor 172.16.2.1 address-family ipv4-unicast
+set protocols bgp address-family ipv4-unicast network 172.20.2.0/24

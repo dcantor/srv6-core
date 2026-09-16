@@ -1,0 +1,5 @@
+<network>
+  <name>srv6-oob</name>
+  <bridge name='virbr-srv6oob' stp='off' delay='0'/>
+  <ip address='10.3.0.1' netmask='255.255.255.0'/>
+</network>
