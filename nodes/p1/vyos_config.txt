@@ -43,6 +43,10 @@ set protocols isis interface eth1 network point-to-point
 set protocols isis interface eth2 network point-to-point
 set protocols isis interface eth3 network point-to-point
 set protocols isis interface eth4 network point-to-point
+set protocols isis interface eth1 bfd
+set protocols isis interface eth2 bfd
+set protocols isis interface eth3 bfd
+set protocols isis interface eth4 bfd
 set protocols isis interface lo passive
 set protocols isis interface dum0 passive
 set protocols isis segment-routing srv6 locator main

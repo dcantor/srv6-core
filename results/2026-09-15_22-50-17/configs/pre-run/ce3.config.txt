@@ -1,0 +1,30 @@
+# ce3 (10.3.0.33) show configuration commands captured 2026-09-15 22:50:19
+set interfaces ethernet eth0 address '10.3.0.33/24'
+set interfaces ethernet eth0 description 'OOB management'
+set interfaces ethernet eth0 hw-id '52:54:00:c6:0a:00'
+set interfaces ethernet eth1 address '172.16.3.2/30'
+set interfaces ethernet eth1 description 'pe3 eth3 (tenant-a)'
+set interfaces ethernet eth1 hw-id '52:54:00:c6:0a:01'
+set interfaces ethernet eth2 address '172.20.3.1/24'
+set interfaces ethernet eth2 description 'dc3 LAN: h3'
+set interfaces ethernet eth2 hw-id '52:54:00:c6:0a:02'
+set interfaces loopback lo
+set protocols bgp address-family ipv4-unicast network 172.20.3.0/24
+set protocols bgp neighbor 172.16.3.1 address-family ipv4-unicast
+set protocols bgp neighbor 172.16.3.1 description 'pe3'
+set protocols bgp neighbor 172.16.3.1 remote-as '65000'
+set protocols bgp parameters router-id '172.20.3.1'
+set protocols bgp system-as '65003'
+set protocols static route 10.0.0.0/8 next-hop 10.3.0.1
+set service lldp interface all
+set service ssh port '22'
+set system config-management commit-revisions '100'
+set system console device ttyS0 kernel
+set system console device ttyS0 speed '115200'
+set system domain-name 'lab.local'
+set system host-name 'ce3'
+set system login operator-group default command-policy allow '*'
+set system login user vyos authentication encrypted-password '$6$rounds=656000$q.k8.3a28DMt3CBZ$5jZ8hoWAaNMz1iY5sUlqFeHapoAm3GK8kJy0xOu.mX3ib466XEbMwPHdl9GYVwl6MY5/cRxAnnwFh1zyA3NMf.'
+set system option reboot-on-upgrade-failure '5'
+set system syslog local facility all level 'info'
+set system syslog local facility local7 level 'debug'

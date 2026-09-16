@@ -139,7 +139,10 @@ Locator structure: block 40 bits · node 24 bits · function 16 bits; the functi
 | 06 rr redundancy | every PE holds every remote VPN route once per reflector; **shutting p1's client sessions** (peer-group `shutdown`, restored in the teardown) leaves every VRF route, every SRv6 encap route and every in-tenant ping intact via p3; the sessions come back after the restore |
 | 05 end to end | every host reaches every host of its tenant (2 × 4×3 pings) and **none of the other tenant's**, not even at the same site; dc1→dc3 traffic transits p2 with `tcpdump` showing `IP6 fd00:a::1 > fd00:c:3:…` both ways; P routers hold no VRF and no tenant routes |
 
-Every run captures `show configuration commands` of all VyOS nodes before and after and diffs them (`results/<ts>/configs/`).
+Every run lands in `results/<timestamp>/` — `report.html`, `log.html`, `output.xml`, and `configs/{pre-run,post-run}/` with
+`show configuration commands` of every VyOS node (diffed pre vs post; the diff must be empty) plus `routes/` with the
+routing tables of every node (RIB per VRF, kernel SRv6 routes, BGP VPNv4, IS-IS SRv6, BFD). **The results are committed
+to the repository** with each change, so the history shows what passed on which version of the lab.
 
 ## Demo
 `docs/demo/srv6-demo.mp4` / `.gif` (≈2 min): status, IS-IS + SRv6 nodes, the SIDs on a PE, VPNv4 at the reflector and

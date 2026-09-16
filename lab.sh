@@ -273,6 +273,11 @@ cmd_configure() {  # (re)apply nodes/<n>/vyos_config.txt over SSH — idempotent
   local n; for n in $(vyos_nodes_or_all "$@"); do "$PY" "$LAB_DIR/tools/vyos_push.py" "${MGMT_IP[$n]}" "$(node_dir "$n")/vyos_config.txt" | sed "s/^/[$n] /"; done
 }
 
+cmd_steer() {      # explicit-path SRv6 steering: add|del|show|sid (tools/steer.py)
+  [[ -x "$LAB_DIR/tests/.venv/bin/python" ]] || "$LAB_DIR/tests/setup.sh"
+  "$PY" "$LAB_DIR/tools/steer.py" "$@"
+}
+
 cmd_wait() {       # block until SSH answers on the given nodes (VyOS sshd, CirrOS dropbear)
   for n in $(nodes_or_all "$@"); do
     for _ in $(seq 60); do ssh_ready "$n" && break; sleep 5; done
@@ -390,6 +395,8 @@ usage: $(basename "$0") <command> [node...]
   up [node..]        create (if needed) and start VMs                 (default: all)
   bootstrap [node..] push the day-0 config to VyOS nodes over the console (first boot only; parallel)
   configure [node..] re-apply nodes/<n>/vyos_config.txt over SSH (after editing lab.conf + tools/gen_configs.py)
+  steer add <pe> <tenant> <prefix> <p..>   pin a tenant prefix to an explicit SRv6 path through the given P routers
+  steer del <pe> <tenant> <prefix> | steer show [pe..]
   wait [node..]      wait until SSH answers
   down [node..]      stop VMs (VyOS: ACPI shutdown)
   status             nodes, addresses, links, consoles
@@ -407,6 +414,6 @@ U
 
 cmd="${1:-}"; shift || true
 case "$cmd" in
-  up|down|bootstrap|configure|wait|status|inventory|verify|test|console|ssh|log|rebuild|clean) "cmd_$cmd" "$@" ;;
+  up|down|bootstrap|configure|steer|wait|status|inventory|verify|test|console|ssh|log|rebuild|clean) "cmd_$cmd" "$@" ;;
   *) usage; exit 1 ;;
 esac

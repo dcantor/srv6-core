@@ -1,0 +1,49 @@
+# ce4 (10.3.0.34) show configuration commands captured 2026-09-16 07:24:33
+set interfaces ethernet eth0 address '10.3.0.34/24'
+set interfaces ethernet eth0 description 'OOB management'
+set interfaces ethernet eth0 hw-id '52:54:00:c6:0b:00'
+set interfaces ethernet eth1 address '172.16.4.2/30'
+set interfaces ethernet eth1 description 'pe4 eth3 (tenant-a)'
+set interfaces ethernet eth1 hw-id '52:54:00:c6:0b:01'
+set interfaces ethernet eth1 vrf 'tenant-a'
+set interfaces ethernet eth2 address '172.20.4.1/24'
+set interfaces ethernet eth2 description 'dc4 LAN tenant-a: dc4-h1'
+set interfaces ethernet eth2 hw-id '52:54:00:c6:0b:02'
+set interfaces ethernet eth2 vrf 'tenant-a'
+set interfaces ethernet eth3 address '172.17.4.2/30'
+set interfaces ethernet eth3 description 'pe4 eth4 (tenant-b)'
+set interfaces ethernet eth3 hw-id '52:54:00:c6:0b:03'
+set interfaces ethernet eth3 vrf 'tenant-b'
+set interfaces ethernet eth4 address '172.21.4.1/24'
+set interfaces ethernet eth4 description 'dc4 LAN tenant-b: dc4-h2'
+set interfaces ethernet eth4 hw-id '52:54:00:c6:0b:04'
+set interfaces ethernet eth4 vrf 'tenant-b'
+set interfaces loopback lo
+set protocols bgp system-as '65004'
+set protocols static route 10.0.0.0/8 next-hop 10.3.0.1
+set service lldp interface all
+set service ssh port '22'
+set system config-management commit-revisions '100'
+set system console device ttyS0 kernel
+set system console device ttyS0 speed '115200'
+set system domain-name 'lab.local'
+set system host-name 'ce4'
+set system login operator-group default command-policy allow '*'
+set system login user vyos authentication encrypted-password '$6$rounds=656000$mFzFn0jwUveiphze$0Lb.gns5moNRSg56jy5QjZvGVCKvogPa6X1TrjyPNlw8kpHs4BDpI9QAvIXKLJ3nGbpwNA6NQH8mASMFosLzJ.'
+set system option reboot-on-upgrade-failure '5'
+set system syslog local facility all level 'info'
+set system syslog local facility local7 level 'debug'
+set vrf name tenant-a protocols bgp address-family ipv4-unicast network 172.20.4.0/24
+set vrf name tenant-a protocols bgp neighbor 172.16.4.1 address-family ipv4-unicast
+set vrf name tenant-a protocols bgp neighbor 172.16.4.1 description 'pe4 (tenant-a)'
+set vrf name tenant-a protocols bgp neighbor 172.16.4.1 remote-as '65000'
+set vrf name tenant-a protocols bgp parameters router-id '172.20.4.1'
+set vrf name tenant-a protocols bgp system-as '65004'
+set vrf name tenant-a table '100'
+set vrf name tenant-b protocols bgp address-family ipv4-unicast network 172.21.4.0/24
+set vrf name tenant-b protocols bgp neighbor 172.17.4.1 address-family ipv4-unicast
+set vrf name tenant-b protocols bgp neighbor 172.17.4.1 description 'pe4 (tenant-b)'
+set vrf name tenant-b protocols bgp neighbor 172.17.4.1 remote-as '65000'
+set vrf name tenant-b protocols bgp parameters router-id '172.21.4.1'
+set vrf name tenant-b protocols bgp system-as '65004'
+set vrf name tenant-b table '200'

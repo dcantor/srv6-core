@@ -5,6 +5,7 @@ import os
 import re
 import socket
 import subprocess
+import sys
 import time
 from pathlib import Path
 
@@ -111,6 +112,21 @@ class LabLib:
             c.close()
         logger.info(f"<pre>[background {handle}] {command}\n{text}</pre>", html=True)
         return text
+
+    @keyword
+    def steer(self, *args, timeout=180):
+        """Run tools/steer.py (explicit-path SRv6 steering): add|del|show|sid ... — returns its output, fails on error."""
+        r = subprocess.run([sys.executable, str(LAB_DIR / "tools" / "steer.py"), *args], capture_output=True, text=True, timeout=float(timeout))
+        logger.info(f"<pre>steer.py {' '.join(args)}\nrc={r.returncode}\n{r.stdout}{r.stderr}</pre>", html=True)
+        if r.returncode != 0: raise AssertionError(f"steer.py {' '.join(args)} failed: {(r.stderr or r.stdout).strip()[-400:]}")
+        return r.stdout
+
+    @keyword
+    def ping_loss(self, text):
+        """Packets lost according to a ping summary line ('N packets transmitted, M received, ...')."""
+        m = re.search(r"(\d+) packets transmitted, (\d+) (?:packets )?received", text)
+        if not m: raise AssertionError(f"no ping summary in: {text[-300:]}")
+        return int(m[1]) - int(m[2])
 
     # ---- helpers -------------------------------------------------------------------------
     @keyword

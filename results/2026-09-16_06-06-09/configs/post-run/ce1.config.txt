@@ -1,0 +1,45 @@
+# ce1 (10.3.0.31) show configuration commands captured 2026-09-16 06:14:30
+set interfaces ethernet eth0 address '10.3.0.31/24'
+set interfaces ethernet eth0 description 'OOB management'
+set interfaces ethernet eth0 hw-id '52:54:00:c6:08:00'
+set interfaces ethernet eth1 address '172.16.1.2/30'
+set interfaces ethernet eth1 description 'pe1 eth3 (tenant-a)'
+set interfaces ethernet eth1 hw-id '52:54:00:c6:08:01'
+set interfaces ethernet eth2 address '172.20.1.1/24'
+set interfaces ethernet eth2 description 'dc1 LAN tenant-a: dc1-h1'
+set interfaces ethernet eth2 hw-id '52:54:00:c6:08:02'
+set interfaces ethernet eth3 address '172.17.1.2/30'
+set interfaces ethernet eth3 description 'pe1 eth4 (tenant-b)'
+set interfaces ethernet eth3 hw-id '52:54:00:c6:08:03'
+set interfaces ethernet eth3 vrf 'tenant-b'
+set interfaces ethernet eth4 address '172.21.1.1/24'
+set interfaces ethernet eth4 description 'dc1 LAN tenant-b: dc1-h2'
+set interfaces ethernet eth4 hw-id '52:54:00:c6:08:04'
+set interfaces ethernet eth4 vrf 'tenant-b'
+set interfaces loopback lo
+set protocols bgp address-family ipv4-unicast network 172.20.1.0/24
+set protocols bgp neighbor 172.16.1.1 address-family ipv4-unicast
+set protocols bgp neighbor 172.16.1.1 description 'pe1 (tenant-a)'
+set protocols bgp neighbor 172.16.1.1 remote-as '65000'
+set protocols bgp parameters router-id '172.20.1.1'
+set protocols bgp system-as '65001'
+set protocols static route 10.0.0.0/8 next-hop 10.3.0.1
+set service lldp interface all
+set service ssh port '22'
+set system config-management commit-revisions '100'
+set system console device ttyS0 kernel
+set system console device ttyS0 speed '115200'
+set system domain-name 'lab.local'
+set system host-name 'ce1'
+set system login operator-group default command-policy allow '*'
+set system login user vyos authentication encrypted-password '$6$rounds=656000$8xnU.jOZ25p2KL5j$YRxLwYEyPU9jMBcJWLPlDC6yLXIMnjZdi.2Es57szgLUINNKKTs6U.o9doSO.zitHaW7rlEr49UBL1HeXGPkN.'
+set system option reboot-on-upgrade-failure '5'
+set system syslog local facility all level 'info'
+set system syslog local facility local7 level 'debug'
+set vrf name tenant-b protocols bgp address-family ipv4-unicast network 172.21.1.0/24
+set vrf name tenant-b protocols bgp neighbor 172.17.1.1 address-family ipv4-unicast
+set vrf name tenant-b protocols bgp neighbor 172.17.1.1 description 'pe1 (tenant-b)'
+set vrf name tenant-b protocols bgp neighbor 172.17.1.1 remote-as '65000'
+set vrf name tenant-b protocols bgp parameters router-id '172.21.1.1'
+set vrf name tenant-b protocols bgp system-as '65001'
+set vrf name tenant-b table '200'

@@ -1,0 +1,1183 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<robot generator="Robot 7.5 (Python 3.14.4 on linux)" generated="2026-09-15T22:40:02.416718" rpa="false" schemaversion="5">
+<suite id="s1" name="srv6 core lab" source="/home/dcantor/srv6-core/tests/suites">
+<suite id="s1-s1" name="01 Management" source="/home/dcantor/srv6-core/tests/suites/01_management.robot">
+<test id="s1-s1-t1" name="Every VyOS node is reachable over the OOB network and runs VyOS with the expected host name" line="7">
+<for flavor="IN">
+<iter>
+<kw name="Host Ping" owner="LabLib">
+<arg>${MGMT}[${n}]</arg>
+<doc>ICMP ping from the lab host; fails unless at least one reply.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:03.945818" elapsed="0.000066"/>
+</kw>
+<kw name="Tcp Port Should Be Open" owner="LabLib">
+<arg>${MGMT}[${n}]</arg>
+<arg>22</arg>
+<status status="NOT RUN" start="2026-09-15T22:40:03.946042" elapsed="0.000021"/>
+</kw>
+<kw name="Vyos" owner="common">
+<var>${v}</var>
+<arg>${n}</arg>
+<arg>show version | match Version</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:03.946247" elapsed="0.000029"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${v}</arg>
+<arg>VyOS</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:03.946386" elapsed="0.000019"/>
+</kw>
+<kw name="Vyos" owner="common">
+<var>${h}</var>
+<arg>${n}</arg>
+<arg>show configuration commands | match host-name</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:03.946541" elapsed="0.000023"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${h}</arg>
+<arg>host-name '${n}'</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:03.946667" elapsed="0.000029"/>
+</kw>
+<var name="${n}"/>
+<status status="NOT RUN" start="2026-09-15T22:40:03.944468" elapsed="0.002258"/>
+</iter>
+<msg time="2026-09-15T22:40:03.946778" level="FAIL">Variable '@{VYOS}' not found.</msg>
+<var>${n}</var>
+<value>@{VYOS}</value>
+<status status="FAIL" start="2026-09-15T22:40:03.944077" elapsed="0.002759">Variable '@{VYOS}' not found.</status>
+</for>
+<status status="FAIL" start="2026-09-15T22:40:03.943679" elapsed="0.003348">Variable '@{VYOS}' not found.</status>
+</test>
+<test id="s1-s1-t2" name="Every CirrOS host is reachable over the OOB network and carries its data-centre address" line="17">
+<for flavor="IN">
+<iter>
+<kw name="Host Ping" owner="LabLib">
+<arg>${MGMT}[${h}]</arg>
+<doc>ICMP ping from the lab host; fails unless at least one reply.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:03.947863" elapsed="0.000022"/>
+</kw>
+<kw name="Tcp Port Should Be Open" owner="LabLib">
+<arg>${MGMT}[${h}]</arg>
+<arg>22</arg>
+<status status="NOT RUN" start="2026-09-15T22:40:03.947962" elapsed="0.000017"/>
+</kw>
+<kw name="Host" owner="common">
+<var>${name}</var>
+<arg>${h}</arg>
+<arg>hostname</arg>
+<doc>Run a command on a CirrOS host by name.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:03.948090" elapsed="0.000023"/>
+</kw>
+<kw name="Should Be Equal" owner="BuiltIn">
+<arg>${name.strip()}</arg>
+<arg>${h}</arg>
+<doc>Fails if the given objects are unequal.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:03.948245" elapsed="0.000021"/>
+</kw>
+<kw name="Host" owner="common">
+<var>${addr}</var>
+<arg>${h}</arg>
+<arg>ip -4 addr show eth1</arg>
+<doc>Run a command on a CirrOS host by name.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:03.948375" elapsed="0.000020"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${addr}</arg>
+<arg>${HOST_IP}[${h}]/24</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:03.948494" elapsed="0.000017"/>
+</kw>
+<var name="${h}"/>
+<status status="NOT RUN" start="2026-09-15T22:40:03.947787" elapsed="0.000753"/>
+</iter>
+<msg time="2026-09-15T22:40:03.948574" level="FAIL">Variable '@{HOSTS}' not found.</msg>
+<var>${h}</var>
+<value>@{HOSTS}</value>
+<status status="FAIL" start="2026-09-15T22:40:03.947505" elapsed="0.001107">Variable '@{HOSTS}' not found.</status>
+</for>
+<status status="FAIL" start="2026-09-15T22:40:03.947227" elapsed="0.001527">Variable '@{HOSTS}' not found.</status>
+</test>
+<test id="s1-s1-t3" name="The core links run jumbo frames and the day-0 configuration is saved" line="27">
+<for flavor="IN">
+<iter>
+<kw name="Vyos" owner="common">
+<var>${mtu}</var>
+<arg>${n}</arg>
+<arg>show configuration commands | match mtu</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:03.949462" elapsed="0.000027"/>
+</kw>
+<kw name="Get Count" owner="BuiltIn">
+<var>${count}</var>
+<arg>${mtu}</arg>
+<arg>mtu '9000'</arg>
+<doc>Returns and logs how many times the `item` is found from the `container`.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:03.949586" elapsed="0.000018"/>
+</kw>
+<kw name="Get Length" owner="BuiltIn">
+<var>${expected}</var>
+<arg>${ISIS_NEIGHBORS}[${n}]</arg>
+<doc>Returns and logs the length of the given item as an integer.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:03.949710" elapsed="0.000019"/>
+</kw>
+<kw name="Should Be Equal As Integers" owner="BuiltIn">
+<arg>${count}</arg>
+<arg>${expected}</arg>
+<arg>msg=${n}: every core link must have mtu 9000</arg>
+<doc>Fails if objects are unequal after converting them to integers.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:03.949825" elapsed="0.000019"/>
+</kw>
+<kw name="Shell" owner="common">
+<var>${saved}</var>
+<arg>${n}</arg>
+<arg>grep -c host-name /config/config.boot</arg>
+<doc>Run a Linux shell command on a VyOS node by name (sudo allowed).</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:03.949939" elapsed="0.000016"/>
+</kw>
+<kw name="Should Not Be Equal" owner="BuiltIn">
+<arg>${saved.strip()}</arg>
+<arg>0</arg>
+<arg>msg=${n}: /config/config.boot has no host-name (configuration never saved)</arg>
+<doc>Fails if the given objects are equal.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:03.950021" elapsed="0.000013"/>
+</kw>
+<var name="${n}"/>
+<status status="NOT RUN" start="2026-09-15T22:40:03.949364" elapsed="0.000697"/>
+</iter>
+<msg time="2026-09-15T22:40:03.950090" level="FAIL">Variable '@{CORE}' not found.</msg>
+<var>${n}</var>
+<value>@{CORE}</value>
+<status status="FAIL" start="2026-09-15T22:40:03.949145" elapsed="0.000976">Variable '@{CORE}' not found.</status>
+</for>
+<status status="FAIL" start="2026-09-15T22:40:03.948917" elapsed="0.001305">Variable '@{CORE}' not found.</status>
+</test>
+<kw name="Suite Teardown Close Connections" owner="common" type="TEARDOWN">
+<kw name="Close All Connections" owner="LabLib">
+<status status="PASS" start="2026-09-15T22:40:03.950724" elapsed="0.000102"/>
+</kw>
+<status status="PASS" start="2026-09-15T22:40:03.950577" elapsed="0.000306"/>
+</kw>
+<doc>Every node answers on its out-of-band address and identifies itself.</doc>
+<status status="FAIL" start="2026-09-15T22:40:02.440845" elapsed="1.510057"/>
+</suite>
+<suite id="s1-s2" name="02 Underlay" source="/home/dcantor/srv6-core/tests/suites/02_underlay.robot">
+<test id="s1-s2-t1" name="Every core link has an IS-IS level-2 adjacency in state Up" line="8">
+<for flavor="IN">
+<iter>
+<kw name="Vyos" owner="common">
+<var>${out}</var>
+<arg>${n}</arg>
+<arg>show isis neighbor</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:05.318033" elapsed="0.000021"/>
+</kw>
+<kw name="Get Dictionary Keys" owner="Collections">
+<var>${expected}</var>
+<arg>${ISIS_NEIGHBORS}[${n}]</arg>
+<doc>Returns keys of the given `dictionary` as a list.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:05.318142" elapsed="0.000013"/>
+</kw>
+<for flavor="IN">
+<iter>
+<kw name="Should Match Regexp" owner="BuiltIn">
+<arg>${out}</arg>
+<arg>(?m)^\\s*\\S+\\s+${if}\\s+2\\s+Up</arg>
+<arg>msg=${n} ${if}: no level-2 adjacency Up (peer ${ISIS_NEIGHBORS}[${n}][${if}])</arg>
+<doc>Fails if the `string` does not match the regular expression `pattern`.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:05.318289" elapsed="0.000014"/>
+</kw>
+<var name="${if}"/>
+<status status="NOT RUN" start="2026-09-15T22:40:05.318219" elapsed="0.000128"/>
+</iter>
+<var>${if}</var>
+<value>@{expected}</value>
+<status status="NOT RUN" start="2026-09-15T22:40:05.318187" elapsed="0.000180"/>
+</for>
+<kw name="Regex Findall" owner="LabLib">
+<var>${ups}</var>
+<arg>${out}</arg>
+<arg>(?m)^\\s*\\S+\\s+(eth\\d+)\\s+2\\s+Up</arg>
+<status status="NOT RUN" start="2026-09-15T22:40:05.318420" elapsed="0.000013"/>
+</kw>
+<kw name="Get Length" owner="BuiltIn">
+<var>${n_up}</var>
+<arg>${ups}</arg>
+<doc>Returns and logs the length of the given item as an integer.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:05.318491" elapsed="0.000013"/>
+</kw>
+<kw name="Get Length" owner="BuiltIn">
+<var>${n_exp}</var>
+<arg>${expected}</arg>
+<doc>Returns and logs the length of the given item as an integer.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:05.318557" elapsed="0.000011"/>
+</kw>
+<kw name="Should Be Equal As Integers" owner="BuiltIn">
+<arg>${n_up}</arg>
+<arg>${n_exp}</arg>
+<arg>msg=${n}: unexpected number of adjacencies</arg>
+<doc>Fails if objects are unequal after converting them to integers.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:05.318624" elapsed="0.000012"/>
+</kw>
+<var name="${n}"/>
+<status status="NOT RUN" start="2026-09-15T22:40:05.317919" elapsed="0.000736"/>
+</iter>
+<msg time="2026-09-15T22:40:05.318674" level="FAIL">Variable '@{CORE}' not found.</msg>
+<var>${n}</var>
+<value>@{CORE}</value>
+<status status="FAIL" start="2026-09-15T22:40:05.317709" elapsed="0.001005">Variable '@{CORE}' not found.</status>
+</for>
+<status status="FAIL" start="2026-09-15T22:40:05.317509" elapsed="0.001293">Variable '@{CORE}' not found.</status>
+</test>
+<test id="s1-s2-t2" name="Every core node knows every other loopback through IS-IS" line="21">
+<for flavor="IN">
+<iter>
+<kw name="Vyos" owner="common">
+<var>${rib}</var>
+<arg>${n}</arg>
+<arg>show ipv6 route isis</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:05.319315" elapsed="0.000016"/>
+</kw>
+<for flavor="IN">
+<iter>
+<if>
+<branch type="IF" condition="'${other}' != '${n}'">
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${rib}</arg>
+<arg>${LOOPBACK}[${other}]/128</arg>
+<arg>msg=${n} has no IS-IS route to ${other}'s loopback</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:05.319537" elapsed="0.000014"/>
+</kw>
+<status status="NOT RUN" start="2026-09-15T22:40:05.319457" elapsed="0.000116"/>
+</branch>
+<status status="NOT RUN" start="2026-09-15T22:40:05.319438" elapsed="0.000153"/>
+</if>
+<var name="${other}"/>
+<status status="NOT RUN" start="2026-09-15T22:40:05.319410" elapsed="0.000197"/>
+</iter>
+<var>${other}</var>
+<value>@{CORE}</value>
+<status status="NOT RUN" start="2026-09-15T22:40:05.319362" elapsed="0.000260"/>
+</for>
+<var name="${n}"/>
+<status status="NOT RUN" start="2026-09-15T22:40:05.319245" elapsed="0.000392"/>
+</iter>
+<msg time="2026-09-15T22:40:05.319652" level="FAIL">Variable '@{CORE}' not found.</msg>
+<var>${n}</var>
+<value>@{CORE}</value>
+<status status="FAIL" start="2026-09-15T22:40:05.319062" elapsed="0.000611">Variable '@{CORE}' not found.</status>
+</for>
+<status status="FAIL" start="2026-09-15T22:40:05.318914" elapsed="0.000838">Variable '@{CORE}' not found.</status>
+</test>
+<test id="s1-s2-t3" name="Every PE reaches every other PE's loopback, including with a 1600-byte packet that must not be fragmented" line="31">
+<for flavor="IN">
+<iter>
+<for flavor="IN">
+<iter>
+<if>
+<branch type="IF" condition="'${a}' != '${b}'">
+<kw name="Vyos" owner="common">
+<var>${out}</var>
+<arg>${a}</arg>
+<arg>ping ${LOOPBACK}[${b}] count 2 interval 0.3</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:05.320383" elapsed="0.000015"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${out}</arg>
+<arg>0% packet loss</arg>
+<arg>msg=${a} cannot ping ${b} (${LOOPBACK}[${b}])</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:05.320467" elapsed="0.000013"/>
+</kw>
+<kw name="Vyos" owner="common">
+<var>${big}</var>
+<arg>${a}</arg>
+<arg>ping ${LOOPBACK}[${b}] count 1 size 1600 do-not-fragment</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:05.320551" elapsed="0.000014"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${big}</arg>
+<arg>1 received</arg>
+<arg>msg=${a} -&gt; ${b}: 1600-byte DF ping failed (no headroom for the SRv6 encapsulation)</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:05.320626" elapsed="0.000012"/>
+</kw>
+<status status="NOT RUN" start="2026-09-15T22:40:05.320307" elapsed="0.000352"/>
+</branch>
+<status status="NOT RUN" start="2026-09-15T22:40:05.320295" elapsed="0.000380"/>
+</if>
+<var name="${b}"/>
+<status status="NOT RUN" start="2026-09-15T22:40:05.320277" elapsed="0.000435"/>
+</iter>
+<var>${b}</var>
+<value>@{PES}</value>
+<status status="NOT RUN" start="2026-09-15T22:40:05.320218" elapsed="0.000513"/>
+</for>
+<var name="${a}"/>
+<status status="NOT RUN" start="2026-09-15T22:40:05.320200" elapsed="0.000548"/>
+</iter>
+<msg time="2026-09-15T22:40:05.320764" level="FAIL">Variable '@{PES}' not found.</msg>
+<var>${a}</var>
+<value>@{PES}</value>
+<status status="FAIL" start="2026-09-15T22:40:05.320022" elapsed="0.000761">Variable '@{PES}' not found.</status>
+</for>
+<status status="FAIL" start="2026-09-15T22:40:05.319852" elapsed="0.001003">Variable '@{PES}' not found.</status>
+</test>
+<kw name="Suite Teardown Close Connections" owner="common" type="TEARDOWN">
+<kw name="Close All Connections" owner="LabLib">
+<status status="PASS" start="2026-09-15T22:40:05.321234" elapsed="0.000070"/>
+</kw>
+<status status="PASS" start="2026-09-15T22:40:05.321115" elapsed="0.000225"/>
+</kw>
+<doc>The IPv6-only IS-IS level-2 underlay: adjacencies on every core link, every loopback reachable,
+and enough MTU headroom for the SRv6 encapsulation.</doc>
+<status status="FAIL" start="2026-09-15T22:40:03.951203" elapsed="1.370154"/>
+</suite>
+<suite id="s1-s3" name="03 Srv6" source="/home/dcantor/srv6-core/tests/suites/03_srv6.robot">
+<test id="s1-s3-t1" name="Every core node has its SRv6 locator up with the lab's SID structure" line="8">
+<for flavor="IN">
+<iter>
+<kw name="Vyos" owner="common">
+<var>${out}</var>
+<arg>${n}</arg>
+<arg>show segment-routing srv6 locator</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:06.653341" elapsed="0.000027"/>
+</kw>
+<kw name="Should Match Regexp" owner="BuiltIn">
+<arg>${out}</arg>
+<arg>(?m)^main\\s+\\d+\\s+${LOCATOR}[${n}]\\s+Up</arg>
+<arg>msg=${n}: locator main ${LOCATOR}[${n}] is not Up</arg>
+<doc>Fails if the `string` does not match the regular expression `pattern`.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:06.653491" elapsed="0.000016"/>
+</kw>
+<kw name="Vyos" owner="common">
+<var>${cfg}</var>
+<arg>${n}</arg>
+<arg>show configuration commands | match 'srv6 locator main'</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:06.653587" elapsed="0.000015"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${cfg}</arg>
+<arg>block-len '40'</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:06.653668" elapsed="0.000012"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${cfg}</arg>
+<arg>node-len '24'</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:06.653758" elapsed="0.000012"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${cfg}</arg>
+<arg>func-bits '16'</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:06.653830" elapsed="0.000012"/>
+</kw>
+<var name="${n}"/>
+<status status="NOT RUN" start="2026-09-15T22:40:06.653220" elapsed="0.000663"/>
+</iter>
+<msg time="2026-09-15T22:40:06.653908" level="FAIL">Variable '@{CORE}' not found.</msg>
+<var>${n}</var>
+<value>@{CORE}</value>
+<status status="FAIL" start="2026-09-15T22:40:06.653040" elapsed="0.000896">Variable '@{CORE}' not found.</status>
+</for>
+<status status="FAIL" start="2026-09-15T22:40:06.652842" elapsed="0.001182">Variable '@{CORE}' not found.</status>
+</test>
+<test id="s1-s3-t2" name="IS-IS advertises the SRv6 capability of every core node and every locator is in every routing table" line="18">
+<kw name="Vyos" owner="common">
+<msg time="2026-09-15T22:40:06.654510" level="FAIL">Variable '${RR}' not found.</msg>
+<var>${nodes}</var>
+<arg>${RR}</arg>
+<arg>show isis segment-routing srv6 node</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="FAIL" start="2026-09-15T22:40:06.654356" elapsed="0.000179">Variable '${RR}' not found.</status>
+</kw>
+<for flavor="IN">
+<iter>
+<kw name="Evaluate" owner="BuiltIn">
+<var>${sysid}</var>
+<arg>".".join(re.findall(r"\\d{4}", $NODES[$n]["isis_net"].split(".", 1)[1])[:3])</arg>
+<arg>modules=re</arg>
+<doc>Evaluates the given expression in Python and returns the result.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:06.654675" elapsed="0.000024"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${nodes}</arg>
+<arg>${sysid}</arg>
+<arg>msg=${RR} does not see ${n} (${sysid}) as an SRv6 node in IS-IS</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:06.654767" elapsed="0.000013"/>
+</kw>
+<var name="${n}"/>
+<status status="NOT RUN" start="2026-09-15T22:40:06.654612" elapsed="0.000189"/>
+</iter>
+<var>${n}</var>
+<value>@{CORE}</value>
+<status status="NOT RUN" start="2026-09-15T22:40:06.654575" elapsed="0.000241"/>
+</for>
+<for flavor="IN">
+<iter>
+<kw name="Vyos" owner="common">
+<var>${rib}</var>
+<arg>${n}</arg>
+<arg>show ipv6 route</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:06.654975" elapsed="0.000014"/>
+</kw>
+<for flavor="IN">
+<iter>
+<if>
+<branch type="IF" condition="'${other}' != '${n}'">
+<kw name="Should Match Regexp" owner="BuiltIn">
+<arg>${rib}</arg>
+<arg>(?m)^I&gt;\\*?\\s*${LOCATOR}[${other}]</arg>
+<arg>msg=${n} has no IS-IS route to ${other}'s locator ${LOCATOR}[${other}]</arg>
+<doc>Fails if the `string` does not match the regular expression `pattern`.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:06.655202" elapsed="0.000020"/>
+</kw>
+<status status="NOT RUN" start="2026-09-15T22:40:06.655090" elapsed="0.000160"/>
+</branch>
+<status status="NOT RUN" start="2026-09-15T22:40:06.655079" elapsed="0.000188"/>
+</if>
+<var name="${other}"/>
+<status status="NOT RUN" start="2026-09-15T22:40:06.655059" elapsed="0.000223"/>
+</iter>
+<var>${other}</var>
+<value>@{CORE}</value>
+<status status="NOT RUN" start="2026-09-15T22:40:06.655018" elapsed="0.000286"/>
+</for>
+<var name="${n}"/>
+<status status="NOT RUN" start="2026-09-15T22:40:06.654911" elapsed="0.000417"/>
+</iter>
+<var>${n}</var>
+<value>@{CORE}</value>
+<status status="NOT RUN" start="2026-09-15T22:40:06.654841" elapsed="0.000500"/>
+</for>
+<status status="FAIL" start="2026-09-15T22:40:06.654134" elapsed="0.001276">Variable '${RR}' not found.</status>
+</test>
+<test id="s1-s3-t3" name="Every PE has an End.DT4 SID for the VRF, an End SID, and End.X SIDs installed in the Linux data plane" line="33">
+<for flavor="IN">
+<iter>
+<kw name="Shell" owner="common">
+<var>${sids}</var>
+<arg>${pe}</arg>
+<arg>sudo ip -6 route show | grep seg6local</arg>
+<doc>Run a Linux shell command on a VyOS node by name (sudo allowed).</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:06.655946" elapsed="0.000016"/>
+</kw>
+<kw name="Regex Findall" owner="LabLib">
+<var>${dt4}</var>
+<arg>${sids}</arg>
+<arg>(?m)^(\\S+)\\s.*action End\\.DT4 vrftable ${VRF}\\b</arg>
+<status status="NOT RUN" start="2026-09-15T22:40:06.656021" elapsed="0.000411"/>
+</kw>
+<kw name="Length Should Be" owner="BuiltIn">
+<arg>${dt4}</arg>
+<arg>1</arg>
+<arg>msg=${pe}: expected exactly one End.DT4 SID for VRF ${VRF}</arg>
+<doc>Verifies that the length of the given item is correct.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:06.656496" elapsed="0.000014"/>
+</kw>
+<kw name="Ip In Network" owner="LabLib">
+<arg>${dt4}[0]</arg>
+<arg>${LOCATOR}[${pe}]</arg>
+<status status="NOT RUN" start="2026-09-15T22:40:06.656558" elapsed="0.000012"/>
+</kw>
+<kw name="Should Match Regexp" owner="BuiltIn">
+<arg>${sids}</arg>
+<arg>(?m)^\\S+\\s.*action End dev dum0</arg>
+<arg>msg=${pe}: no End SID from IS-IS</arg>
+<doc>Fails if the `string` does not match the regular expression `pattern`.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:06.656639" elapsed="0.000012"/>
+</kw>
+<kw name="Regex Findall" owner="LabLib">
+<var>${endx}</var>
+<arg>${sids}</arg>
+<arg>(?m)action End\\.X nh6</arg>
+<status status="NOT RUN" start="2026-09-15T22:40:06.656732" elapsed="0.000016"/>
+</kw>
+<kw name="Get Length" owner="BuiltIn">
+<var>${n_core}</var>
+<arg>${ISIS_NEIGHBORS}[${pe}]</arg>
+<doc>Returns and logs the length of the given item as an integer.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:06.656809" elapsed="0.000013"/>
+</kw>
+<kw name="Length Should Be" owner="BuiltIn">
+<arg>${endx}</arg>
+<arg>${n_core}</arg>
+<arg>msg=${pe}: expected one End.X SID per core adjacency</arg>
+<doc>Verifies that the length of the given item is correct.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:06.656871" elapsed="0.000012"/>
+</kw>
+<kw name="Vyos" owner="common">
+<var>${bgp}</var>
+<arg>${pe}</arg>
+<arg>show bgp segment-routing srv6</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:06.656960" elapsed="0.000014"/>
+</kw>
+<kw name="Should Match Regexp" owner="BuiltIn">
+<arg>${bgp}</arg>
+<arg>(?s)name: ${VRF}.*vpn_policy\\[AFI_IP\\].tovpn_sid: ${dt4}[0]</arg>
+<arg>msg=${pe}: BGP does not export ${dt4}[0] for ${VRF}</arg>
+<doc>Fails if the `string` does not match the regular expression `pattern`.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:06.657047" elapsed="0.000012"/>
+</kw>
+<var name="${pe}"/>
+<status status="NOT RUN" start="2026-09-15T22:40:06.655871" elapsed="0.001208"/>
+</iter>
+<msg time="2026-09-15T22:40:06.657099" level="FAIL">Variable '@{PES}' not found.</msg>
+<var>${pe}</var>
+<value>@{PES}</value>
+<status status="FAIL" start="2026-09-15T22:40:06.655680" elapsed="0.001440">Variable '@{PES}' not found.</status>
+</for>
+<status status="FAIL" start="2026-09-15T22:40:06.655513" elapsed="0.001682">Variable '@{PES}' not found.</status>
+</test>
+<test id="s1-s3-t4" name="The SRv6 encapsulation is enabled on every core interface and uses the loopback as source" line="47">
+<for flavor="IN">
+<iter>
+<kw name="Get Dictionary Keys" owner="Collections">
+<var>${ifs}</var>
+<arg>${ISIS_NEIGHBORS}[${n}]</arg>
+<doc>Returns keys of the given `dictionary` as a list.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:06.657654" elapsed="0.000013"/>
+</kw>
+<for flavor="IN">
+<iter>
+<kw name="Shell" owner="common">
+<var>${v}</var>
+<arg>${n}</arg>
+<arg>sysctl -n net.ipv6.conf.${if}.seg6_enabled</arg>
+<doc>Run a Linux shell command on a VyOS node by name (sudo allowed).</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:06.657824" elapsed="0.000014"/>
+</kw>
+<kw name="Should Be Equal" owner="BuiltIn">
+<arg>${v.strip()}</arg>
+<arg>1</arg>
+<arg>msg=${n} ${if}: seg6 not enabled</arg>
+<doc>Fails if the given objects are unequal.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:06.657916" elapsed="0.000013"/>
+</kw>
+<var name="${if}"/>
+<status status="NOT RUN" start="2026-09-15T22:40:06.657758" elapsed="0.000192"/>
+</iter>
+<var>${if}</var>
+<value>@{ifs}</value>
+<status status="NOT RUN" start="2026-09-15T22:40:06.657712" elapsed="0.000253"/>
+</for>
+<kw name="Vyos" owner="common">
+<var>${src}</var>
+<arg>${n}</arg>
+<arg>show configuration commands | match 'encapsulation source-address'</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:06.658035" elapsed="0.000014"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${src}</arg>
+<arg>'${LOOPBACK}[${n}]'</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:06.658122" elapsed="0.000013"/>
+</kw>
+<var name="${n}"/>
+<status status="NOT RUN" start="2026-09-15T22:40:06.657604" elapsed="0.000550"/>
+</iter>
+<msg time="2026-09-15T22:40:06.658172" level="FAIL">Variable '@{CORE}' not found.</msg>
+<var>${n}</var>
+<value>@{CORE}</value>
+<status status="FAIL" start="2026-09-15T22:40:06.657455" elapsed="0.000737">Variable '@{CORE}' not found.</status>
+</for>
+<status status="FAIL" start="2026-09-15T22:40:06.657301" elapsed="0.000962">Variable '@{CORE}' not found.</status>
+</test>
+<kw name="Suite Teardown Close Connections" owner="common" type="TEARDOWN">
+<kw name="Close All Connections" owner="LabLib">
+<status status="PASS" start="2026-09-15T22:40:06.658566" elapsed="0.000057"/>
+</kw>
+<status status="PASS" start="2026-09-15T22:40:06.658472" elapsed="0.000183"/>
+</kw>
+<doc>SRv6: every core node has its locator, IS-IS carries every node's SRv6 capability and locator,
+and every PE has the local SIDs installed in the Linux data plane (End, End.X, End.DT4 into the VRF).</doc>
+<status status="FAIL" start="2026-09-15T22:40:05.321659" elapsed="1.337012"/>
+</suite>
+<suite id="s1-s4" name="04 Vpn" source="/home/dcantor/srv6-core/tests/suites/04_vpn.robot">
+<test id="s1-s4-t1" name="The route reflector has every PE established in the VPNv4 address family with prefixes received" line="9">
+<kw name="Vyos" owner="common">
+<msg time="2026-09-15T22:40:08.025211" level="FAIL">Variable '${RR}' not found.</msg>
+<var>${sum}</var>
+<arg>${RR}</arg>
+<arg>show bgp ipv4 vpn summary</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="FAIL" start="2026-09-15T22:40:08.025012" elapsed="0.000235">Variable '${RR}' not found.</status>
+</kw>
+<for flavor="IN">
+<iter>
+<kw name="Should Match Regexp" owner="BuiltIn">
+<arg>${sum}</arg>
+<arg>(?m)^${LOOPBACK}[${pe}]\\s+4\\s+${CORE_AS}\\s+\\d+\\s+\\d+\\s+\\d+\\s+\\d+\\s+\\d+\\s+\\S+\\s+[1-9]\\d*\\s</arg>
+<arg>msg=${RR}: ${pe} is not Established with prefixes in VPNv4</arg>
+<doc>Fails if the `string` does not match the regular expression `pattern`.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:08.025470" elapsed="0.000018"/>
+</kw>
+<var name="${pe}"/>
+<status status="NOT RUN" start="2026-09-15T22:40:08.025352" elapsed="0.000164"/>
+</iter>
+<var>${pe}</var>
+<value>@{PES}</value>
+<status status="NOT RUN" start="2026-09-15T22:40:08.025305" elapsed="0.000231"/>
+</for>
+<status status="FAIL" start="2026-09-15T22:40:08.024659" elapsed="0.000965">Variable '${RR}' not found.</status>
+</test>
+<test id="s1-s4-t2" name="The route reflector holds every data-centre LAN under its PE's route distinguisher with the PE as next hop" line="15">
+<kw name="Vyos" owner="common">
+<msg time="2026-09-15T22:40:08.026161" level="FAIL">Variable '${RR}' not found.</msg>
+<var>${vpn}</var>
+<arg>${RR}</arg>
+<arg>show bgp ipv4 vpn</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="FAIL" start="2026-09-15T22:40:08.026003" elapsed="0.000186">Variable '${RR}' not found.</status>
+</kw>
+<for flavor="IN">
+<iter>
+<kw name="Set Variable" owner="BuiltIn">
+<var>${d}</var>
+<arg>${DCS}[${dc}]</arg>
+<doc>Returns the given values which can then be assigned to a variable.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:08.026333" elapsed="0.000013"/>
+</kw>
+<kw name="Should Match Regexp" owner="BuiltIn">
+<arg>${vpn}</arg>
+<arg>(?s)Route Distinguisher: ${d}[rd]\\n.*?\\*&gt;i\\s*${d}[lan]\\s+${LOOPBACK}[${d}[pe]]</arg>
+<arg>msg=${dc}: ${d}[lan] not at ${RR} under RD ${d}[rd] via ${d}[pe]</arg>
+<doc>Fails if the `string` does not match the regular expression `pattern`.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:08.026456" elapsed="0.000018"/>
+</kw>
+<var name="${dc}"/>
+<status status="NOT RUN" start="2026-09-15T22:40:08.026274" elapsed="0.000225"/>
+</iter>
+<var>${dc}</var>
+<value>@{DCS}</value>
+<status status="NOT RUN" start="2026-09-15T22:40:08.026232" elapsed="0.000283"/>
+</for>
+<status status="FAIL" start="2026-09-15T22:40:08.025784" elapsed="0.000802">Variable '${RR}' not found.</status>
+</test>
+<test id="s1-s4-t3" name="Every PE imports the other LANs with an SRv6 SID from the originating PE's locator" line="22">
+<for flavor="IN">
+<iter>
+<kw name="Vyos" owner="common">
+<var>${rib}</var>
+<arg>${pe}</arg>
+<arg>show ip route vrf ${VRF}</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:08.027197" elapsed="0.000015"/>
+</kw>
+<for flavor="IN">
+<iter>
+<kw name="Set Variable" owner="BuiltIn">
+<var>${d}</var>
+<arg>${DCS}[${dc}]</arg>
+<doc>Returns the given values which can then be assigned to a variable.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:08.027362" elapsed="0.000013"/>
+</kw>
+<if>
+<branch type="IF" condition="'${d}[pe]' != '${pe}'">
+<kw name="Shell" owner="common">
+<var>${detail}</var>
+<arg>${pe}</arg>
+<arg>sudo vtysh -c 'show bgp vrf ${VRF} ipv4 unicast ${d}[lan]'</arg>
+<doc>Run a Linux shell command on a VyOS node by name (sudo allowed).</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:08.027524" elapsed="0.000015"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${detail}</arg>
+<arg>Imported from ${d}[rd]:${d}[lan]</arg>
+<arg>msg=${pe}: ${d}[lan] not imported from RD ${d}[rd]</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:08.027612" elapsed="0.000017"/>
+</kw>
+<kw name="Should Match Regexp" owner="BuiltIn">
+<arg>${detail}</arg>
+<arg>(?m)^\\s*${LOOPBACK}[${d}[pe]] \\(metric</arg>
+<arg>msg=${pe}: ${d}[lan] next hop is not ${d}[pe]</arg>
+<doc>Fails if the `string` does not match the regular expression `pattern`.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:08.027733" elapsed="0.000015"/>
+</kw>
+<kw name="Regex Findall" owner="LabLib">
+<var>${sid}</var>
+<arg>${detail}</arg>
+<arg>(?m)^\\s*Remote SID: ([0-9a-f:]+), sid structure=\\[40 24 16</arg>
+<status status="NOT RUN" start="2026-09-15T22:40:08.027798" elapsed="0.000012"/>
+</kw>
+<kw name="Should Not Be Empty" owner="BuiltIn">
+<arg>${sid}</arg>
+<arg>msg=${pe}: no SRv6 SID with the lab's structure on ${d}[lan]</arg>
+<doc>Verifies that the given item is not empty.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:08.027857" elapsed="0.000012"/>
+</kw>
+<kw name="Ip In Network" owner="LabLib">
+<arg>${sid}[0]</arg>
+<arg>${LOCATOR}[${d}[pe]]</arg>
+<status status="NOT RUN" start="2026-09-15T22:40:08.027912" elapsed="0.000011"/>
+</kw>
+<kw name="Should Match Regexp" owner="BuiltIn">
+<arg>${rib}</arg>
+<arg>(?m)^B&gt;\\s+${d}[lan] \\[200/0\\] via ${LOOPBACK}[${d}[pe]] \\(vrf default\\) \\(recursive\\), label \\d+, seg6 ([0-9a-f:]+)</arg>
+<arg>msg=${pe}: ${d}[lan] is not a recursive SRv6 route via ${d}[pe] in the VRF RIB</arg>
+<doc>Fails if the `string` does not match the regular expression `pattern`.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:08.027988" elapsed="0.000012"/>
+</kw>
+<status status="NOT RUN" start="2026-09-15T22:40:08.027439" elapsed="0.000581"/>
+</branch>
+<status status="NOT RUN" start="2026-09-15T22:40:08.027420" elapsed="0.000616"/>
+</if>
+<var name="${dc}"/>
+<status status="NOT RUN" start="2026-09-15T22:40:08.027311" elapsed="0.000741"/>
+</iter>
+<var>${dc}</var>
+<value>@{DCS}</value>
+<status status="NOT RUN" start="2026-09-15T22:40:08.027248" elapsed="0.000821"/>
+</for>
+<var name="${pe}"/>
+<status status="NOT RUN" start="2026-09-15T22:40:08.027115" elapsed="0.000978"/>
+</iter>
+<msg time="2026-09-15T22:40:08.028117" level="FAIL">Variable '@{PES}' not found.</msg>
+<var>${pe}</var>
+<value>@{PES}</value>
+<status status="FAIL" start="2026-09-15T22:40:08.026889" elapsed="0.001257">Variable '@{PES}' not found.</status>
+</for>
+<status status="FAIL" start="2026-09-15T22:40:08.026734" elapsed="0.001489">Variable '@{PES}' not found.</status>
+</test>
+<test id="s1-s4-t4" name="The kernel VRF on every PE carries the remote LANs as SRv6-encapsulated routes and the local LAN via the CE" line="39">
+<for flavor="IN">
+<iter>
+<kw name="Shell" owner="common">
+<var>${rt}</var>
+<arg>${pe}</arg>
+<arg>sudo ip -c=never route show vrf ${VRF}</arg>
+<doc>Run a Linux shell command on a VyOS node by name (sudo allowed).</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:08.028852" elapsed="0.000015"/>
+</kw>
+<for flavor="IN">
+<iter>
+<kw name="Set Variable" owner="BuiltIn">
+<var>${d}</var>
+<arg>${DCS}[${dc}]</arg>
+<doc>Returns the given values which can then be assigned to a variable.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:08.029011" elapsed="0.000013"/>
+</kw>
+<if>
+<branch type="IF" condition="'${d}[pe]' != '${pe}'">
+<kw name="Regex Findall" owner="LabLib">
+<var>${sids}</var>
+<arg>${rt}</arg>
+<arg>(?s)^${d}[lan].*?encap seg6 mode encap segs 1 \\[ ([0-9a-f:]+) \\]</arg>
+<status status="NOT RUN" start="2026-09-15T22:40:08.029139" elapsed="0.000017"/>
+</kw>
+<kw name="Should Not Be Empty" owner="BuiltIn">
+<arg>${sids}</arg>
+<arg>msg=${pe}: ${d}[lan] is not an SRv6 encap route in VRF ${VRF}</arg>
+<doc>Verifies that the given item is not empty.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:08.029211" elapsed="0.000011"/>
+</kw>
+<kw name="Ip In Network" owner="LabLib">
+<arg>${sids}[0]</arg>
+<arg>${LOCATOR}[${d}[pe]]</arg>
+<status status="NOT RUN" start="2026-09-15T22:40:08.029268" elapsed="0.000012"/>
+</kw>
+<status status="NOT RUN" start="2026-09-15T22:40:08.029069" elapsed="0.000228"/>
+</branch>
+<branch type="ELSE">
+<kw name="Should Match Regexp" owner="BuiltIn">
+<arg>${rt}</arg>
+<arg>(?m)^${d}[lan] .*via ${d}[ce_ip]</arg>
+<arg>msg=${pe}: local LAN ${d}[lan] should point at ${d}[ce]</arg>
+<doc>Fails if the `string` does not match the regular expression `pattern`.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:08.029397" elapsed="0.000018"/>
+</kw>
+<status status="NOT RUN" start="2026-09-15T22:40:08.029312" elapsed="0.000134"/>
+</branch>
+<status status="NOT RUN" start="2026-09-15T22:40:08.029055" elapsed="0.000409"/>
+</if>
+<var name="${dc}"/>
+<status status="NOT RUN" start="2026-09-15T22:40:08.028959" elapsed="0.000520"/>
+</iter>
+<var>${dc}</var>
+<value>@{DCS}</value>
+<status status="NOT RUN" start="2026-09-15T22:40:08.028900" elapsed="0.000594"/>
+</for>
+<var name="${pe}"/>
+<status status="NOT RUN" start="2026-09-15T22:40:08.028782" elapsed="0.000728"/>
+</iter>
+<msg time="2026-09-15T22:40:08.029526" level="FAIL">Variable '@{PES}' not found.</msg>
+<var>${pe}</var>
+<value>@{PES}</value>
+<status status="FAIL" start="2026-09-15T22:40:08.028543" elapsed="0.001005">Variable '@{PES}' not found.</status>
+</for>
+<status status="FAIL" start="2026-09-15T22:40:08.028327" elapsed="0.001304">Variable '@{PES}' not found.</status>
+</test>
+<test id="s1-s4-t5" name="Every CE learns the other three data-centre LANs from its PE over eBGP" line="54">
+<for flavor="IN">
+<iter>
+<kw name="Set Variable" owner="BuiltIn">
+<var>${d}</var>
+<arg>${DCS}[${dc}]</arg>
+<doc>Returns the given values which can then be assigned to a variable.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:08.030164" elapsed="0.000014"/>
+</kw>
+<kw name="Vyos" owner="common">
+<var>${sum}</var>
+<arg>${d}[ce]</arg>
+<arg>show ip bgp summary</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:08.030260" elapsed="0.000014"/>
+</kw>
+<kw name="Should Match Regexp" owner="BuiltIn">
+<arg>${sum}</arg>
+<arg>(?m)^${d}[pe_ce_ip]\\s+4\\s+${CORE_AS}\\s.*\\s[1-9]\\d*\\s</arg>
+<arg>msg=${d}[ce]: eBGP to ${d}[pe] not Established with prefixes</arg>
+<doc>Fails if the `string` does not match the regular expression `pattern`.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:08.030349" elapsed="0.000012"/>
+</kw>
+<kw name="Vyos" owner="common">
+<var>${rib}</var>
+<arg>${d}[ce]</arg>
+<arg>show ip route bgp</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:08.030459" elapsed="0.000021"/>
+</kw>
+<for flavor="IN">
+<iter>
+<if>
+<branch type="IF" condition="'${other}' != '${dc}'">
+<kw name="Should Match Regexp" owner="BuiltIn">
+<arg>${rib}</arg>
+<arg>(?m)^B&gt;\\*\\s+${DCS}[${other}][lan] .*via ${d}[pe_ce_ip]</arg>
+<arg>msg=${d}[ce]: no BGP route to ${other} (${DCS}[${other}][lan])</arg>
+<doc>Fails if the `string` does not match the regular expression `pattern`.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:08.030705" elapsed="0.000017"/>
+</kw>
+<status status="NOT RUN" start="2026-09-15T22:40:08.030588" elapsed="0.000158"/>
+</branch>
+<status status="NOT RUN" start="2026-09-15T22:40:08.030578" elapsed="0.000182"/>
+</if>
+<var name="${other}"/>
+<status status="NOT RUN" start="2026-09-15T22:40:08.030561" elapsed="0.000212"/>
+</iter>
+<var>${other}</var>
+<value>@{DCS}</value>
+<status status="NOT RUN" start="2026-09-15T22:40:08.030516" elapsed="0.000270"/>
+</for>
+<var name="${dc}"/>
+<status status="NOT RUN" start="2026-09-15T22:40:08.030093" elapsed="0.000709"/>
+</iter>
+<msg time="2026-09-15T22:40:08.030820" level="FAIL">Variable '@{DCS}' not found.</msg>
+<var>${dc}</var>
+<value>@{DCS}</value>
+<status status="FAIL" start="2026-09-15T22:40:08.029914" elapsed="0.000931">Variable '@{DCS}' not found.</status>
+</for>
+<status status="FAIL" start="2026-09-15T22:40:08.029767" elapsed="0.001155">Variable '@{DCS}' not found.</status>
+</test>
+<kw name="Suite Teardown Close Connections" owner="common" type="TEARDOWN">
+<kw name="Close All Connections" owner="LabLib">
+<status status="PASS" start="2026-09-15T22:40:08.031294" elapsed="0.000064"/>
+</kw>
+<status status="PASS" start="2026-09-15T22:40:08.031189" elapsed="0.000208"/>
+</kw>
+<doc>BGP L3VPN over SRv6: the route reflector has every PE as an established VPNv4 client and every
+data-centre LAN; every PE imports the other LANs with an SRv6 SID from the right locator and the
+kernel VRF carries them as seg6-encapsulated routes; every CE learns the other LANs over eBGP.</doc>
+<status status="FAIL" start="2026-09-15T22:40:06.658999" elapsed="1.372423"/>
+</suite>
+<suite id="s1-s5" name="05 End To End" source="/home/dcantor/srv6-core/tests/suites/05_end_to_end.robot">
+<test id="s1-s5-t1" name="Every host pings every other host across the core" line="11">
+<for flavor="IN">
+<iter>
+<for flavor="IN">
+<iter>
+<if>
+<branch type="IF" condition="'${src}' != '${dst}'">
+<kw name="Host" owner="common">
+<var>${out}</var>
+<arg>${src}</arg>
+<arg>ping -c 3 -W 2 ${HOST_IP}[${dst}]</arg>
+<doc>Run a command on a CirrOS host by name.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:09.416746" elapsed="0.000023"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${out}</arg>
+<arg>0% packet loss</arg>
+<arg>msg=${src} -&gt; ${dst} (${HOST_IP}[${dst}]) failed</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:09.416896" elapsed="0.000017"/>
+</kw>
+<status status="NOT RUN" start="2026-09-15T22:40:09.416589" elapsed="0.000351"/>
+</branch>
+<status status="NOT RUN" start="2026-09-15T22:40:09.416575" elapsed="0.000384"/>
+</if>
+<var name="${dst}"/>
+<status status="NOT RUN" start="2026-09-15T22:40:09.416553" elapsed="0.000422"/>
+</iter>
+<var>${dst}</var>
+<value>@{HOSTS}</value>
+<status status="NOT RUN" start="2026-09-15T22:40:09.416502" elapsed="0.000491"/>
+</for>
+<var name="${src}"/>
+<status status="NOT RUN" start="2026-09-15T22:40:09.416481" elapsed="0.000529"/>
+</iter>
+<msg time="2026-09-15T22:40:09.417027" level="FAIL">Variable '@{HOSTS}' not found.</msg>
+<var>${src}</var>
+<value>@{HOSTS}</value>
+<status status="FAIL" start="2026-09-15T22:40:09.416240" elapsed="0.000815">Variable '@{HOSTS}' not found.</status>
+</for>
+<status status="FAIL" start="2026-09-15T22:40:09.416021" elapsed="0.001142">Variable '@{HOSTS}' not found.</status>
+</test>
+<test id="s1-s5-t2" name="Host traffic between the west and east data centres crosses the transit P router as SRv6-encapsulated IPv6" line="21">
+<kw name="Set Variable" owner="BuiltIn">
+<msg time="2026-09-15T22:40:09.418351" level="FAIL">Variable '${DCS}' not found.</msg>
+<var>${west}</var>
+<arg>${DCS}[dc1]</arg>
+<doc>Returns the given values which can then be assigned to a variable.</doc>
+<status status="FAIL" start="2026-09-15T22:40:09.417526" elapsed="0.000858">Variable '${DCS}' not found.</status>
+</kw>
+<kw name="Set Variable" owner="BuiltIn">
+<var>${east}</var>
+<arg>${DCS}[dc3]</arg>
+<doc>Returns the given values which can then be assigned to a variable.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:09.418498" elapsed="0.000016"/>
+</kw>
+<kw name="Evaluate" owner="BuiltIn">
+<var>${if_to_east}</var>
+<arg>[i for i, peer in $ISIS_NEIGHBORS[$TRANSIT_P].items() if peer == $east["pe"]][0]</arg>
+<doc>Evaluates the given expression in Python and returns the result.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:09.418589" elapsed="0.000016"/>
+</kw>
+<kw name="Evaluate" owner="BuiltIn">
+<var>${if_to_west}</var>
+<arg>[i for i, peer in $ISIS_NEIGHBORS[$TRANSIT_P].items() if peer == $west["pe"]][0]</arg>
+<doc>Evaluates the given expression in Python and returns the result.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:09.418713" elapsed="0.000015"/>
+</kw>
+<kw name="Shell" owner="common">
+<var>${tx_before}</var>
+<arg>${TRANSIT_P}</arg>
+<arg>cat /sys/class/net/${if_to_east}/statistics/tx_bytes</arg>
+<doc>Run a Linux shell command on a VyOS node by name (sudo allowed).</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:09.418821" elapsed="0.000020"/>
+</kw>
+<kw name="Start Background" owner="LabLib">
+<var>${cap}</var>
+<arg>${MGMT}[${TRANSIT_P}]</arg>
+<arg>sudo timeout 20 tcpdump -c 4 -nni ${if_to_east} 'ip6 and dst net ${LOCATOR}[${east}[pe]]'</arg>
+<doc>Start a command over SSH and return a handle; collect its output with `Finish Background`.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:09.418914" elapsed="0.000014"/>
+</kw>
+<kw name="Start Background" owner="LabLib">
+<var>${cap_back}</var>
+<arg>${MGMT}[${TRANSIT_P}]</arg>
+<arg>sudo timeout 20 tcpdump -c 4 -nni ${if_to_west} 'ip6 and dst net ${LOCATOR}[${west}[pe]]'</arg>
+<doc>Start a command over SSH and return a handle; collect its output with `Finish Background`.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:09.418981" elapsed="0.000012"/>
+</kw>
+<kw name="Host" owner="common">
+<var>${ping}</var>
+<arg>${west}[host]</arg>
+<arg>ping -c 20 -i 0.2 -s 1000 -W 2 ${east}[host_ip]</arg>
+<doc>Run a command on a CirrOS host by name.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:09.419071" elapsed="0.000020"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${ping}</arg>
+<arg>0% packet loss</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:09.419188" elapsed="0.000019"/>
+</kw>
+<kw name="Shell" owner="common">
+<var>${tx_after}</var>
+<arg>${TRANSIT_P}</arg>
+<arg>cat /sys/class/net/${if_to_east}/statistics/tx_bytes</arg>
+<doc>Run a Linux shell command on a VyOS node by name (sudo allowed).</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:09.419286" elapsed="0.000015"/>
+</kw>
+<kw name="Evaluate" owner="BuiltIn">
+<var>${delta}</var>
+<arg>int($tx_after) - int($tx_before)</arg>
+<doc>Evaluates the given expression in Python and returns the result.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:09.419369" elapsed="0.000016"/>
+</kw>
+<kw name="Should Be True" owner="BuiltIn">
+<arg>${delta} &gt;= 20 * 1028 + 20 * 40</arg>
+<arg>msg=${TRANSIT_P} ${if_to_east} carried only ${delta} bytes; the pings (20 x 1028 B + encapsulation) did not transit it</arg>
+<doc>Fails if the given condition is not true.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:09.419476" elapsed="0.000014"/>
+</kw>
+<kw name="Finish Background" owner="LabLib">
+<var>${fwd}</var>
+<arg>${cap}</arg>
+<status status="NOT RUN" start="2026-09-15T22:40:09.419540" elapsed="0.000012"/>
+</kw>
+<kw name="Should Match Regexp" owner="BuiltIn">
+<arg>${fwd}</arg>
+<arg>IP6 ${LOOPBACK}[${west}[pe]] &gt; ${{ $LOCATOR[$east['pe']].split('/')[0].rstrip(':') }}</arg>
+<arg>msg=no SRv6 packets from ${west}[pe] towards ${east}[pe]'s locator on ${TRANSIT_P}</arg>
+<doc>Fails if the `string` does not match the regular expression `pattern`.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:09.419644" elapsed="0.000016"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${fwd}</arg>
+<arg>4 packets captured</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:09.419749" elapsed="0.000013"/>
+</kw>
+<kw name="Finish Background" owner="LabLib">
+<var>${back}</var>
+<arg>${cap_back}</arg>
+<status status="NOT RUN" start="2026-09-15T22:40:09.419809" elapsed="0.000012"/>
+</kw>
+<kw name="Should Match Regexp" owner="BuiltIn">
+<arg>${back}</arg>
+<arg>IP6 ${LOOPBACK}[${east}[pe]] &gt; ${{ $LOCATOR[$west['pe']].split('/')[0].rstrip(':') }}</arg>
+<arg>msg=no SRv6 replies from ${east}[pe] towards ${west}[pe]'s locator on ${TRANSIT_P}</arg>
+<doc>Fails if the `string` does not match the regular expression `pattern`.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:09.419889" elapsed="0.000011"/>
+</kw>
+<doc>dc1 -&gt; dc3: pe1 encapsulates towards pe3's locator, the packet transits p2 (its interface to pe3),
+and the reply comes back the same way towards pe1's locator.</doc>
+<status status="FAIL" start="2026-09-15T22:40:09.417275" elapsed="0.002700">Variable '${DCS}' not found.</status>
+</test>
+<test id="s1-s5-t3" name="The tenant traffic is invisible to the P routers as IPv4: P routers carry no VRF and no IPv4 tenant routes" line="42">
+<for flavor="IN">
+<iter>
+<kw name="Vyos" owner="common">
+<var>${vrfs}</var>
+<arg>${p}</arg>
+<arg>show configuration commands | match 'vrf name'</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:09.420489" elapsed="0.000016"/>
+</kw>
+<kw name="Should Be Empty" owner="BuiltIn">
+<arg>${vrfs.strip()}</arg>
+<arg>msg=${p} has a VRF configured</arg>
+<doc>Verifies that the given item is empty.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:09.420564" elapsed="0.000014"/>
+</kw>
+<kw name="Vyos" owner="common">
+<var>${v4}</var>
+<arg>${p}</arg>
+<arg>show ip route</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:09.420714" elapsed="0.000020"/>
+</kw>
+<kw name="Should Not Contain" owner="BuiltIn">
+<arg>${v4}</arg>
+<arg>172.20.</arg>
+<arg>msg=${p} knows tenant prefixes</arg>
+<doc>Fails if the `container` contains the `item`.</doc>
+<status status="NOT RUN" start="2026-09-15T22:40:09.420826" elapsed="0.000020"/>
+</kw>
+<var name="${p}"/>
+<status status="NOT RUN" start="2026-09-15T22:40:09.420400" elapsed="0.000477"/>
+</iter>
+<msg time="2026-09-15T22:40:09.420901" level="FAIL">Variable '@{PS}' not found.</msg>
+<var>${p}</var>
+<value>@{PS}</value>
+<status status="FAIL" start="2026-09-15T22:40:09.420249" elapsed="0.000675">Variable '@{PS}' not found.</status>
+</for>
+<status status="FAIL" start="2026-09-15T22:40:09.420083" elapsed="0.000917">Variable '@{PS}' not found.</status>
+</test>
+<kw name="Suite Teardown Close Connections" owner="common" type="TEARDOWN">
+<kw name="Close All Connections" owner="LabLib">
+<status status="PASS" start="2026-09-15T22:40:09.421345" elapsed="0.000059"/>
+</kw>
+<status status="PASS" start="2026-09-15T22:40:09.421247" elapsed="0.000192"/>
+</kw>
+<doc>The point of it all: every host reaches every other host across the SRv6 core, the traffic really
+crosses the P routers as SRv6-encapsulated IPv6, and the return path works for forwarded packets.</doc>
+<status status="FAIL" start="2026-09-15T22:40:08.031858" elapsed="1.389598"/>
+</suite>
+<status status="FAIL" start="2026-09-15T22:40:02.417332" elapsed="7.004551"/>
+</suite>
+<statistics>
+<total>
+<stat pass="0" fail="18" skip="0">All Tests</stat>
+</total>
+<tag>
+</tag>
+<suite>
+<stat name="srv6 core lab" id="s1" pass="0" fail="18" skip="0">srv6 core lab</stat>
+<stat name="01 Management" id="s1-s1" pass="0" fail="3" skip="0">srv6 core lab.01 Management</stat>
+<stat name="02 Underlay" id="s1-s2" pass="0" fail="3" skip="0">srv6 core lab.02 Underlay</stat>
+<stat name="03 Srv6" id="s1-s3" pass="0" fail="4" skip="0">srv6 core lab.03 Srv6</stat>
+<stat name="04 Vpn" id="s1-s4" pass="0" fail="5" skip="0">srv6 core lab.04 Vpn</stat>
+<stat name="05 End To End" id="s1-s5" pass="0" fail="3" skip="0">srv6 core lab.05 End To End</stat>
+</suite>
+</statistics>
+<errors>
+<msg time="2026-09-15T22:40:03.927766" level="ERROR">Error in file '/home/dcantor/srv6-core/tests/resources/common.resource' on line 4: Processing variable file '/home/dcantor/srv6-core/tests/resources/lab_vars.py' failed: Importing variable file '/home/dcantor/srv6-core/tests/resources/lab_vars.py' failed: NameError: name 'v' is not defined
+Traceback (most recent call last):
+  File "/home/dcantor/srv6-core/tests/resources/lab_vars.py", line 16, in &lt;module&gt;
+    LOOPBACK = {n: v["loopback6"] for n in CORE}
+                   ^
+PYTHONPATH:
+  /home/dcantor/srv6-core/tests/resources
+  /home/dcantor/srv6-core/tests/.venv/bin
+  /usr/lib/python314.zip
+  /usr/lib/python3.14
+  /usr/lib/python3.14/lib-dynload
+  /home/dcantor/srv6-core/tests/.venv/lib/python3.14/site-packages</msg>
+<msg time="2026-09-15T22:40:05.316611" level="ERROR">Error in file '/home/dcantor/srv6-core/tests/resources/common.resource' on line 4: Processing variable file '/home/dcantor/srv6-core/tests/resources/lab_vars.py' failed: Importing variable file '/home/dcantor/srv6-core/tests/resources/lab_vars.py' failed: NameError: name 'v' is not defined
+Traceback (most recent call last):
+  File "/home/dcantor/srv6-core/tests/resources/lab_vars.py", line 16, in &lt;module&gt;
+    LOOPBACK = {n: v["loopback6"] for n in CORE}
+                   ^
+PYTHONPATH:
+  /home/dcantor/srv6-core/tests/resources
+  /home/dcantor/srv6-core/tests/.venv/bin
+  /usr/lib/python314.zip
+  /usr/lib/python3.14
+  /usr/lib/python3.14/lib-dynload
+  /home/dcantor/srv6-core/tests/.venv/lib/python3.14/site-packages</msg>
+<msg time="2026-09-15T22:40:06.651921" level="ERROR">Error in file '/home/dcantor/srv6-core/tests/resources/common.resource' on line 4: Processing variable file '/home/dcantor/srv6-core/tests/resources/lab_vars.py' failed: Importing variable file '/home/dcantor/srv6-core/tests/resources/lab_vars.py' failed: NameError: name 'v' is not defined
+Traceback (most recent call last):
+  File "/home/dcantor/srv6-core/tests/resources/lab_vars.py", line 16, in &lt;module&gt;
+    LOOPBACK = {n: v["loopback6"] for n in CORE}
+                   ^
+PYTHONPATH:
+  /home/dcantor/srv6-core/tests/resources
+  /home/dcantor/srv6-core/tests/.venv/bin
+  /usr/lib/python314.zip
+  /usr/lib/python3.14
+  /usr/lib/python3.14/lib-dynload
+  /home/dcantor/srv6-core/tests/.venv/lib/python3.14/site-packages</msg>
+<msg time="2026-09-15T22:40:08.023564" level="ERROR">Error in file '/home/dcantor/srv6-core/tests/resources/common.resource' on line 4: Processing variable file '/home/dcantor/srv6-core/tests/resources/lab_vars.py' failed: Importing variable file '/home/dcantor/srv6-core/tests/resources/lab_vars.py' failed: NameError: name 'v' is not defined
+Traceback (most recent call last):
+  File "/home/dcantor/srv6-core/tests/resources/lab_vars.py", line 16, in &lt;module&gt;
+    LOOPBACK = {n: v["loopback6"] for n in CORE}
+                   ^
+PYTHONPATH:
+  /home/dcantor/srv6-core/tests/resources
+  /home/dcantor/srv6-core/tests/.venv/bin
+  /usr/lib/python314.zip
+  /usr/lib/python3.14
+  /usr/lib/python3.14/lib-dynload
+  /home/dcantor/srv6-core/tests/.venv/lib/python3.14/site-packages</msg>
+<msg time="2026-09-15T22:40:09.415014" level="ERROR">Error in file '/home/dcantor/srv6-core/tests/resources/common.resource' on line 4: Processing variable file '/home/dcantor/srv6-core/tests/resources/lab_vars.py' failed: Importing variable file '/home/dcantor/srv6-core/tests/resources/lab_vars.py' failed: NameError: name 'v' is not defined
+Traceback (most recent call last):
+  File "/home/dcantor/srv6-core/tests/resources/lab_vars.py", line 16, in &lt;module&gt;
+    LOOPBACK = {n: v["loopback6"] for n in CORE}
+                   ^
+PYTHONPATH:
+  /home/dcantor/srv6-core/tests/resources
+  /home/dcantor/srv6-core/tests/.venv/bin
+  /usr/lib/python314.zip
+  /usr/lib/python3.14
+  /usr/lib/python3.14/lib-dynload
+  /home/dcantor/srv6-core/tests/.venv/lib/python3.14/site-packages</msg>
+</errors>
+</robot>

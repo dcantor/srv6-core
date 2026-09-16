@@ -1,0 +1,76 @@
+# p1 (10.3.0.21) show configuration commands captured 2026-09-15 22:40:33
+set interfaces dummy dum0 address 'fd00:c:11::1/64'
+set interfaces dummy dum0 description 'SRv6 locator fd00:c:11::/64 (local SIDs)'
+set interfaces ethernet eth0 address '10.3.0.21/24'
+set interfaces ethernet eth0 description 'OOB management'
+set interfaces ethernet eth0 hw-id '52:54:00:c6:05:00'
+set interfaces ethernet eth1 address 'fd00:b:0:12::1/64'
+set interfaces ethernet eth1 description 'core: p2 eth1'
+set interfaces ethernet eth1 hw-id '52:54:00:c6:05:01'
+set interfaces ethernet eth1 mtu '9000'
+set interfaces ethernet eth2 address 'fd00:b:0:13::1/64'
+set interfaces ethernet eth2 description 'core: p3 eth1'
+set interfaces ethernet eth2 hw-id '52:54:00:c6:05:02'
+set interfaces ethernet eth2 mtu '9000'
+set interfaces ethernet eth3 address 'fd00:b:0:101::1/64'
+set interfaces ethernet eth3 description 'core: pe1 eth1'
+set interfaces ethernet eth3 hw-id '52:54:00:c6:05:03'
+set interfaces ethernet eth3 mtu '9000'
+set interfaces ethernet eth4 address 'fd00:b:0:102::1/64'
+set interfaces ethernet eth4 description 'core: pe2 eth1'
+set interfaces ethernet eth4 hw-id '52:54:00:c6:05:04'
+set interfaces ethernet eth4 mtu '9000'
+set interfaces ethernet eth5 hw-id '52:54:00:c6:05:05'
+set interfaces ethernet eth6 hw-id '52:54:00:c6:05:06'
+set interfaces loopback lo address 'fd00:a::11/128'
+set protocols bgp neighbor fd00:a::1 description 'pe1'
+set protocols bgp neighbor fd00:a::1 peer-group 'RR-CLIENTS'
+set protocols bgp neighbor fd00:a::2 description 'pe2'
+set protocols bgp neighbor fd00:a::2 peer-group 'RR-CLIENTS'
+set protocols bgp neighbor fd00:a::3 description 'pe3'
+set protocols bgp neighbor fd00:a::3 peer-group 'RR-CLIENTS'
+set protocols bgp neighbor fd00:a::4 description 'pe4'
+set protocols bgp neighbor fd00:a::4 peer-group 'RR-CLIENTS'
+set protocols bgp parameters cluster-id '10.255.0.11'
+set protocols bgp parameters log-neighbor-changes
+set protocols bgp parameters router-id '10.255.0.11'
+set protocols bgp peer-group RR-CLIENTS address-family ipv4-vpn route-reflector-client
+set protocols bgp peer-group RR-CLIENTS capability extended-nexthop
+set protocols bgp peer-group RR-CLIENTS remote-as '65000'
+set protocols bgp peer-group RR-CLIENTS update-source 'fd00:a::11'
+set protocols bgp system-as '65000'
+set protocols isis interface dum0 passive
+set protocols isis interface eth1 network point-to-point
+set protocols isis interface eth2 network point-to-point
+set protocols isis interface eth3 network point-to-point
+set protocols isis interface eth4 network point-to-point
+set protocols isis interface lo passive
+set protocols isis level 'level-2'
+set protocols isis log-adjacency-changes
+set protocols isis metric-style 'wide'
+set protocols isis net '49.0001.0000.0000.0011.00'
+set protocols isis segment-routing srv6 interface 'dum0'
+set protocols isis segment-routing srv6 locator 'main'
+set protocols segment-routing interface eth1 srv6
+set protocols segment-routing interface eth2 srv6
+set protocols segment-routing interface eth3 srv6
+set protocols segment-routing interface eth4 srv6
+set protocols segment-routing srv6 encapsulation source-address 'fd00:a::11'
+set protocols segment-routing srv6 locator main block-len '40'
+set protocols segment-routing srv6 locator main func-bits '16'
+set protocols segment-routing srv6 locator main node-len '24'
+set protocols segment-routing srv6 locator main prefix 'fd00:c:11::/64'
+set protocols static route 10.0.0.0/8 next-hop 10.3.0.1
+set service lldp interface all
+set service ssh port '22'
+set system config-management commit-revisions '100'
+set system console device ttyS0 kernel
+set system console device ttyS0 speed '115200'
+set system domain-name 'lab.local'
+set system host-name 'p1'
+set system login operator-group default command-policy allow '*'
+set system login user vyos authentication encrypted-password '$6$rounds=656000$tR1d5gzVwgHSv6dp$5YII8dll74L9Ywtz2OSPnrJj1hteV0BThu/4Bo8uHqAFyD91MuOQzBVQjMLBidO.8/46Z7Xv44hyKD/M496st/'
+set system option reboot-on-upgrade-failure '5'
+set system sysctl parameter net.ipv6.conf.all.seg6_enabled value '1'
+set system syslog local facility all level 'info'
+set system syslog local facility local7 level 'debug'

@@ -42,6 +42,9 @@ def underlay(n):
     out += ["set system sysctl parameter net.ipv6.conf.all.seg6_enabled value 1",
             f"set protocols isis net {n['isis_net']}", "set protocols isis level level-2", "set protocols isis metric-style wide", "set protocols isis log-adjacency-changes"]
     out += [f"set protocols isis interface {p['name']} network point-to-point" for p in core_ports(n)]
+    # BFD on every core adjacency: the UDP-tunnel links never lose carrier, so a dead neighbour is only seen through the
+    # protocol; BFD (300 ms x 3) turns the 30 s IS-IS hold time into ~1 s of loss on a failure
+    out += [f"set protocols isis interface {p['name']} bfd" for p in core_ports(n)]
     out += ["set protocols isis interface lo passive", "set protocols isis interface dum0 passive",
             "set protocols isis segment-routing srv6 locator main", "set protocols isis segment-routing srv6 interface dum0"]
     return out

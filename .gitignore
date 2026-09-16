@@ -10,5 +10,6 @@ nodes/h*/user-data
 *.qcow2
 images/
 tests/.venv/
-results/
 __pycache__/
+# test results are committed (report, log, output.xml, configs and routing tables per run); only the pointer symlink is local
+results/latest
