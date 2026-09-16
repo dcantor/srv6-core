@@ -19,7 +19,7 @@ def sh(cmd, timeout=600):
 
 
 def vy(node, cmd):
-    ip = {"pe1": "10.3.0.11", "p1": "10.3.0.21", "p2": "10.3.0.22", "p3": "10.3.0.23"}[node]
+    ip = {"pe1": "10.3.0.11", "pe3": "10.3.0.13", "p1": "10.3.0.21", "p2": "10.3.0.22", "p3": "10.3.0.23"}[node]
     return sh(f"{PY} tools/vyos_cmd.py {ip} \"{cmd}\"")
 
 
@@ -39,6 +39,15 @@ SCENES.append(("BGP VPNv4 over SRv6", "each tenant's LANs sit under their PE's R
                 ("./lab.sh ssh pe1 'sudo ip route show vrf tenant-a'", sh(f"{PY} tools/vyos_cmd.py 10.3.0.11 'sudo ip -c=never route show vrf tenant-a'"), 6)]))
 SCENES.append(("Two isolated tenants", "h1 hosts (tenant-a) reach each other, h2 hosts (tenant-b) reach each other — never across, not even at the same site",
                [("tools/host_cmd.py matrix", sh(f"{PY} tools/host_cmd.py matrix"), 8)]))
+print("explicit-path steering ...")
+steer_add = sh(f"./lab.sh steer add pe1 tenant-b 172.21.3.0/24 p1 p3")
+cap = subprocess.Popen(f"{PY} tools/vyos_cmd.py 10.3.0.21 \"sudo timeout 15 tcpdump -c 3 -nni eth2 'ip6 and dst host fd00:c:13::'\"", shell=True, cwd=LAB, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+time.sleep(4); steer_ping = sh(f"{PY} tools/host_cmd.py run dc1-h2 'ping -c 5 -W 2 172.21.3.2'"); steer_cap = ANSI.sub("", cap.communicate(timeout=60)[0]).rstrip()
+steer_del = sh(f"./lab.sh steer del pe1 tenant-b 172.21.3.0/24")
+SCENES.append(("Explicit-path steering", "pin one tenant prefix to the segment list [p1 End, p3 End, pe3 End.DT4] — the long way round; p2 never sees it",
+               [("./lab.sh steer add pe1 tenant-b 172.21.3.0/24 p1 p3", steer_add, 5),
+                ("./lab.sh ssh p1 \"sudo tcpdump -c 3 -nni eth2 'ip6 and dst host fd00:c:13::'\"  &  ./lab.sh ssh dc1-h2 'ping -c 5 172.21.3.2'", steer_ping + "\n\n" + steer_cap, 9),
+                ("./lab.sh steer del pe1 tenant-b 172.21.3.0/24", steer_del, 3)]))
 print("route-reflector failover ...")
 before = vy("pe1", "show bgp ipv4 vpn summary")
 SHUT = "echo 'set protocols bgp peer-group RR-CLIENTS shutdown' | tools/vyos_push.py 10.3.0.21 /dev/stdin"
@@ -57,6 +66,28 @@ SCENES.append(("Route-reflector redundancy", "shut every client session on p1: t
                 ("tools/host_cmd.py matrix", matrix, 6),
                 (UNSHUT, unshut_out, 3),
                 ("./lab.sh ssh pe1 'show bgp ipv4 vpn summary'", after, 5)]))
+print("core link failure ...")
+CUT = ["set firewall ipv6 input filter rule 10 inbound-interface name eth5", "set firewall ipv6 input filter rule 10 action drop",
+       "set firewall ipv6 output filter rule 10 outbound-interface name eth5", "set firewall ipv6 output filter rule 10 action drop",
+       "set firewall ipv6 forward filter rule 10 inbound-interface name eth5", "set firewall ipv6 forward filter rule 10 action drop",
+       "set firewall ipv6 forward filter rule 11 outbound-interface name eth5", "set firewall ipv6 forward filter rule 11 action drop"]
+(OUT / "cut.txt").write_text("\n".join(CUT) + "\n")
+fail_ping = subprocess.Popen(f"{PY} tools/host_cmd.py run dc1-h1 'ping -c 250 -i 0.2 -W 1 172.20.3.2'", shell=True, cwd=LAB, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+time.sleep(3); route_before = sh(f"{PY} tools/vyos_cmd.py 10.3.0.13 'sudo ip -c=never route show vrf tenant-a 172.20.1.0/24'")
+cut_out = sh(f"{PY} tools/vyos_push.py 10.3.0.22 docs/demo/cut.txt"); time.sleep(4)
+bfd_after = vy("pe3", "show isis neighbor detail"); route_after = sh(f"{PY} tools/vyos_cmd.py 10.3.0.13 'sudo ip -c=never route show vrf tenant-a 172.20.1.0/24'")
+restore_out = sh(f"echo 'delete firewall' | {PY} tools/vyos_push.py 10.3.0.22 /dev/stdin"); (OUT / "cut.txt").unlink()
+fail_ping_out = ANSI.sub("", fail_ping.communicate(timeout=120)[0]).rstrip(); summary = "\n".join(fail_ping_out.splitlines()[-2:])
+SCENES.append(("Core link failure", "a silent cut of p2's link to pe3 (carrier stays up): BFD sees it in under a second, pe3 reroutes through p3",
+               [("./lab.sh ssh dc1-h1 'ping -c 250 -i 0.2 172.20.3.2' &   # keep pinging across the core", "(running in the background)", 2),
+                ("./lab.sh ssh pe3 'sudo ip route show vrf tenant-a 172.20.1.0/24'", route_before, 4),
+                ("tools/vyos_push.py 10.3.0.22 cut.txt   # p2: drop everything on eth5 (the pe3 link)", cut_out, 3),
+                ("./lab.sh ssh pe3 'show isis neighbor detail'", "\n".join(l for l in bfd_after.splitlines() if l.strip() and ("Interface" in l or "BFD" in l or l.startswith(" p"))), 5),
+                ("./lab.sh ssh pe3 'sudo ip route show vrf tenant-a 172.20.1.0/24'", route_after, 5),
+                ("echo 'delete firewall' | tools/vyos_push.py 10.3.0.22 /dev/stdin", restore_out, 3),
+                ("wait   # the ping finishes", summary, 7)]))
+
+
 def robot_summary():
     import xml.etree.ElementTree as ET
     root = ET.parse(LAB / "results" / "latest" / "output.xml").getroot(); lines = []
@@ -65,7 +96,7 @@ def robot_summary():
             st = su.find("status"); n = sum(1 for _ in su.iter("test")); lines.append(f"{su.get('name'):26s} {n:2d} tests  {st.get('status')}")
     tot = root.find("statistics/total/stat"); lines.append(f"\n{tot.get('pass')} passed, {tot.get('fail')} failed"); lines.append("    no configuration changes during the run")
     return "==> running Robot Framework suites\n" + "\n".join(lines)
-SCENES.append(("Robot Framework", "management, underlay, SRv6, VPN, end-to-end, RR redundancy — every run diffs the configs before and after",
+SCENES.append(("Robot Framework", "management, underlay, SRv6, VPN, end-to-end, RR redundancy, steering, failover — every run keeps configs and routing tables",
                [("./lab.sh test", robot_summary(), 7)]))
 
 # ---- 2. replay in a terminal page ---------------------------------------------------------------------------------

@@ -50,10 +50,29 @@ def underlay(n):
     return out
 
 
+def shortest_first_hops(src):
+    """IGP view from `src`: for every other core node, the attached P routers that lie on a shortest path (all links cost 10).
+    Used to leak the remote locators into the tenant VRFs with the same next hops IS-IS would pick."""
+    import heapq
+    adj = {}
+    for x in inv["nodes"]:
+        if x["role"] in ("pe", "p"): adj[x["name"]] = [p["peer"] for p in core_ports(x)]
+    dist = {src: 0}; first = {src: set()}; heap = [(0, src)]
+    while heap:
+        d, u = heapq.heappop(heap)
+        if d > dist.get(u, 1e9): continue
+        for v in adj[u]:
+            nd = d + 10; fh = {v} if u == src else first[u]
+            if nd < dist.get(v, 1e9): dist[v] = nd; first[v] = set(fh); heapq.heappush(heap, (nd, v))
+            elif nd == dist[v]: first[v] |= fh
+    return {node: sorted(f) for node, f in first.items() if node != src}
+
+
 def pe(n):
     """One VRF per tenant: attachment circuit to the CE, eBGP to it, VPNv4 export/import with its own End.DT4 SID."""
     attached_ps = sorted({p["peer"] for p in core_ports(n) if NODES[p["peer"]]["role"] == "p"})
     block = ipaddress.ip_network(n["locator"]).supernet(new_prefix=40)   # the SRv6 block all locators are carved from
+    first_hops = shortest_first_hops(n["name"])
     out = identity(n) + underlay(n) + [
         f"# BGP: VPNv4 to the route reflectors {', '.join(r['name'] for r in RRS)} over the IPv6 loopbacks (extended next hop), SRv6 SIDs from locator main",
         f"set protocols bgp system-as {SVC['core_as']}", f"set protocols bgp parameters router-id {n['router_id']}", "set protocols bgp parameters log-neighbor-changes",
@@ -68,8 +87,11 @@ def pe(n):
         out += [f"# tenant VRF {vrf} (table {t['table']}, RT {t['rt']}, RD {rd}): attachment circuit {ce_port['name']} to {ce['name']} {ce_port['peer_port']}",
                 f"set vrf name {vrf} table {t['table']}", f"set interfaces ethernet {ce_port['name']} vrf {vrf}", f"set interfaces ethernet {ce_port['name']} address {ce_port['ip']}",
                 f"set interfaces ethernet {ce_port['name']} description '{vrf}: {ce['name']} {ce_port['peer_port']}'",
-                f"# Linux scopes the SRv6 encapsulation's outer lookup to the ingress VRF for forwarded packets: leak the locator block into the",
-                f"# VRF table, recursively via the attached P routers' loopbacks (resolved by IS-IS, so ECMP and failover are kept)"] + [
+                f"# Linux scopes the SRv6 encapsulation's outer lookup to the ingress VRF for forwarded packets: leak every remote locator into",
+                f"# the VRF table via the attached P router(s) on the IGP shortest path (recursive through IS-IS, so a dead P drops out), and the",
+                f"# whole block via every attached P as the fallback"] + [
+                f"set vrf name {vrf} protocols static route6 {NODES[d]['locator']} next-hop {NODES[x]['loopback6']} vrf default"
+                for d, hops in sorted(first_hops.items()) if NODES[d].get("locator") for x in hops] + [
                 f"set vrf name {vrf} protocols static route6 {block} next-hop {NODES[x]['loopback6']} vrf default" for x in attached_ps] + [
                 f"# eBGP to the CE; export/import with an SRv6 End.DT4 SID (sid vpn export auto)",
                 f"set vrf name {vrf} protocols bgp system-as {SVC['core_as']}", f"set vrf name {vrf} protocols bgp parameters router-id {n['router_id']}",

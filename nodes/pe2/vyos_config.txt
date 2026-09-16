@@ -59,8 +59,17 @@ set vrf name tenant-a table 100
 set interfaces ethernet eth3 vrf tenant-a
 set interfaces ethernet eth3 address 172.16.2.1/30
 set interfaces ethernet eth3 description 'tenant-a: ce2 eth1'
-# Linux scopes the SRv6 encapsulation's outer lookup to the ingress VRF for forwarded packets: leak the locator block into the
-# VRF table, recursively via the attached P routers' loopbacks (resolved by IS-IS, so ECMP and failover are kept)
+# Linux scopes the SRv6 encapsulation's outer lookup to the ingress VRF for forwarded packets: leak every remote locator into
+# the VRF table via the attached P router(s) on the IGP shortest path (recursive through IS-IS, so a dead P drops out), and the
+# whole block via every attached P as the fallback
+set vrf name tenant-a protocols static route6 fd00:c:11::/64 next-hop fd00:a::11 vrf default
+set vrf name tenant-a protocols static route6 fd00:c:12::/64 next-hop fd00:a::12 vrf default
+set vrf name tenant-a protocols static route6 fd00:c:13::/64 next-hop fd00:a::11 vrf default
+set vrf name tenant-a protocols static route6 fd00:c:13::/64 next-hop fd00:a::12 vrf default
+set vrf name tenant-a protocols static route6 fd00:c:1::/64 next-hop fd00:a::11 vrf default
+set vrf name tenant-a protocols static route6 fd00:c:1::/64 next-hop fd00:a::12 vrf default
+set vrf name tenant-a protocols static route6 fd00:c:3::/64 next-hop fd00:a::12 vrf default
+set vrf name tenant-a protocols static route6 fd00:c:4::/64 next-hop fd00:a::12 vrf default
 set vrf name tenant-a protocols static route6 fd00:c::/40 next-hop fd00:a::11 vrf default
 set vrf name tenant-a protocols static route6 fd00:c::/40 next-hop fd00:a::12 vrf default
 # eBGP to the CE; export/import with an SRv6 End.DT4 SID (sid vpn export auto)
@@ -80,8 +89,17 @@ set vrf name tenant-b table 200
 set interfaces ethernet eth4 vrf tenant-b
 set interfaces ethernet eth4 address 172.17.2.1/30
 set interfaces ethernet eth4 description 'tenant-b: ce2 eth3'
-# Linux scopes the SRv6 encapsulation's outer lookup to the ingress VRF for forwarded packets: leak the locator block into the
-# VRF table, recursively via the attached P routers' loopbacks (resolved by IS-IS, so ECMP and failover are kept)
+# Linux scopes the SRv6 encapsulation's outer lookup to the ingress VRF for forwarded packets: leak every remote locator into
+# the VRF table via the attached P router(s) on the IGP shortest path (recursive through IS-IS, so a dead P drops out), and the
+# whole block via every attached P as the fallback
+set vrf name tenant-b protocols static route6 fd00:c:11::/64 next-hop fd00:a::11 vrf default
+set vrf name tenant-b protocols static route6 fd00:c:12::/64 next-hop fd00:a::12 vrf default
+set vrf name tenant-b protocols static route6 fd00:c:13::/64 next-hop fd00:a::11 vrf default
+set vrf name tenant-b protocols static route6 fd00:c:13::/64 next-hop fd00:a::12 vrf default
+set vrf name tenant-b protocols static route6 fd00:c:1::/64 next-hop fd00:a::11 vrf default
+set vrf name tenant-b protocols static route6 fd00:c:1::/64 next-hop fd00:a::12 vrf default
+set vrf name tenant-b protocols static route6 fd00:c:3::/64 next-hop fd00:a::12 vrf default
+set vrf name tenant-b protocols static route6 fd00:c:4::/64 next-hop fd00:a::12 vrf default
 set vrf name tenant-b protocols static route6 fd00:c::/40 next-hop fd00:a::11 vrf default
 set vrf name tenant-b protocols static route6 fd00:c::/40 next-hop fd00:a::12 vrf default
 # eBGP to the CE; export/import with an SRv6 End.DT4 SID (sid vpn export auto)

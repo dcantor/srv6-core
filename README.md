@@ -63,13 +63,20 @@ that a SID lies inside the right locator.
 ### The one thing that is not in the textbook
 Linux (6.18 here) scopes the **outer IPv6 lookup of the SRv6 encapsulation to the ingress VRF's table for forwarded
 packets** — locally generated traffic from the PE works, traffic coming in from the CE is dropped with
-`Ip6OutNoRoutes`. Each PE therefore leaks the locator block into the VRF table, recursively via the loopbacks of its
-two attached P routers (resolved by IS-IS, so ECMP and failover survive):
+`Ip6OutNoRoutes`. Each PE therefore leaks the remote locators into every tenant VRF table as static routes whose next
+hops are the loopbacks of the attached P routers **on the IGP shortest path** (computed by `gen_configs.py` from the
+topology, resolved recursively through IS-IS so a dead P drops out), plus the whole block via every attached P as the
+fallback:
 ```
-set vrf name tenant-a protocols static route6 fd00:c::/40 next-hop fd00:a::11 vrf default
+set vrf name tenant-a protocols static route6 fd00:c:3::/64 next-hop fd00:a::12 vrf default   # pe1 → pe3: via p2 only
+set vrf name tenant-a protocols static route6 fd00:c:2::/64 next-hop fd00:a::11 vrf default   # pe1 → pe2: ECMP p1 / p2
+set vrf name tenant-a protocols static route6 fd00:c:2::/64 next-hop fd00:a::12 vrf default
+set vrf name tenant-a protocols static route6 fd00:c::/40 next-hop fd00:a::11 vrf default     # fallback
 set vrf name tenant-a protocols static route6 fd00:c::/40 next-hop fd00:a::12 vrf default
 ```
-(Leaking through BGP `import vrf default` does not work: the IS-IS next hops are link-local and fail nexthop validation.)
+A plain `/40` leak alone works but hashes forwarded flows across both Ps regardless of IGP cost (pe3→pe1 would go
+via p3→p1 half the time); per-locator entries keep the forwarding plane consistent with IS-IS. (Leaking through BGP
+`import vrf default` does not work: the IS-IS next hops are link-local and fail nexthop validation.)
 
 ## Addressing
 | Node | Role | OOB (srv6-oob) | Loopback | Router-id | IS-IS NET | SRv6 locator | AS |
@@ -105,6 +112,22 @@ tenant-a: PE–CE `172.16.n.0/30` (PE .1), CE–host `172.20.n.0/24`; tenant-b: 
 `lab.conf` gets the first address. `./lab.sh status` prints every link with both addresses, `./lab.sh inventory`
 the whole lab as JSON (what the tests read; a future Nautobot seed would too).
 
+### Explicit-path steering (traffic engineering)
+`./lab.sh steer add pe1 tenant-b 172.21.3.0/24 p1 p3` pins a tenant prefix on a PE to the segment list
+`[p1 End, p3 End, pe3 End.DT4]` — the long way round the triangle instead of the IGP path via p2. It is a static route in
+the tenant VRF (`interface eth1 vrf default segments a/b/c`, the End.DT4 SID read live from the destination PE);
+`steer del` removes it, `steer show` lists policies. On the wire p1 sees
+`IP6 fd00:a::1 > fd00:c:13:: RT6 (segleft=1, [0]fd00:c:3:0:X::, [1]fd00:c:13::, [2]fd00:c:11::)` and p2 sees nothing;
+the reply still takes the shortest path back (asymmetric, as intended). Suite 07 does exactly this and cleans up.
+
+### Fast failure detection
+The point-to-point links are UDP tunnels that never lose carrier, so a dead neighbour is only visible through the
+protocol — with plain IS-IS timers that is the 30 s hold time. Every core adjacency therefore runs **BFD** (`isis
+interface ethN bfd`, 300 ms × 3). Suite 08 cuts the p2–pe3 link silently (a firewall drop on p2's interface, carrier
+stays up), and a 0.2 s ping across the core loses **4 packets** while pe3 reroutes through p3; the link is then
+restored and every session comes back. (Admin-disabling the interface instead leaves one FRR BFD session stuck until
+it is toggled — hence the firewall-style cut.)
+
 ## Packet walk: dc1-h1 → dc3-h1 (tenant-a, dc1 → dc3)
 1. **dc1-h1** 172.20.1.2 sends to 172.20.3.2 via its gateway **ce1** 172.20.1.1 (VRF tenant-a on the CE).
 2. **ce1** has 172.20.3.0/24 from pe1 over that VRF's eBGP session → forwards to **pe1** 172.16.1.1 (VRF tenant-a on the PE).
@@ -129,7 +152,7 @@ the whole lab as JSON (what the tests read; a future Nautobot seed would too).
 Locator structure: block 40 bits · node 24 bits · function 16 bits; the function values are allocated by FRR at run time
 (they can change after a reconfiguration), which is why the tests only ever assert that a SID lies inside the right locator.
 
-## Tests (`./lab.sh test`, 22 cases)
+## Tests (`./lab.sh test`, 29 cases)
 | Suite | Checks |
 |---|---|
 | 01 management | every node on the OOB network with SSH, host names, host LAN addresses, MTU 9000 on all core links, config saved |
@@ -137,6 +160,8 @@ Locator structure: block 40 bits · node 24 bits · function 16 bits; the functi
 | 03 srv6 | locator Up with 40/24/16 on all 7 nodes, all 7 in `show isis segment-routing srv6 node`, all locators in every RIB, End / End.X SIDs and exactly one End.DT4 SID per tenant VRF in the kernel, seg6 enabled per core interface |
 | 04 vpn | per tenant: 4 clients Established at **both** reflectors and both reflector sessions up on every PE, every LAN under its RD at the RR, remote LANs imported into the right VRF only (no prefix of the other tenant) with a SID inside the right locator and a recursive seg6 route, CEs learn the other three LANs in the tenant's own VRF over that VRF's session, nothing in the default VRF |
 | 06 rr redundancy | every PE holds every remote VPN route once per reflector; **shutting p1's client sessions** (peer-group `shutdown`, restored in the teardown) leaves every VRF route, every SRv6 encap route and every in-tenant ping intact via p3; the sessions come back after the restore |
+| 07 steering | `steer add` installs the 3-segment route; captures on p1/p3 show the SRH `[pe3-DT4, p3, p1]` with segleft 1 then 0, p2 carries none of it, pings work, the return path crosses p2; `steer del` restores the BGP route |
+| 08 failover | BFD up on all 24 adjacencies; silent cut of p2–pe3 with a live 0.2 s ping: pe3 moves every tenant route to p3 within seconds, BFD reports Down, ≤ 10 packets lost across cut and repair (measured: 4); all BFD sessions and adjacencies back afterwards |
 | 05 end to end | every host reaches every host of its tenant (2 × 4×3 pings) and **none of the other tenant's**, not even at the same site; dc1→dc3 traffic transits p2 with `tcpdump` showing `IP6 fd00:a::1 > fd00:c:3:…` both ways; P routers hold no VRF and no tenant routes |
 
 Every run lands in `results/<timestamp>/` — `report.html`, `log.html`, `output.xml`, and `configs/{pre-run,post-run}/` with
@@ -145,16 +170,17 @@ routing tables of every node (RIB per VRF, kernel SRv6 routes, BGP VPNv4, IS-IS 
 to the repository** with each change, so the history shows what passed on which version of the lab.
 
 ## Demo
-`docs/demo/srv6-demo.mp4` / `.gif` (≈2 min): status, IS-IS + SRv6 nodes, the SIDs on a PE, VPNv4 at the reflector and
-the VRF routes, the 8×8 tenant ping matrix, the p1 reflector being shut and restored with nothing changing for the
-tenants, and the Robot summary. Recorded from the live lab by `docs/demo/record.py` (real command output replayed in
+`docs/demo/srv6-demo.mp4` / `.gif` (≈2.5 min): status, IS-IS + SRv6 nodes, the SIDs on a PE, VPNv4 at the reflector and
+the VRF routes, the 8×8 tenant ping matrix, explicit-path steering with the SRH seen on p1, the p1 reflector being shut
+and restored with nothing changing for the tenants, a silent core link cut with BFD detecting it, and the Robot summary. Recorded from the live lab by `docs/demo/record.py` (real command output replayed in
 a terminal page; run it with the cat8000v-ipsec `webapp/.venv` python).
 
 ## What is where
 | Path | Purpose |
 |---|---|
 | `lab.conf` | the topology: nodes, roles, addresses, `LINKS`, service parameters (AS, VRF, RT, RR) |
-| `lab.sh` | libvirt controller: `up down bootstrap configure wait status inventory verify test console ssh log rebuild clean` |
+| `lab.sh` | libvirt controller: `up down bootstrap configure steer wait status inventory verify test console ssh log rebuild clean` |
+| `tools/steer.py` | explicit-path SRv6 steering (`add / del / show / sid`) |
 | `docs/demo/record.py` | records `docs/demo/srv6-demo.{gif,mp4}` from the live lab |
 | `docs/topology.pdf`, `docs/topology.py` | the topology as a two-page PDF (diagram, addressing, packet walk), drawn from `lab.sh inventory` — rerun the script after editing `lab.conf` |
 | `tools/gen_configs.py` | renders `nodes/<n>/vyos_config.txt` (the day-0 `set` lines) from `lab.sh inventory` — run after editing `lab.conf` |

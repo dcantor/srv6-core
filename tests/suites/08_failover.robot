@@ -45,7 +45,7 @@ A silent core link failure is detected by BFD and traffic reconverges in under t
             END
         END
     END
-    Configure    ${P}    delete firewall ipv6
+    Configure    ${P}    delete firewall
     Wait Until Keyword Succeeds    60s    3s    Route Should Use Interface    ${PE}    ${src}[lan]    eth1
     ${out}=    Finish Background    ${ping}    120
     ${lost}=    Ping Loss    ${out}
@@ -78,5 +78,5 @@ All Sessions Up
     Length Should Be    ${adj}    ${n_exp}
 
 Restore The Link And Close Connections
-    Run Keyword And Ignore Error    Configure    ${P}    delete firewall ipv6
+    Run Keyword And Ignore Error    Configure    ${P}    delete firewall
     Close All Connections
