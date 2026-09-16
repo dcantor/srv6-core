@@ -29,18 +29,23 @@ IS-IS advertises the SRv6 capability of every core node and every locator is in 
         END
     END
 
-Every PE has an End.DT4 SID for the VRF, an End SID, and End.X SIDs installed in the Linux data plane
+Every PE has one End.DT4 SID per tenant VRF, an End SID, and End.X SIDs installed in the Linux data plane
     FOR    ${pe}    IN    @{PES}
         ${sids}=    Shell    ${pe}    sudo ip -6 route show | grep seg6local
-        ${dt4}=    Regex Findall    ${sids}    (?m)^(\\S+)\\s.*action End\\.DT4 vrftable ${VRF}\\b
-        Length Should Be    ${dt4}    1    msg=${pe}: expected exactly one End.DT4 SID for VRF ${VRF}
-        Ip In Network    ${dt4}[0]    ${LOCATOR}[${pe}]
+        ${bgp}=    Vyos    ${pe}    show bgp segment-routing srv6
+        FOR    ${t}    IN    @{TENANTS}
+            ${dt4}=    Regex Findall    ${sids}    (?m)^(\\S+)\\s.*action End\\.DT4 vrftable ${t}\\b
+            Length Should Be    ${dt4}    1    msg=${pe}: expected exactly one End.DT4 SID for VRF ${t}
+            Ip In Network    ${dt4}[0]    ${LOCATOR}[${pe}]
+            Should Match Regexp    ${bgp}    (?s)name: ${t}.*?vpn_policy\\[AFI_IP\\].tovpn_sid: ${dt4}[0]    msg=${pe}: BGP does not export ${dt4}[0] for ${t}
+        END
+        ${all_dt4}=    Regex Findall    ${sids}    (?m)action End\\.DT4 vrftable
+        ${n_t}=    Get Length    ${TENANTS}
+        Length Should Be    ${all_dt4}    ${n_t}    msg=${pe}: a tenant VRF without its own SID, or a stray one
         Should Match Regexp    ${sids}    (?m)^\\S+\\s.*action End dev dum0    msg=${pe}: no End SID from IS-IS
         ${endx}=    Regex Findall    ${sids}    (?m)action End\\.X nh6
         ${n_core}=    Get Length    ${ISIS_NEIGHBORS}[${pe}]
         Length Should Be    ${endx}    ${n_core}    msg=${pe}: expected one End.X SID per core adjacency
-        ${bgp}=    Vyos    ${pe}    show bgp segment-routing srv6
-        Should Match Regexp    ${bgp}    (?s)name: ${VRF}.*vpn_policy\\[AFI_IP\\].tovpn_sid: ${dt4}[0]    msg=${pe}: BGP does not export ${dt4}[0] for ${VRF}
     END
 
 The SRv6 encapsulation is enabled on every core interface and uses the loopback as source

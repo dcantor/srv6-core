@@ -1,0 +1,8 @@
+#!/bin/sh
+# dc1-h1: eth0 = OOB management (10.3.0.41), eth1 = ce1 eth2 (dc1 LAN 172.20.1.0/24, gateway 172.20.1.1)
+hostname dc1-h1
+ip link set eth0 up
+ip addr add 10.3.0.41/24 dev eth0
+ip link set eth1 up
+ip addr add 172.20.1.2/24 dev eth1
+ip route replace default via 172.20.1.1 dev eth1

@@ -37,15 +37,6 @@ set protocols isis interface lo passive
 set protocols isis interface dum0 passive
 set protocols isis segment-routing srv6 locator main
 set protocols isis segment-routing srv6 interface dum0
-# customer VRF tenant-a: attachment circuit to ce3
-set vrf name tenant-a table 100
-set interfaces ethernet eth3 vrf tenant-a
-set interfaces ethernet eth3 address 172.16.3.1/30
-set interfaces ethernet eth3 description 'tenant-a: ce3 eth1'
-# Linux scopes the SRv6 encapsulation's outer lookup to the ingress VRF for forwarded packets: leak the locator block into the
-# VRF table, recursively via the attached P routers' loopbacks (resolved by IS-IS, so ECMP and failover are kept)
-set vrf name tenant-a protocols static route6 fd00:c::/40 next-hop fd00:a::12 vrf default
-set vrf name tenant-a protocols static route6 fd00:c::/40 next-hop fd00:a::13 vrf default
 # BGP: VPNv4 to the route reflector p1 over the IPv6 loopbacks (extended next hop), SRv6 SIDs from locator main
 set protocols bgp system-as 65000
 set protocols bgp parameters router-id 10.255.0.3
@@ -56,15 +47,45 @@ set protocols bgp neighbor fd00:a::11 description 'p1 route reflector'
 set protocols bgp neighbor fd00:a::11 update-source fd00:a::3
 set protocols bgp neighbor fd00:a::11 capability extended-nexthop
 set protocols bgp neighbor fd00:a::11 address-family ipv4-vpn
-# BGP in the VRF: eBGP to the CE; export/import with an SRv6 End.DT4 SID (sid vpn export auto)
+# tenant VRF tenant-a (table 100, RT 65000:100, RD 65000:103): attachment circuit eth3 to ce3 eth1
+set vrf name tenant-a table 100
+set interfaces ethernet eth3 vrf tenant-a
+set interfaces ethernet eth3 address 172.16.3.1/30
+set interfaces ethernet eth3 description 'tenant-a: ce3 eth1'
+# Linux scopes the SRv6 encapsulation's outer lookup to the ingress VRF for forwarded packets: leak the locator block into the
+# VRF table, recursively via the attached P routers' loopbacks (resolved by IS-IS, so ECMP and failover are kept)
+set vrf name tenant-a protocols static route6 fd00:c::/40 next-hop fd00:a::12 vrf default
+set vrf name tenant-a protocols static route6 fd00:c::/40 next-hop fd00:a::13 vrf default
+# eBGP to the CE; export/import with an SRv6 End.DT4 SID (sid vpn export auto)
 set vrf name tenant-a protocols bgp system-as 65000
 set vrf name tenant-a protocols bgp parameters router-id 10.255.0.3
 set vrf name tenant-a protocols bgp neighbor 172.16.3.2 remote-as 65003
-set vrf name tenant-a protocols bgp neighbor 172.16.3.2 description 'ce3'
+set vrf name tenant-a protocols bgp neighbor 172.16.3.2 description 'ce3 (tenant-a)'
 set vrf name tenant-a protocols bgp neighbor 172.16.3.2 address-family ipv4-unicast
 set vrf name tenant-a protocols bgp address-family ipv4-unicast redistribute connected
-set vrf name tenant-a protocols bgp address-family ipv4-unicast rd vpn export 65000:3
+set vrf name tenant-a protocols bgp address-family ipv4-unicast rd vpn export 65000:103
 set vrf name tenant-a protocols bgp address-family ipv4-unicast route-target vpn both 65000:100
 set vrf name tenant-a protocols bgp address-family ipv4-unicast sid vpn export auto
 set vrf name tenant-a protocols bgp address-family ipv4-unicast import vpn
 set vrf name tenant-a protocols bgp address-family ipv4-unicast export vpn
+# tenant VRF tenant-b (table 200, RT 65000:200, RD 65000:203): attachment circuit eth4 to ce3 eth3
+set vrf name tenant-b table 200
+set interfaces ethernet eth4 vrf tenant-b
+set interfaces ethernet eth4 address 172.17.3.1/30
+set interfaces ethernet eth4 description 'tenant-b: ce3 eth3'
+# Linux scopes the SRv6 encapsulation's outer lookup to the ingress VRF for forwarded packets: leak the locator block into the
+# VRF table, recursively via the attached P routers' loopbacks (resolved by IS-IS, so ECMP and failover are kept)
+set vrf name tenant-b protocols static route6 fd00:c::/40 next-hop fd00:a::12 vrf default
+set vrf name tenant-b protocols static route6 fd00:c::/40 next-hop fd00:a::13 vrf default
+# eBGP to the CE; export/import with an SRv6 End.DT4 SID (sid vpn export auto)
+set vrf name tenant-b protocols bgp system-as 65000
+set vrf name tenant-b protocols bgp parameters router-id 10.255.0.3
+set vrf name tenant-b protocols bgp neighbor 172.17.3.2 remote-as 65003
+set vrf name tenant-b protocols bgp neighbor 172.17.3.2 description 'ce3 (tenant-b)'
+set vrf name tenant-b protocols bgp neighbor 172.17.3.2 address-family ipv4-unicast
+set vrf name tenant-b protocols bgp address-family ipv4-unicast redistribute connected
+set vrf name tenant-b protocols bgp address-family ipv4-unicast rd vpn export 65000:203
+set vrf name tenant-b protocols bgp address-family ipv4-unicast route-target vpn both 65000:200
+set vrf name tenant-b protocols bgp address-family ipv4-unicast sid vpn export auto
+set vrf name tenant-b protocols bgp address-family ipv4-unicast import vpn
+set vrf name tenant-b protocols bgp address-family ipv4-unicast export vpn

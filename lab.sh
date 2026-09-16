@@ -41,18 +41,18 @@ port_far()   { echo $(( UDP_BASE + 10000 + NODE_IDX[$1]*100 + $2 )); }   # ...an
 node_ports() { case "${ROLE[$1]}" in pe) seq 1 "$PE_PORTS";; p) seq 1 "$P_PORTS";; ce) seq 1 "$CE_PORTS";; host) seq 1 "$HOST_PORTS";; esac; }
 port_name()  { echo "eth$2"; }
 mac()        { printf '%s:%02x:%02x' "$MAC_OUI" "${NODE_IDX[$1]}" "$2"; }
-link_peer() {   # node port -> "peer_node peer_port prefix end(1|2)" or "" if unwired
-  local me="$1:$2" l a b pfx
+link_peer() {   # node port -> "peer_node peer_port prefix end(1|2) tenant|-" or "" if unwired
+  local me="$1:$2" l a b pfx t
   for l in "${LINKS[@]}"; do
-    read -r a b pfx <<<"$l"
-    [[ "$a" == "$me" ]] && { echo "${b%%:*} ${b##*:} $pfx 1"; return; }
-    [[ "$b" == "$me" ]] && { echo "${a%%:*} ${a##*:} $pfx 2"; return; }
+    read -r a b pfx t <<<"$l"
+    [[ "$a" == "$me" ]] && { echo "${b%%:*} ${b##*:} $pfx 1 ${t:--}"; return; }
+    [[ "$b" == "$me" ]] && { echo "${a%%:*} ${a##*:} $pfx 2 ${t:--}"; return; }
   done
   return 0
 }
 link_ip() {     # node port -> "address/len" on that link (first host address for end 1, second for end 2; v4 or v6)
   local peer; peer="$(link_peer "$1" "$2")"; [[ -z "$peer" ]] && return
-  read -r _ _ pfx end <<<"$peer"
+  read -r _ _ pfx end _ <<<"$peer"
   python3 -c "import ipaddress; n=ipaddress.ip_network('$pfx'); print(f'{n.network_address + int(\"$end\")}/{n.prefixlen}')"
 }
 link_addr() { link_ip "$1" "$2" | cut -d/ -f1; }
@@ -73,7 +73,7 @@ udp_nic_xml() {    # node port -> one <interface type='udp'> (the first end of a
   local n="$1" p="$2" peer remote local pn pp pfx end
   peer="$(link_peer "$n" "$p")"; local="$(port_local "$n" "$p")"; remote="$(port_far "$n" "$p")"
   if [[ -n "$peer" ]]; then
-    read -r pn pp pfx end <<<"$peer"
+    read -r pn pp pfx end _ <<<"$peer"
     [[ "$end" == "2" ]] && { local="$(port_far "$pn" "$pp")"; remote="$(port_local "$pn" "$pp")"; }
     echo "    <!-- eth$p: $(link_ip "$n" "$p") <-> $pn $(port_name "$pn" "$pp") ($pfx) -->"
   else
@@ -179,7 +179,7 @@ build_host() {
   local n="$1" d peer pn pp pfx end cidr gw; d="$(node_dir "$n")"
   [[ -f "$CIRROS_IMAGE" ]] || die "CirrOS image not found: $CIRROS_IMAGE"
   peer="$(link_peer "$n" 1)"; [[ -n "$peer" ]] || die "$n eth1 is not wired in LINKS"
-  read -r pn pp pfx end <<<"$peer"
+  read -r pn pp pfx end _ <<<"$peer"
   cidr="$(link_ip "$n" 1)"; gw="$(link_addr "$pn" "$pp")"
   mkdir -p "$d"
   if [[ ! -f "$d/disk.qcow2" ]]; then
@@ -193,7 +193,7 @@ build_host() {
 
 host_seed() {   # cloud-init NoCloud seed; a fresh instance-id every time so CirrOS re-runs the user-data script on every boot
   local n="$1" d peer pn pp pfx end cidr gw; d="$(node_dir "$n")"
-  peer="$(link_peer "$n" 1)"; read -r pn pp pfx end <<<"$peer"
+  peer="$(link_peer "$n" 1)"; read -r pn pp pfx end _ <<<"$peer"
   cidr="$(link_ip "$n" 1)"; gw="$(link_addr "$pn" "$pp")"
   echo "[$n] building cloud-init (NoCloud) seed ISO"
   # CirrOS parses meta-data as JSON (YAML meta-data fails with "json2fstree failed")
@@ -268,6 +268,11 @@ cmd_bootstrap() {  # push the day-0 config to VyOS nodes over their serial conso
   return $rc
 }
 
+cmd_configure() {  # (re)apply nodes/<n>/vyos_config.txt over SSH — idempotent, for changes made after the first boot
+  [[ -x "$LAB_DIR/tests/.venv/bin/python" ]] || "$LAB_DIR/tests/setup.sh"
+  local n; for n in $(vyos_nodes_or_all "$@"); do "$PY" "$LAB_DIR/tools/vyos_push.py" "${MGMT_IP[$n]}" "$(node_dir "$n")/vyos_config.txt" | sed "s/^/[$n] /"; done
+}
+
 cmd_wait() {       # block until SSH answers on the given nodes (VyOS sshd, CirrOS dropbear)
   for n in $(nodes_or_all "$@"); do
     for _ in $(seq 60); do ssh_ready "$n" && break; sleep 5; done
@@ -296,19 +301,20 @@ cmd_status() {
   printf '%-6s %-5s %-10s %-10s %-5s %-12s %-14s %-6s %-7s\n' NODE ROLE STATE MGMT-IP DC LOOPBACK LOCATOR AS CONSOLE
   for n in "${ALL_NODES[@]}"; do
     printf '%-6s %-5s %-10s %-10s %-5s %-12s %-14s %-6s %-7s\n' "$n" "${ROLE[$n]}" "$(V domstate "$n" 2>/dev/null || echo undefined)" \
-      "${MGMT_IP[$n]}" "${DC[$n]}" "${LOOPBACK6[$n]:--}" "${LOCATOR[$n]:--}" "${BGP_AS[$n]}" "${CONSOLE_PORT[$n]}"
+      "${MGMT_IP[$n]}" "${DC[$n]}" "${LOOPBACK6[$n]:--}" "${LOCATOR[$n]:--}" "${BGP_AS[$n]:--}" "${CONSOLE_PORT[$n]}"
   done
   echo; echo "links (point-to-point UDP tunnels):"
-  local l a b pfx; for l in "${LINKS[@]}"; do read -r a b pfx <<<"$l"
-    echo "  ${a%%:*} $(port_name "${a%%:*}" "${a##*:}") $(link_addr "${a%%:*}" "${a##*:}")  <->  ${b%%:*} $(port_name "${b%%:*}" "${b##*:}") $(link_addr "${b%%:*}" "${b##*:}")   ($pfx)"; done
-  echo; echo "VRF $VRF_NAME (table $VRF_TABLE, RT $VRF_RT): CE eBGP -> PE, VPNv4 over SRv6 End.DT4, route reflector $RR"
+  local l a b pfx t; for l in "${LINKS[@]}"; do read -r a b pfx t <<<"$l"
+    echo "  ${a%%:*} $(port_name "${a%%:*}" "${a##*:}") $(link_addr "${a%%:*}" "${a##*:}")  <->  ${b%%:*} $(port_name "${b%%:*}" "${b##*:}") $(link_addr "${b%%:*}" "${b##*:}")   ($pfx${t:+, $t})"; done
+  echo; for t in "${TENANTS[@]}"; do echo "VRF $t (table ${VRF_TABLE[$t]}, RT ${VRF_RT[$t]}): CE eBGP -> PE, VPNv4 over SRv6 End.DT4, route reflector $RR"; done
 }
 
 cmd_inventory() {  # the lab as JSON (nodes, links, service) — consumed by tests/resources/lab_vars.py (and a future Nautobot seed)
   local n l a b pfx
   {
     echo '{"lab": "srv6-core", "oob": {"network": "'"$OOB_NET"'", "gateway": "'"$OOB_GATEWAY"'"},'
-    echo ' "service": {"core_as": '"$CORE_AS"', "rr": "'"$RR"'", "vrf": "'"$VRF_NAME"'", "table": '"$VRF_TABLE"', "rt": "'"$VRF_RT"'", "isis_area": "'"$ISIS_AREA"'"},'
+    local t tj=""; for t in "${TENANTS[@]}"; do tj+="${tj:+, }\"$t\": {\"table\": ${VRF_TABLE[$t]}, \"rt\": \"${VRF_RT[$t]}\"}"; done
+    echo ' "service": {"core_as": '"$CORE_AS"', "rr": "'"$RR"'", "isis_area": "'"$ISIS_AREA"'", "tenants": {'"$tj"'}},'
     echo ' "nodes": ['
     local first=1
     for n in "${ALL_NODES[@]}"; do
@@ -317,11 +323,11 @@ cmd_inventory() {  # the lab as JSON (nodes, links, service) — consumed by tes
         "$n" "${ROLE[$n]}" "${DC[$n]}" "${MGMT_IP[$n]}" "${CONSOLE_PORT[$n]}" "${NODE_IDX[$n]}" \
         "$( [[ -n "${LOOPBACK6[$n]:-}" ]] && echo "\"${LOOPBACK6[$n]}\"" || echo null )" "$( [[ -n "${ROUTER_ID[$n]:-}" ]] && echo "\"${ROUTER_ID[$n]}\"" || echo null )" \
         "$( [[ -n "${LOCATOR[$n]:-}" ]] && echo "\"${LOCATOR[$n]}\"" || echo null )" "$( [[ -n "${ISIS_NET[$n]:-}" ]] && echo "\"${ISIS_NET[$n]}\"" || echo null )" \
-        "$( [[ "${BGP_AS[$n]}" == "-" ]] && echo null || echo "${BGP_AS[$n]}" )" "$( [[ -n "${PE_OF[$n]:-}" ]] && echo "\"${PE_OF[$n]}\"" || echo null )"
+        "$( [[ "${BGP_AS[$n]:--}" == "-" ]] && echo null || echo "${BGP_AS[$n]}" )" "$( [[ -n "${PE_OF[$n]:-}" ]] && echo "\"${PE_OF[$n]}\"" || echo null )"
       local p pf=1 peer
       for p in $(node_ports "$n"); do
         [[ $pf -eq 1 ]] || printf ','; pf=0; peer="$(link_peer "$n" "$p")"
-        if [[ -n "$peer" ]]; then read -r pn pp pfx end <<<"$peer"; printf '{"name": "eth%s", "ip": "%s", "peer": "%s", "peer_port": "eth%s", "prefix": "%s"}' "$p" "$(link_ip "$n" "$p")" "$pn" "$pp" "$pfx"
+        if [[ -n "$peer" ]]; then read -r pn pp pfx end t <<<"$peer"; printf '{"name": "eth%s", "ip": "%s", "peer": "%s", "peer_port": "eth%s", "prefix": "%s", "tenant": %s}' "$p" "$(link_ip "$n" "$p")" "$pn" "$pp" "$pfx" "$( [[ "$t" == "-" ]] && echo null || echo "\"$t\"" )"
         else printf '{"name": "eth%s", "ip": null, "peer": null}' "$p"; fi
       done
       printf ']}'
@@ -329,9 +335,9 @@ cmd_inventory() {  # the lab as JSON (nodes, links, service) — consumed by tes
     echo; echo ' ],'
     echo ' "links": ['
     first=1
-    for l in "${LINKS[@]}"; do read -r a b pfx <<<"$l"; [[ $first -eq 1 ]] || echo ','; first=0
-      printf '  {"a": "%s", "a_port": "eth%s", "a_ip": "%s", "b": "%s", "b_port": "eth%s", "b_ip": "%s", "prefix": "%s"}' \
-        "${a%%:*}" "${a##*:}" "$(link_ip "${a%%:*}" "${a##*:}")" "${b%%:*}" "${b##*:}" "$(link_ip "${b%%:*}" "${b##*:}")" "$pfx"
+    for l in "${LINKS[@]}"; do read -r a b pfx t <<<"$l"; [[ $first -eq 1 ]] || echo ','; first=0
+      printf '  {"a": "%s", "a_port": "eth%s", "a_ip": "%s", "b": "%s", "b_port": "eth%s", "b_ip": "%s", "prefix": "%s", "tenant": %s}' \
+        "${a%%:*}" "${a##*:}" "$(link_ip "${a%%:*}" "${a##*:}")" "${b%%:*}" "${b##*:}" "$(link_ip "${b%%:*}" "${b##*:}")" "$pfx" "$( [[ -z "$t" ]] && echo null || echo "\"$t\"" )"
     done
     echo; echo ' ]}'
   } | python3 -m json.tool
@@ -361,13 +367,14 @@ cmd_verify() {     # a quick look at the control plane and the data plane end to
   echo; echo "== SRv6 locators (IS-IS view on $RR)"; vy "$RR" "show isis segment-routing srv6 node"
   echo; echo "== VPNv4 at the route reflector $RR"; vy "$RR" "show bgp ipv4 vpn summary" | grep -E '^fd00|Neighbor'; vy "$RR" "show bgp ipv4 vpn" | grep -E 'Route Distinguisher|\*>'
   for n in "${PES[@]}"; do
-    echo; echo "== $n: VRF $VRF_NAME routes with SRv6 encapsulation, local End.DT4 SID"
-    vy "$n" "sudo ip -c=never route show vrf $VRF_NAME" | grep -E "^172" || true
+    echo; echo "== $n: VRF routes with SRv6 encapsulation, local SIDs (one End.DT4 per tenant)"
+    for t in "${TENANTS[@]}"; do echo "-- vrf $t"; vy "$n" "sudo ip -c=never route show vrf $t" | grep -E "^172" || true; done
     vy "$n" "sudo ip -c=never -6 route show" | grep seg6local || echo "   (no seg6local route!)"
   done
-  echo; echo "== ${CES[0]}: routes learned from ${PE_OF[${CES[0]}]}"; vy "${CES[0]}" "show ip route bgp" | grep -E '^B' || true
-  echo; echo "== host ping matrix (${#HOSTS[@]} hosts, 3 pings each)"
-  "$PY" "$LAB_DIR/tools/host_cmd.py" matrix "${HOSTS[@]}"
+  echo; echo "== ${CES[0]}: routes learned from ${PE_OF[${CES[0]}]} (default VRF = tenant-a, vrf tenant-b)"
+  vy "${CES[0]}" "show ip route bgp" | grep -E '^B' || true; vy "${CES[0]}" "show ip route vrf tenant-b bgp" | grep -E '^B' || true
+  echo; echo "== host ping matrix (${#HOSTS[@]} hosts, 3 pings each) — expected: reachable inside a tenant, unreachable across (h1 = tenant-a, h2 = tenant-b)"
+  "$PY" "$LAB_DIR/tools/host_cmd.py" matrix "${HOSTS[@]}" || true
 }
 
 cmd_test() {       # Robot Framework suite; results in results/<date>_<time>/
@@ -380,6 +387,7 @@ usage() {
 usage: $(basename "$0") <command> [node...]
   up [node..]        create (if needed) and start VMs                 (default: all)
   bootstrap [node..] push the day-0 config to VyOS nodes over the console (first boot only; parallel)
+  configure [node..] re-apply nodes/<n>/vyos_config.txt over SSH (after editing lab.conf + tools/gen_configs.py)
   wait [node..]      wait until SSH answers
   down [node..]      stop VMs (VyOS: ACPI shutdown)
   status             nodes, addresses, links, consoles
@@ -397,6 +405,6 @@ U
 
 cmd="${1:-}"; shift || true
 case "$cmd" in
-  up|down|bootstrap|wait|status|inventory|verify|test|console|ssh|log|rebuild|clean) "cmd_$cmd" "$@" ;;
+  up|down|bootstrap|configure|wait|status|inventory|verify|test|console|ssh|log|rebuild|clean) "cmd_$cmd" "$@" ;;
   *) usage; exit 1 ;;
 esac

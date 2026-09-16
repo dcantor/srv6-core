@@ -1,6 +1,6 @@
 *** Settings ***
-Documentation     The point of it all: every host reaches every other host across the SRv6 core, the traffic really
-...               crosses the P routers as SRv6-encapsulated IPv6, and the return path works for forwarded packets.
+Documentation     The point of it all: every host reaches every other host of its tenant across the SRv6 core and none
+...               of the other tenant's; the traffic really crosses the P routers as SRv6-encapsulated IPv6.
 Resource          ../resources/common.resource
 Suite Teardown    Suite Teardown Close Connections
 
@@ -8,12 +8,24 @@ Suite Teardown    Suite Teardown Close Connections
 ${TRANSIT_P}      p2       # every west<->east shortest path crosses p2 (pe1/pe2 hang off p1+p2, pe3/pe4 off p2+p3)
 
 *** Test Cases ***
-Every host pings every other host across the core
+Every host pings every other host of its own tenant across the core
     FOR    ${src}    IN    @{HOSTS}
         FOR    ${dst}    IN    @{HOSTS}
-            IF    '${src}' != '${dst}'
+            IF    '${src}' != '${dst}' and $HOST_TENANT[$src] == $HOST_TENANT[$dst]
                 ${out}=    Host    ${src}    ping -c 3 -W 2 ${HOST_IP}[${dst}]
                 Should Contain    ${out}    0% packet loss    msg=${src} -> ${dst} (${HOST_IP}[${dst}]) failed
+            END
+        END
+    END
+
+Hosts of different tenants cannot reach each other, not even at the same site
+    [Documentation]    h1 (tenant-a) and h2 (tenant-b) share the CE, the PE and the core, yet the VRFs on the CE and the PE
+    ...    keep them apart: every cross-tenant ping loses 100% and the ICMP never reaches the other host.
+    FOR    ${src}    IN    @{HOSTS}
+        FOR    ${dst}    IN    @{HOSTS}
+            IF    $HOST_TENANT[$src] != $HOST_TENANT[$dst]
+                ${rc}=    Host Command Rc    ${MGMT}[${src}]    ping -c 2 -W 1 ${HOST_IP}[${dst}]
+                Should Not Be Equal As Integers    ${rc}    0    msg=${src} (${HOST_TENANT}[${src}]) reached ${dst} (${HOST_TENANT}[${dst}]) — tenant isolation broken
             END
         END
     END
@@ -44,5 +56,9 @@ The tenant traffic is invisible to the P routers as IPv4: P routers carry no VRF
         ${vrfs}=    Vyos    ${p}    show configuration commands | match 'vrf name'
         Should Be Empty    ${vrfs.strip()}    msg=${p} has a VRF configured
         ${v4}=    Vyos    ${p}    show ip route
-        Should Not Contain    ${v4}    172.20.    msg=${p} knows tenant prefixes
+        FOR    ${t}    IN    @{TENANTS}
+            FOR    ${dc}    IN    @{SITES}[${t}]
+                Should Not Contain    ${v4}    ${SITES}[${t}][${dc}][lan]    msg=${p} knows ${t} prefix ${SITES}[${t}][${dc}][lan]
+            END
+        END
     END
