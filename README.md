@@ -18,6 +18,7 @@ segment routing header. Fifteen VMs, about 12 GiB of RAM, all VyOS nodes 1 vCPU 
                   fd00:a::11         fd00:a::12                        fd00:a::13
 ```
 pe1/pe2 are dual-homed to p1+p2, pe3/pe4 to p2+p3, so every west↔east path crosses p2 (the tests use that).
+A drawn version with every interface and prefix: [docs/topology.pdf](docs/topology.pdf).
 
 ## Quick start
 ```bash
@@ -90,6 +91,7 @@ Every run captures `show configuration commands` of all VyOS nodes before and af
 |---|---|
 | `lab.conf` | the topology: nodes, roles, addresses, `LINKS`, service parameters (AS, VRF, RT, RR) |
 | `lab.sh` | libvirt controller: `up down bootstrap wait status inventory verify test console ssh log rebuild clean` |
+| `docs/topology.pdf`, `docs/topology.py` | the topology as a two-page PDF (diagram, addressing, packet walk), drawn from `lab.sh inventory` — rerun the script after editing `lab.conf` |
 | `tools/gen_configs.py` | renders `nodes/<n>/vyos_config.txt` (the day-0 `set` lines) from `lab.sh inventory` — run after editing `lab.conf` |
 | `tools/vyos_console.py` | serial-console helper (wait for the prompt, push a config file, run a command) |
 | `tools/vyos_cmd.py`, `tools/host_cmd.py` | SSH helpers (netmiko for VyOS, paramiko for CirrOS; `host_cmd.py matrix` = the ping matrix) |
