@@ -1,4 +1,4 @@
-# p2: P in core — day-0 pushed over the serial console by lab.sh bootstrap; rendered by tools/gen_configs.py
+# p2: P in core — day-0 pushed over the serial console by lab.sh bootstrap; rendered by tools/render.py
 set system host-name p2
 set system domain-name lab.local
 set system login user vyos authentication plaintext-password vyos

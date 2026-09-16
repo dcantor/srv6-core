@@ -10,6 +10,7 @@ import time
 from pathlib import Path
 
 import paramiko
+import requests
 from netmiko import ConnectHandler
 from robot.api import logger
 from robot.api.deco import keyword, library
@@ -112,6 +113,41 @@ class LabLib:
             c.close()
         logger.info(f"<pre>[background {handle}] {command}\n{text}</pre>", html=True)
         return text
+
+    # ---- Nautobot (shared NMS, 10.3.0.10 on this lab's OOB network) ----------------------------------------
+    def _nautobot(self):
+        if not hasattr(self, "_nb"):
+            url = os.environ.get("NAUTOBOT_URL", "http://10.0.0.10:8080"); token = os.environ.get("NAUTOBOT_TOKEN")
+            if not token:
+                token = subprocess.run(["ssh", "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", "-o", "LogLevel=ERROR", "lab@10.0.0.10",
+                                        "grep ^NAUTOBOT_SUPERUSER_API_TOKEN /opt/nautobot/.env | cut -d= -f2"], capture_output=True, text=True, timeout=30).stdout.strip()
+            self._nb = (url, token)
+        return self._nb
+
+    @keyword
+    def nautobot_get(self, path, **params):
+        url, token = self._nautobot()
+        r = requests.get(f"{url}/api/{path.lstrip('/')}", params=params, timeout=60, headers={"Authorization": f"Token {token}", "Accept": "application/json"})
+        logger.info(f"GET {r.url} -> {r.status_code}\n{r.text[:1500]}"); r.raise_for_status()
+        return r.json()
+
+    @keyword
+    def nautobot_graphql(self, query):
+        url, token = self._nautobot()
+        r = requests.post(f"{url}/api/graphql/", json={"query": query}, timeout=120, headers={"Authorization": f"Token {token}"})
+        logger.info(f"GraphQL {query}\n-> {r.status_code} {r.text[:2000]}"); r.raise_for_status()
+        body = r.json()
+        if body.get("errors"): raise AssertionError(f"GraphQL errors: {body['errors']}")
+        return body["data"]
+
+    @keyword
+    def nautobot_render(self, *args, timeout=600):
+        """Run nautobot/render.py with the given flags (--check / --live / --inventory); returns (rc, output)."""
+        url, token = self._nautobot()
+        r = subprocess.run([sys.executable, str(LAB_DIR / "nautobot" / "render.py"), *args], capture_output=True, text=True, timeout=float(timeout),
+                           env={**os.environ, "NAUTOBOT_URL": url, "NAUTOBOT_TOKEN": token})
+        logger.info(f"<pre>render.py {' '.join(args)}\nrc={r.returncode}\n{r.stdout[-6000:]}{r.stderr[-1500:]}</pre>", html=True)
+        return r.returncode, r.stdout + r.stderr
 
     @keyword
     def steer(self, *args, timeout=180):

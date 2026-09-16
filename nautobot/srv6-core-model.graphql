@@ -1,0 +1,40 @@
+query srv6_core_model {
+  config_contexts(name: ["srv6-core"]) { name data }
+  devices(location: ["srv6-core", "dc1", "dc2", "dc3", "dc4"]) {
+    name
+    role { name }
+    location { name parent { name } }
+    platform { name }
+    primary_ip4 { address }
+    cf_isis_net
+    cf_srv6_locator
+    interfaces {
+      name type description mgmt_only mac_address
+      ip_addresses { address parent { prefix role { name } } }
+      connected_interface { name device { name } }
+    }
+    vrf_assignments { rd vrf { name } }
+    bgp_routing_instances {
+      autonomous_system { asn }
+      router_id { address }
+      extra_attributes
+      address_families { afi_safi extra_attributes vrf { name } }
+      endpoints {
+        description role { name } enabled
+        source_ip { address }
+        peer { description source_ip { address } routing_instance { device { name } } }
+        address_families { afi_safi extra_attributes }
+      }
+    }
+  }
+  vrfs(name: ["tenant-a", "tenant-b"]) {
+    name description
+    tenant { name }
+    import_targets { name }
+    export_targets { name }
+    prefixes { prefix role { name } }
+  }
+  prefixes(role: ["srv6-locator", "wan-p2p", "attachment-circuit", "site-lan"]) {
+    prefix description role { name } tenant { name } location { name }
+  }
+}

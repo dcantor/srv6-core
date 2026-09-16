@@ -1,4 +1,4 @@
-# pe2: PE in dc2 — day-0 pushed over the serial console by lab.sh bootstrap; rendered by tools/gen_configs.py
+# pe2: PE in dc2 — day-0 pushed over the serial console by lab.sh bootstrap; rendered by tools/render.py
 set system host-name pe2
 set system domain-name lab.local
 set system login user vyos authentication plaintext-password vyos

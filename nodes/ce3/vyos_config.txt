@@ -1,4 +1,4 @@
-# ce3: CE in dc3 — day-0 pushed over the serial console by lab.sh bootstrap; rendered by tools/gen_configs.py
+# ce3: CE in dc3 — day-0 pushed over the serial console by lab.sh bootstrap; rendered by tools/render.py
 set system host-name ce3
 set system domain-name lab.local
 set system login user vyos authentication plaintext-password vyos

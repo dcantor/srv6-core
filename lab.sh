@@ -278,6 +278,21 @@ cmd_steer() {      # explicit-path SRv6 steering: add|del|show|sid (tools/steer.
   "$PY" "$LAB_DIR/tools/steer.py" "$@"
 }
 
+# ---- Nautobot (shared NMS of the cat9000v lab, reachable on this lab's OOB network as 10.3.0.10) -----------------------
+NAUTOBOT_URL="${NAUTOBOT_URL:-http://10.0.0.10:8080}"
+nautobot_token() { [[ -n "${NAUTOBOT_TOKEN:-}" ]] && { echo "$NAUTOBOT_TOKEN"; return; }
+  ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR lab@10.0.0.10 "grep ^NAUTOBOT_SUPERUSER_API_TOKEN /opt/nautobot/.env | cut -d= -f2"; }
+cmd_nautobot() {   # seed | render [--check|--live|--write|--inventory|--node N] | token
+  [[ -x "$LAB_DIR/tests/.venv/bin/python" ]] || "$LAB_DIR/tests/setup.sh"
+  local sub="${1:-}"; shift || true; local tok; tok="$(nautobot_token)"; [[ -n "$tok" ]] || die "no Nautobot token (set NAUTOBOT_TOKEN or make lab@10.0.0.10 reachable)"
+  case "$sub" in
+    seed)   NAUTOBOT_URL="$NAUTOBOT_URL" NAUTOBOT_TOKEN="$tok" "$PY" "$LAB_DIR/nautobot/seed.py" "$@" ;;
+    render) NAUTOBOT_URL="$NAUTOBOT_URL" NAUTOBOT_TOKEN="$tok" "$PY" "$LAB_DIR/nautobot/render.py" "$@" ;;
+    token)  echo "$tok" ;;
+    *) die "usage: lab.sh nautobot seed | render [--check|--live|--write|--inventory|--node NAME] | token" ;;
+  esac
+}
+
 cmd_wait() {       # block until SSH answers on the given nodes (VyOS sshd, CirrOS dropbear)
   for n in $(nodes_or_all "$@"); do
     for _ in $(seq 60); do ssh_ready "$n" && break; sleep 5; done
@@ -325,11 +340,12 @@ cmd_inventory() {  # the lab as JSON (nodes, links, service) — consumed by tes
     local first=1
     for n in "${ALL_NODES[@]}"; do
       [[ $first -eq 1 ]] || echo ','; first=0
-      printf '  {"name": "%s", "role": "%s", "dc": "%s", "mgmt_ip": "%s", "console": %s, "idx": %s, "loopback6": %s, "router_id": %s, "locator": %s, "isis_net": %s, "asn": %s, "pe": %s, "ports": [' \
+      local rdj=""; if [[ "${ROLE[$n]}" == "pe" ]]; then for t in "${TENANTS[@]}"; do rdj+="${rdj:+, }\"$t\": \"$CORE_AS:$(( VRF_TABLE[$t] + NODE_IDX[$n] ))\""; done; fi
+      printf '  {"name": "%s", "role": "%s", "dc": "%s", "mgmt_ip": "%s", "console": %s, "idx": %s, "loopback6": %s, "router_id": %s, "locator": %s, "isis_net": %s, "asn": %s, "pe": %s, "rd": {%s}, "ports": [' \
         "$n" "${ROLE[$n]}" "${DC[$n]}" "${MGMT_IP[$n]}" "${CONSOLE_PORT[$n]}" "${NODE_IDX[$n]}" \
         "$( [[ -n "${LOOPBACK6[$n]:-}" ]] && echo "\"${LOOPBACK6[$n]}\"" || echo null )" "$( [[ -n "${ROUTER_ID[$n]:-}" ]] && echo "\"${ROUTER_ID[$n]}\"" || echo null )" \
         "$( [[ -n "${LOCATOR[$n]:-}" ]] && echo "\"${LOCATOR[$n]}\"" || echo null )" "$( [[ -n "${ISIS_NET[$n]:-}" ]] && echo "\"${ISIS_NET[$n]}\"" || echo null )" \
-        "$( [[ "${BGP_AS[$n]:--}" == "-" ]] && echo null || echo "${BGP_AS[$n]}" )" "$( [[ -n "${PE_OF[$n]:-}" ]] && echo "\"${PE_OF[$n]}\"" || echo null )"
+        "$( [[ "${BGP_AS[$n]:--}" == "-" ]] && echo null || echo "${BGP_AS[$n]}" )" "$( [[ -n "${PE_OF[$n]:-}" ]] && echo "\"${PE_OF[$n]}\"" || echo null )" "$rdj"
       local p pf=1 peer
       for p in $(node_ports "$n"); do
         [[ $pf -eq 1 ]] || printf ','; pf=0; peer="$(link_peer "$n" "$p")"
@@ -397,6 +413,8 @@ usage: $(basename "$0") <command> [node...]
   configure [node..] re-apply nodes/<n>/vyos_config.txt over SSH (after editing lab.conf + tools/gen_configs.py)
   steer add <pe> <tenant> <prefix> <p..>   pin a tenant prefix to an explicit SRv6 path through the given P routers
   steer del <pe> <tenant> <prefix> | steer show [pe..]
+  nautobot seed      model the lab in the shared Nautobot (idempotent; source = lab.conf)
+  nautobot render [--check|--live|--write]   render the VyOS configs from Nautobot; compare with lab.conf / the routers
   wait [node..]      wait until SSH answers
   down [node..]      stop VMs (VyOS: ACPI shutdown)
   status             nodes, addresses, links, consoles
@@ -414,6 +432,6 @@ U
 
 cmd="${1:-}"; shift || true
 case "$cmd" in
-  up|down|bootstrap|configure|steer|wait|status|inventory|verify|test|console|ssh|log|rebuild|clean) "cmd_$cmd" "$@" ;;
+  up|down|bootstrap|configure|steer|nautobot|wait|status|inventory|verify|test|console|ssh|log|rebuild|clean) "cmd_$cmd" "$@" ;;
   *) usage; exit 1 ;;
 esac

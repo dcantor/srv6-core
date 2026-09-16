@@ -152,7 +152,37 @@ it is toggled — hence the firewall-style cut.)
 Locator structure: block 40 bits · node 24 bits · function 16 bits; the function values are allocated by FRR at run time
 (they can change after a reconfiguration), which is why the tests only ever assert that a SID lies inside the right locator.
 
-## Tests (`./lab.sh test`, 29 cases)
+## Nautobot: the source of truth
+The lab is modelled in the shared Nautobot (the cat9000v NMS, on this lab's OOB network as **10.3.0.10**):
+`./lab.sh nautobot seed` (idempotent, from `lab.conf`), `./lab.sh nautobot render --check | --live | --write`.
+
+| What | Where in Nautobot |
+|---|---|
+| Sites | location `srv6-core` (type Site) holding the P routers, child locations `dc1`..`dc4` (type Data Center) |
+| Tenants | tenant group `srv6-core`, tenants `tenant-a` / `tenant-b`; tenant prefixes and addresses carry the tenant |
+| Devices | roles `srv6-pe` / `srv6-p` / `srv6-ce` / `host`, device types VyOS / CirrOS, platforms vyos / linux, primary IPv4 = OOB, custom fields `isis_net` and `srv6_locator` on core nodes |
+| Interfaces, cables | `eth0` (mgmt-only) + `ethN` with the lab MACs, `lo` and `dum0` virtual; one cable per `LINKS` entry (label = prefix) |
+| IPAM | prefixes by role: `oob-management`, `loopback` (fd00:a::/48), `wan-p2p` (fd00:b::/48 + a /64 per link), `srv6-locator` (fd00:c::/40 + a /64 per node), `router-id`, `attachment-circuit` (172.16/17), `site-lan` (172.20/21); every interface address |
+| VRFs | `tenant-a` / `tenant-b` with route targets 65000:100 / 65000:200 (import + export), their prefixes, VRF device assignments on every PE and CE — **the per-PE RD lives on the PE's assignment** (65000:10*n* / 65000:20*n*) |
+| BGP (nautobot-bgp-models) | AS 65000 + one per CE; a routing instance per speaker with its router-id; address families `vpnv4_unicast` (PEs, RRs) and `ipv4_unicast` per tenant VRF (PEs: `sid vpn export auto`, RD, RT, redistribute connected; CEs: the LAN `network`); peerings PE↔p1/p3 (roles rr-client / rr, `capability extended-nexthop`) and PE↔CE per tenant (roles pe / ce) |
+| Config context | `srv6-core`: domain, OOB gateway/NMS, IS-IS area/level/BFD, SRv6 block and SID structure, core MTU, reflectors, tenant kernel tables |
+| GraphQL | saved query `srv6-core-model` — everything `nautobot/render.py` needs |
+
+![pe1 in Nautobot: location, VRF assignments with RDs, role, platform](docs/screenshots/nautobot-pe1.png)
+![pe1 interfaces: OOB, core links, attachment circuits, lo and dum0 with their addresses and cables](docs/screenshots/nautobot-pe1-interfaces.png)
+![BGP peerings: PE to reflector (vpnv4) and PE to CE per tenant](docs/screenshots/nautobot-bgp-peerings.png)
+![VRF tenant-a: route targets, prefixes, device assignments](docs/screenshots/nautobot-vrf.png)
+
+**One renderer, two sources.** `tools/render.py` turns an inventory (`lab.sh inventory`'s JSON shape) into the VyOS
+`set` lines; `tools/gen_configs.py` feeds it from `lab.conf`, `nautobot/render.py` rebuilds the same inventory from
+Nautobot (devices → nodes, cables → links, VRF prefixes → tenants, assignments → RDs, endpoint roles → reflectors,
+config context → constants). `render --check` proves both renderings are byte-identical, `render --live` that every
+rendered line is on the routers — suite 09 asserts both plus the model itself. Nautobot quirks met on the way: prefix
+`locations` is ignored on PATCH (the singular `location` alias works), M2M fields (targets, prefixes, locations) are
+invisible to REST reads (verify through GraphQL), VRF prefixes go through `vrf-prefix-assignments`, GraphQL returns
+choice fields upper-cased, and new custom fields need a Nautobot restart before GraphQL sees them.
+
+## Tests (`./lab.sh test`, 36 cases)
 | Suite | Checks |
 |---|---|
 | 01 management | every node on the OOB network with SSH, host names, host LAN addresses, MTU 9000 on all core links, config saved |
@@ -162,6 +192,7 @@ Locator structure: block 40 bits · node 24 bits · function 16 bits; the functi
 | 06 rr redundancy | every PE holds every remote VPN route once per reflector; **shutting p1's client sessions** (peer-group `shutdown`, restored in the teardown) leaves every VRF route, every SRv6 encap route and every in-tenant ping intact via p3; the sessions come back after the restore |
 | 07 steering | `steer add` installs the 3-segment route; captures on p1/p3 show the SRH `[pe3-DT4, p3, p1]` with segleft 1 then 0, p2 carries none of it, pings work, the return path crosses p2; `steer del` restores the BGP route |
 | 08 failover | BFD up on all 24 adjacencies; silent cut of p2–pe3 with a live 0.2 s ping: pe3 moves every tenant route to p3 within seconds, BFD reports Down, ≤ 10 packets lost across cut and repair (measured: 4); all BFD sessions and adjacencies back afterwards |
+| 09 nautobot | every device/link/address/VRF/RD/peering in Nautobot matches the inventory; Nautobot's rendering == lab.conf's; every rendered line present on the routers |
 | 05 end to end | every host reaches every host of its tenant (2 × 4×3 pings) and **none of the other tenant's**, not even at the same site; dc1→dc3 traffic transits p2 with `tcpdump` showing `IP6 fd00:a::1 > fd00:c:3:…` both ways; P routers hold no VRF and no tenant routes |
 
 Every run lands in `results/<timestamp>/` — `report.html`, `log.html`, `output.xml`, and `configs/{pre-run,post-run}/` with
@@ -179,7 +210,9 @@ a terminal page; run it with the cat8000v-ipsec `webapp/.venv` python).
 | Path | Purpose |
 |---|---|
 | `lab.conf` | the topology: nodes, roles, addresses, `LINKS`, service parameters (AS, VRF, RT, RR) |
-| `lab.sh` | libvirt controller: `up down bootstrap configure steer wait status inventory verify test console ssh log rebuild clean` |
+| `lab.sh` | libvirt controller: `up down bootstrap configure steer nautobot wait status inventory verify test console ssh log rebuild clean` |
+| `nautobot/seed.py`, `nautobot/render.py`, `nautobot/srv6-core-model.graphql` | model the lab in Nautobot; render the configs from it; the saved query |
+| `tools/render.py` | the one config renderer (inventory → VyOS `set` lines), used by `gen_configs.py` and `nautobot/render.py` |
 | `tools/steer.py` | explicit-path SRv6 steering (`add / del / show / sid`) |
 | `docs/demo/record.py` | records `docs/demo/srv6-demo.{gif,mp4}` from the live lab |
 | `docs/topology.pdf`, `docs/topology.py` | the topology as a two-page PDF (diagram, addressing, packet walk), drawn from `lab.sh inventory` — rerun the script after editing `lab.conf` |
@@ -217,7 +250,6 @@ a terminal page; run it with the cat8000v-ipsec `webapp/.venv` python).
   instance-id on every start so the hosts get their addresses back after a reboot.
 - **Don't run this alongside the cat9000v lab** (two 18 GiB Cat9kv); with the IPsec lab down there is ample headroom.
 
-## Next (not in this pass)
-Nautobot modelling on the shared NMS (needs a 5th NIC on `srv6-oob` as 10.3.0.10): devices with roles pe/p/ce/host,
-locations dc1..dc4 + core, platform vyos/cirros, the prefixes/VRF/RD/RT above, cables from `LINKS` —
-`./lab.sh inventory` is the seed input. Then rendering `vyos_config.txt` from Nautobot instead of `lab.conf`.
+## Next
+A tenant-provisioning portal on top of Nautobot (add tenant / add site: VRF, RT, RD, LANs, attachment circuits,
+hosts — pushed with `configure`, verified with the suites), Golden Config compliance for VyOS, TI-LFA, uSID.
