@@ -74,8 +74,8 @@ for n in inv["nodes"]:
              "pe": [f'{n["loopback6"]} · rid {n["router_id"]} · AS {n["asn"]}', f'locator {n["locator"]}'] + [f'VRF {t} · RD {S["core_as"]}:{S["tenants"][t]["table"] + n["idx"]} · End.DT4' for t in tn],
              "ce": [f'AS {n["asn"]} · eBGP → {n["pe"]} per tenant'] + [f'VRF {t}: {lans.get(t)}' for t in tn],
              "host": [f'{n["ports"][0]["ip"]} · gw .1', f'{n["ports"][0]["tenant"]}']}[n["role"]] if n["role"] != "p" else [
-                 f'{n["loopback6"]} · rid {n["router_id"]}', f'locator {n["locator"]}', "VPNv4 route reflector · AS 65000" if n["name"] == S["rr"] else "IPv6 forwarding only, no BGP / VRF"]
-    role = {"p": "P" + (" / RR" if n["name"] == S["rr"] else ""), "pe": "PE", "ce": "CE", "host": "host"}[n["role"]]
+                 f'{n["loopback6"]} · rid {n["router_id"]}', f'locator {n["locator"]}', "VPNv4 route reflector · AS 65000" if n["name"] in S["rrs"] else "IPv6 forwarding only, no BGP / VRF"]
+    role = {"p": "P" + (" / RR" if n["name"] in S["rrs"] else ""), "pe": "PE", "ce": "CE", "host": "host"}[n["role"]]
     svg.append(f'<g><rect x="{x-w/2}" y="{y-h/2}" width="{w}" height="{h}" rx="9" fill="{fill}" stroke="{stroke}" stroke-width="1.6"/>'
                f'<text x="{x-w/2+10}" y="{y-h/2+19}" class="name">{n["name"]}</text><text x="{x+w/2-10}" y="{y-h/2+19}" text-anchor="end" class="role">{role} · {n["mgmt_ip"]}</text>'
                + "".join(f'<text x="{x-w/2+10}" y="{y-h/2+19+14*(i+1)}" class="sub">{html.escape(t)}</text>' for i, t in enumerate(lines)) + "</g>")
@@ -112,7 +112,7 @@ BGP VPNv4 over SRv6 (End.DT4) reflected by p1; a VyOS CE per data centre with tw
 <div>
 <h2>Addressing</h2>
 <table><tr><th>Node</th><th>Role</th><th>OOB</th><th>Loopback</th><th>Router-id</th><th>IS-IS NET</th><th>SRv6 locator</th><th>AS</th></tr>
-{"".join(f'<tr><td><b>{n["name"]}</b></td><td>{n["role"]}{" (RR)" if n["name"] == S["rr"] else ""}</td><td>{n["mgmt_ip"]}</td><td>{n["loopback6"] or "–"}</td><td>{n["router_id"] or "–"}</td><td>{n["isis_net"] or "–"}</td><td>{n["locator"] or "–"}</td><td>{n["asn"] or "–"}</td></tr>' for n in inv["nodes"])}
+{"".join(f'<tr><td><b>{n["name"]}</b></td><td>{n["role"]}{" (RR)" if n["name"] in S["rrs"] else ""}</td><td>{n["mgmt_ip"]}</td><td>{n["loopback6"] or "–"}</td><td>{n["router_id"] or "–"}</td><td>{n["isis_net"] or "–"}</td><td>{n["locator"] or "–"}</td><td>{n["asn"] or "–"}</td></tr>' for n in inv["nodes"])}
 </table>
 <p class="foot">Links: core <code>fd00:b:0:&lt;ab&gt;::/64</code> (first end ::1), PE–CE <code>172.16.n.0/30</code> (PE .1), CE–host <code>172.20.n.0/24</code> (CE .1 = gateway).
 OOB network <code>{inv["oob"]["network"]}</code> 10.3.0.0/24 (host {inv["oob"]["gateway"]}), consoles 127.0.0.1:5301–5319.
@@ -125,7 +125,7 @@ Tenant-b uses PE–CE <code>172.17.n.0/30</code> and LANs <code>172.21.n.0/24</c
 <ol>
 <li><b>dc1-h1</b> 172.20.1.2 sends to 172.20.3.2 via its gateway <b>ce1</b> (172.20.1.1).</li>
 <li><b>ce1</b> has 172.20.3.0/24 from pe1 in its VRF tenant-a over that VRF's eBGP session → forwards to <b>pe1</b> 172.16.1.1 (VRF tenant-a on the PE too).</li>
-<li><b>pe1</b>: VRF route 172.20.3.0/24 = <code>encap seg6 segs 1 [ fd00:c:3:0:X:: ]</code> — the End.DT4 SID pe3 exported with the VPNv4 route (RD 65000:103, RT {S["tenants"]["tenant-a"]["rt"]}, next hop fd00:a::3) via the route reflector p1.
+<li><b>pe1</b>: VRF route 172.20.3.0/24 = <code>encap seg6 segs 1 [ fd00:c:3:0:X:: ]</code> — the End.DT4 SID pe3 exported with the VPNv4 route (RD 65000:103, RT {S["tenants"]["tenant-a"]["rt"]}, next hop fd00:a::3) via the route reflectors p1 and p3 (the PE keeps both copies; losing one reflector changes nothing).
 Outer IPv6 <code>{pe1["loopback6"]} → fd00:c:3:0:X::</code> + SRH.</li>
 <li><b>p2</b> (the only shortest path west→east) forwards plain IPv6 towards pe3's locator <code>{pe3["locator"]}</code> learned from IS-IS — no VRF, no IPv4 knowledge.</li>
 <li><b>pe3</b>: local SID <code>seg6local End.DT4 vrftable tenant-a</code> decapsulates and looks the inner packet up in the VRF → <b>ce3</b> 172.16.3.2 → <b>dc3-h1</b>.</li>

@@ -16,6 +16,7 @@ MGMT = {n: v["mgmt_ip"] for n, v in NODES.items()}
 LOOPBACK = {n: NODES[n]["loopback6"] for n in CORE}
 LOCATOR = {n: NODES[n]["locator"] for n in CORE}
 RR = SERVICE["rr"]
+RRS = SERVICE["rrs"]                                       # every PE peers with every reflector
 CORE_AS = SERVICE["core_as"]
 TENANTS = sorted(SERVICE["tenants"])                       # every tenant is a VRF on every PE
 VRF_TABLE = {t: v["table"] for t, v in SERVICE["tenants"].items()}

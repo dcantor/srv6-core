@@ -52,6 +52,15 @@ class LabLib:
         return text
 
     @keyword
+    def vyos_configure(self, host, *lines, timeout=180):
+        """Apply `set`/`delete` lines on a VyOS node (configure, lines, commit, save). Used by tests that change the lab
+        on purpose — they must restore it in their teardown so the pre/post configuration diff stays empty."""
+        out = self._conn(host).send_config_set(list(lines) + ["commit", "save"], exit_config_mode=True, cmd_verify=False, read_timeout=float(timeout))
+        logger.info(f"<pre>{host}# configure\n{chr(10).join(lines)}\ncommit; save\n{out[-1500:]}</pre>", html=True)
+        if re.search(r"Invalid|Commit failed|is not valid", out): raise AssertionError(f"configuration on {host} failed: {out[-500:]}")
+        return out
+
+    @keyword
     def close_all_connections(self):
         for c in self._ssh.values():
             try: c.disconnect()

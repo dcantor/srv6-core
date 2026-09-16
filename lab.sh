@@ -306,7 +306,7 @@ cmd_status() {
   echo; echo "links (point-to-point UDP tunnels):"
   local l a b pfx t; for l in "${LINKS[@]}"; do read -r a b pfx t <<<"$l"
     echo "  ${a%%:*} $(port_name "${a%%:*}" "${a##*:}") $(link_addr "${a%%:*}" "${a##*:}")  <->  ${b%%:*} $(port_name "${b%%:*}" "${b##*:}") $(link_addr "${b%%:*}" "${b##*:}")   ($pfx${t:+, $t})"; done
-  echo; for t in "${TENANTS[@]}"; do echo "VRF $t (table ${VRF_TABLE[$t]}, RT ${VRF_RT[$t]}): CE eBGP -> PE, VPNv4 over SRv6 End.DT4, route reflector $RR"; done
+  echo; for t in "${TENANTS[@]}"; do echo "VRF $t (table ${VRF_TABLE[$t]}, RT ${VRF_RT[$t]}): CE eBGP -> PE, VPNv4 over SRv6 End.DT4, route reflectors ${RRS[*]}"; done
 }
 
 cmd_inventory() {  # the lab as JSON (nodes, links, service) — consumed by tests/resources/lab_vars.py (and a future Nautobot seed)
@@ -314,7 +314,8 @@ cmd_inventory() {  # the lab as JSON (nodes, links, service) — consumed by tes
   {
     echo '{"lab": "srv6-core", "oob": {"network": "'"$OOB_NET"'", "gateway": "'"$OOB_GATEWAY"'"},'
     local t tj=""; for t in "${TENANTS[@]}"; do tj+="${tj:+, }\"$t\": {\"table\": ${VRF_TABLE[$t]}, \"rt\": \"${VRF_RT[$t]}\"}"; done
-    echo ' "service": {"core_as": '"$CORE_AS"', "rr": "'"$RR"'", "isis_area": "'"$ISIS_AREA"'", "tenants": {'"$tj"'}},'
+    local rj=""; for t in "${RRS[@]}"; do rj+="${rj:+, }\"$t\""; done
+    echo ' "service": {"core_as": '"$CORE_AS"', "rr": "'"$RR"'", "rrs": ['"$rj"'], "isis_area": "'"$ISIS_AREA"'", "tenants": {'"$tj"'}},'
     echo ' "nodes": ['
     local first=1
     for n in "${ALL_NODES[@]}"; do
@@ -365,7 +366,8 @@ cmd_verify() {     # a quick look at the control plane and the data plane end to
   echo "== IS-IS adjacencies (PEs: 2, p1: 4, p2: 6, p3: 4)"
   for n in "${PES[@]}" "${PS[@]}"; do echo "-- $n"; vy "$n" "show isis neighbor" | grep -E 'Up|Init|Down' || echo "   (none)"; done
   echo; echo "== SRv6 locators (IS-IS view on $RR)"; vy "$RR" "show isis segment-routing srv6 node"
-  echo; echo "== VPNv4 at the route reflector $RR"; vy "$RR" "show bgp ipv4 vpn summary" | grep -E '^fd00|Neighbor'; vy "$RR" "show bgp ipv4 vpn" | grep -E 'Route Distinguisher|\*>'
+  local r; for r in "${RRS[@]}"; do echo; echo "== VPNv4 at the route reflector $r"; vy "$r" "show bgp ipv4 vpn summary" | grep -E '^fd00|Neighbor'; done
+  vy "$RR" "show bgp ipv4 vpn" | grep -E 'Route Distinguisher|\*>'
   for n in "${PES[@]}"; do
     echo; echo "== $n: VRF routes with SRv6 encapsulation, local SIDs (one End.DT4 per tenant)"
     for t in "${TENANTS[@]}"; do echo "-- vrf $t"; vy "$n" "sudo ip -c=never route show vrf $t" | grep -E "^172" || true; done

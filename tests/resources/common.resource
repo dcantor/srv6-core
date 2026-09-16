@@ -26,3 +26,9 @@ Host
     [Arguments]    ${host}    ${command}
     ${out}=    Host Command    ${MGMT}[${host}]    ${command}
     RETURN    ${out}
+
+Configure
+    [Documentation]    Apply configuration lines on a VyOS node by name (commit + save).
+    [Arguments]    ${node}    @{lines}
+    ${out}=    Vyos Configure    ${MGMT}[${node}]    @{lines}
+    RETURN    ${out}

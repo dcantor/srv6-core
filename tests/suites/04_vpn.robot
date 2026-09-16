@@ -7,10 +7,18 @@ Resource          ../resources/common.resource
 Suite Teardown    Suite Teardown Close Connections
 
 *** Test Cases ***
-The route reflector has every PE established in the VPNv4 address family with prefixes received
-    ${sum}=    Vyos    ${RR}    show bgp ipv4 vpn summary
+Every route reflector has every PE established in the VPNv4 address family with prefixes received
+    FOR    ${rr}    IN    @{RRS}
+        ${sum}=    Vyos    ${rr}    show bgp ipv4 vpn summary
+        FOR    ${pe}    IN    @{PES}
+            Should Match Regexp    ${sum}    (?m)^${LOOPBACK}[${pe}]\\s+4\\s+${CORE_AS}\\s+\\d+\\s+\\d+\\s+\\d+\\s+\\d+\\s+\\d+\\s+\\S+\\s+[1-9]\\d*\\s    msg=${rr}: ${pe} is not Established with prefixes in VPNv4
+        END
+    END
     FOR    ${pe}    IN    @{PES}
-        Should Match Regexp    ${sum}    (?m)^${LOOPBACK}[${pe}]\\s+4\\s+${CORE_AS}\\s+\\d+\\s+\\d+\\s+\\d+\\s+\\d+\\s+\\d+\\s+\\S+\\s+[1-9]\\d*\\s    msg=${RR}: ${pe} is not Established with prefixes in VPNv4
+        ${sum}=    Vyos    ${pe}    show bgp ipv4 vpn summary
+        FOR    ${rr}    IN    @{RRS}
+            Should Match Regexp    ${sum}    (?m)^${LOOPBACK}[${rr}]\\s+4\\s+${CORE_AS}\\s.*\\s[1-9]\\d*\\s+\\d+\\s    msg=${pe}: session to reflector ${rr} not Established with prefixes
+        END
     END
 
 The route reflector holds every data-centre LAN of every tenant under its PE's route distinguisher with the PE as next hop

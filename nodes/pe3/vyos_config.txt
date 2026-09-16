@@ -37,7 +37,7 @@ set protocols isis interface lo passive
 set protocols isis interface dum0 passive
 set protocols isis segment-routing srv6 locator main
 set protocols isis segment-routing srv6 interface dum0
-# BGP: VPNv4 to the route reflector p1 over the IPv6 loopbacks (extended next hop), SRv6 SIDs from locator main
+# BGP: VPNv4 to the route reflectors p1, p3 over the IPv6 loopbacks (extended next hop), SRv6 SIDs from locator main
 set protocols bgp system-as 65000
 set protocols bgp parameters router-id 10.255.0.3
 set protocols bgp parameters log-neighbor-changes
@@ -47,6 +47,11 @@ set protocols bgp neighbor fd00:a::11 description 'p1 route reflector'
 set protocols bgp neighbor fd00:a::11 update-source fd00:a::3
 set protocols bgp neighbor fd00:a::11 capability extended-nexthop
 set protocols bgp neighbor fd00:a::11 address-family ipv4-vpn
+set protocols bgp neighbor fd00:a::13 remote-as 65000
+set protocols bgp neighbor fd00:a::13 description 'p3 route reflector'
+set protocols bgp neighbor fd00:a::13 update-source fd00:a::3
+set protocols bgp neighbor fd00:a::13 capability extended-nexthop
+set protocols bgp neighbor fd00:a::13 address-family ipv4-vpn
 # tenant VRF tenant-a (table 100, RT 65000:100, RD 65000:103): attachment circuit eth3 to ce3 eth1
 set vrf name tenant-a table 100
 set interfaces ethernet eth3 vrf tenant-a

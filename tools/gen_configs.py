@@ -9,7 +9,7 @@ LAB_DIR = Path(__file__).resolve().parents[1]
 inv = json.loads(subprocess.run([str(LAB_DIR / "lab.sh"), "inventory"], capture_output=True, text=True, check=True).stdout)
 SVC = inv["service"]; NODES = {n["name"]: n for n in inv["nodes"]}
 PES = [n for n in inv["nodes"] if n["role"] == "pe"]
-RR = NODES[SVC["rr"]]
+RR = NODES[SVC["rr"]]; RRS = [NODES[r] for r in SVC["rrs"]]
 
 
 def identity(n):
@@ -52,12 +52,13 @@ def pe(n):
     attached_ps = sorted({p["peer"] for p in core_ports(n) if NODES[p["peer"]]["role"] == "p"})
     block = ipaddress.ip_network(n["locator"]).supernet(new_prefix=40)   # the SRv6 block all locators are carved from
     out = identity(n) + underlay(n) + [
-        f"# BGP: VPNv4 to the route reflector {RR['name']} over the IPv6 loopbacks (extended next hop), SRv6 SIDs from locator main",
+        f"# BGP: VPNv4 to the route reflectors {', '.join(r['name'] for r in RRS)} over the IPv6 loopbacks (extended next hop), SRv6 SIDs from locator main",
         f"set protocols bgp system-as {SVC['core_as']}", f"set protocols bgp parameters router-id {n['router_id']}", "set protocols bgp parameters log-neighbor-changes",
-        "set protocols bgp srv6 locator main",
-        f"set protocols bgp neighbor {RR['loopback6']} remote-as {SVC['core_as']}", f"set protocols bgp neighbor {RR['loopback6']} description '{RR['name']} route reflector'",
-        f"set protocols bgp neighbor {RR['loopback6']} update-source {n['loopback6']}", f"set protocols bgp neighbor {RR['loopback6']} capability extended-nexthop",
-        f"set protocols bgp neighbor {RR['loopback6']} address-family ipv4-vpn"]
+        "set protocols bgp srv6 locator main"]
+    for r in RRS:
+        out += [f"set protocols bgp neighbor {r['loopback6']} remote-as {SVC['core_as']}", f"set protocols bgp neighbor {r['loopback6']} description '{r['name']} route reflector'",
+                f"set protocols bgp neighbor {r['loopback6']} update-source {n['loopback6']}", f"set protocols bgp neighbor {r['loopback6']} capability extended-nexthop",
+                f"set protocols bgp neighbor {r['loopback6']} address-family ipv4-vpn"]
     for ce_port in [p for p in n["ports"] if p["peer"] and NODES[p["peer"]]["role"] == "ce"]:
         vrf = ce_port["tenant"]; t = SVC["tenants"][vrf]; ce = NODES[ce_port["peer"]]
         ce_ip = str(ipaddress.ip_interface(ce_port["ip"]).network.network_address + 2); rd = f"{SVC['core_as']}:{t['table'] + n['idx']}"
@@ -81,8 +82,8 @@ def pe(n):
 
 def p(n):
     out = identity(n) + underlay(n)
-    if n["name"] == RR["name"]:
-        out += [f"# VPNv4 route reflector for the PEs (no VRFs here; p routers only forward IPv6)",
+    if n["name"] in SVC["rrs"]:
+        out += [f"# VPNv4 route reflector for the PEs (no VRFs here; p routers only forward IPv6); the PEs peer with every reflector",
                 f"set protocols bgp system-as {SVC['core_as']}", f"set protocols bgp parameters router-id {n['router_id']}", f"set protocols bgp parameters cluster-id {n['router_id']}",
                 "set protocols bgp parameters log-neighbor-changes",
                 f"set protocols bgp peer-group RR-CLIENTS remote-as {SVC['core_as']}", f"set protocols bgp peer-group RR-CLIENTS update-source {n['loopback6']}",

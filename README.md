@@ -1,7 +1,7 @@
 # SRv6 WAN core lab — VyOS PEs, a P-router triangle and BGP L3VPN over SRv6
 
 A segment-routing-over-IPv6 service-provider core simulated on one Linux host with libvirt/KVM: four **VyOS PEs**
-(one per data centre), three **VyOS P routers** in a triangle (p1 is also the VPNv4 route reflector), a **VyOS CE**
+(one per data centre), three **VyOS P routers** in a triangle (p1 and p3 are also VPNv4 route reflectors), a **VyOS CE**
 per data centre serving **two tenants** — `tenant-a` (host h1) and `tenant-b` (host h2) — each in its own VRF on the
 CE and over its own attachment circuit into its own VRF on the PE, and a **CirrOS host** per tenant per site. The core is IPv6-only with IS-IS level-2 carrying the SRv6 locators; each tenant's IPv4 prefixes travel
 as BGP VPNv4 routes whose next hop is that tenant's **SRv6 End.DT4 SID** on the remote PE, so every h1 reaches every
@@ -16,7 +16,7 @@ RAM, all VyOS nodes 1 vCPU / 1 GiB.
                    | eth3 172.17.n.0/30 → PE VRF tenant-b          |                   |                   |
  PEs   (VyOS)     pe1 fd00:c:1::/64     pe2 fd00:c:2::/64              pe3 fd00:c:3::/64     pe4 fd00:c:4::/64
                    |    \      /    |                                   |    \      /    |
- P core (VyOS)    p1 (RR) ---------- p2 ------------------------------ p3      IS-IS L2, IPv6-only, MTU 9000
+ P core (VyOS)    p1 (RR) ---------- p2 ------------------------------ p3 (RR)  IS-IS L2, IPv6-only, MTU 9000
                   fd00:a::11         fd00:a::12                        fd00:a::13
 ```
 pe1/pe2 are dual-homed to p1+p2, pe3/pe4 to p2+p3, so every west↔east path crosses p2 (the tests use that).
@@ -40,7 +40,7 @@ Credentials: VyOS `vyos`/`vyos` (`./lab.sh ssh pe1`), CirrOS `cirros`/`gocubsgo`
 | Underlay | IPv6-only, IS-IS level-2 point-to-point on every core link (`fd00:b::/48`, one /64 per link, MTU 9000), loopbacks `fd00:a::/48` | every PE and P |
 | SRv6 | one locator per node from `fd00:c::/40` (block 40 / node 24 / function 16 bits → a /64 each), advertised by IS-IS (`segment-routing srv6`) and also carried by the passive `dum0` interface that holds the local SIDs; encapsulation source = loopback | every PE and P |
 | Service | one VRF per tenant on every PE — `tenant-a` (table 100, RT 65000:100, RD 65000:10*n*) and `tenant-b` (table 200, RT 65000:200, RD 65000:20*n*) — each with its own attachment circuit and eBGP session to the CE, VPNv4 to the route reflector over the IPv6 loopbacks with `capability extended-nexthop`, `sid vpn export auto` → one End.DT4 SID per tenant | PEs |
-| Route reflection | p1, peer-group `RR-CLIENTS`, VPNv4 only — p2/p3 run no BGP and know nothing about the tenant | p1 |
+| Route reflection | p1 **and p3**, each with peer-group `RR-CLIENTS`, VPNv4 only; every PE peers with both and holds each VPN route twice (different cluster-ids), so losing a reflector changes nothing — p2 runs no BGP and knows nothing about the tenants | p1, p3 |
 | Access | the CE keeps the tenants apart too: VRF `tenant-a` (eth1 to the PE, eth2 LAN `172.20.n.0/24`, host h1) and VRF `tenant-b` (eth3 to the PE, eth4 LAN `172.21.n.0/24`, host h2); each VRF runs its own eBGP session announcing its LAN and learning the other three; the CE's default VRF carries only OOB management (plus the empty default BGP instance VyOS insists on while VRF instances exist) | CEs, hosts |
 
 What the data plane looks like on a PE (`sudo ip route show vrf tenant-a` / `sudo ip -6 route | grep seg6local`):
@@ -69,7 +69,7 @@ set vrf name tenant-a protocols static route6 fd00:c::/40 next-hop fd00:a::12 vr
 | node | role | OOB (srv6-oob) | loopback | router-id | IS-IS NET | locator | AS |
 |---|---|---|---|---|---|---|---|
 | pe1..pe4 | pe | 10.3.0.11-14 | fd00:a::1-4 | 10.255.0.1-4 | 49.0001.0000.0000.000*n*.00 | fd00:c:*n*::/64 | 65000 |
-| p1 (RR), p2, p3 | p | 10.3.0.21-23 | fd00:a::11-13 | 10.255.0.11-13 | …0011/0012/0013.00 | fd00:c:11-13::/64 | 65000 (p1) |
+| p1 (RR), p2, p3 (RR) | p | 10.3.0.21-23 | fd00:a::11-13 | 10.255.0.11-13 | …0011/0012/0013.00 | fd00:c:11-13::/64 | 65000 (p1, p3) |
 | ce1..ce4 | ce | 10.3.0.31-34 | – | 172.20.*n*.1 | – | – | 6500*n* |
 | dc*n*-h1 | host (tenant-a) | 10.3.0.41-44 | – | – | – | – | – |
 | dc*n*-h2 | host (tenant-b) | 10.3.0.51-54 | – | – | – | – | – |
@@ -80,22 +80,30 @@ tenant-a: PE–CE `172.16.n.0/30` (PE .1), CE–host `172.20.n.0/24`; tenant-b: 
 `lab.conf` gets the first address. `./lab.sh status` prints every link with both addresses, `./lab.sh inventory`
 the whole lab as JSON (what the tests read; a future Nautobot seed would too).
 
-## Tests (`./lab.sh test`, 19 cases)
+## Tests (`./lab.sh test`, 22 cases)
 | Suite | Checks |
 |---|---|
 | 01 management | every node on the OOB network with SSH, host names, host LAN addresses, MTU 9000 on all core links, config saved |
 | 02 underlay | exactly the expected IS-IS L2 adjacencies (2/4/6/4/2), every loopback via IS-IS, PE↔PE pings incl. 1600-byte DF (headroom for the encapsulation) |
 | 03 srv6 | locator Up with 40/24/16 on all 7 nodes, all 7 in `show isis segment-routing srv6 node`, all locators in every RIB, End / End.X SIDs and exactly one End.DT4 SID per tenant VRF in the kernel, seg6 enabled per core interface |
-| 04 vpn | per tenant: 4 RR clients Established, every LAN under its RD at the RR, remote LANs imported into the right VRF only (no prefix of the other tenant) with a SID inside the right locator and a recursive seg6 route, CEs learn the other three LANs in the tenant's own VRF over that VRF's session, nothing in the default VRF |
+| 04 vpn | per tenant: 4 clients Established at **both** reflectors and both reflector sessions up on every PE, every LAN under its RD at the RR, remote LANs imported into the right VRF only (no prefix of the other tenant) with a SID inside the right locator and a recursive seg6 route, CEs learn the other three LANs in the tenant's own VRF over that VRF's session, nothing in the default VRF |
+| 06 rr redundancy | every PE holds every remote VPN route once per reflector; **shutting p1's client sessions** (peer-group `shutdown`, restored in the teardown) leaves every VRF route, every SRv6 encap route and every in-tenant ping intact via p3; the sessions come back after the restore |
 | 05 end to end | every host reaches every host of its tenant (2 × 4×3 pings) and **none of the other tenant's**, not even at the same site; dc1→dc3 traffic transits p2 with `tcpdump` showing `IP6 fd00:a::1 > fd00:c:3:…` both ways; P routers hold no VRF and no tenant routes |
 
 Every run captures `show configuration commands` of all VyOS nodes before and after and diffs them (`results/<ts>/configs/`).
+
+## Demo
+`docs/demo/srv6-demo.mp4` / `.gif` (≈2 min): status, IS-IS + SRv6 nodes, the SIDs on a PE, VPNv4 at the reflector and
+the VRF routes, the 8×8 tenant ping matrix, the p1 reflector being shut and restored with nothing changing for the
+tenants, and the Robot summary. Recorded from the live lab by `docs/demo/record.py` (real command output replayed in
+a terminal page; run it with the cat8000v-ipsec `webapp/.venv` python).
 
 ## What is where
 | Path | Purpose |
 |---|---|
 | `lab.conf` | the topology: nodes, roles, addresses, `LINKS`, service parameters (AS, VRF, RT, RR) |
 | `lab.sh` | libvirt controller: `up down bootstrap configure wait status inventory verify test console ssh log rebuild clean` |
+| `docs/demo/record.py` | records `docs/demo/srv6-demo.{gif,mp4}` from the live lab |
 | `docs/topology.pdf`, `docs/topology.py` | the topology as a two-page PDF (diagram, addressing, packet walk), drawn from `lab.sh inventory` — rerun the script after editing `lab.conf` |
 | `tools/gen_configs.py` | renders `nodes/<n>/vyos_config.txt` (the day-0 `set` lines) from `lab.sh inventory` — run after editing `lab.conf` |
 | `tools/vyos_console.py`, `tools/vyos_push.py` | serial-console helper (first boot) and the SSH equivalent (`configure`) |

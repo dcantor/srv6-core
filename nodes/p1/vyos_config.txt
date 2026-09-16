@@ -47,7 +47,7 @@ set protocols isis interface lo passive
 set protocols isis interface dum0 passive
 set protocols isis segment-routing srv6 locator main
 set protocols isis segment-routing srv6 interface dum0
-# VPNv4 route reflector for the PEs (no VRFs here; p routers only forward IPv6)
+# VPNv4 route reflector for the PEs (no VRFs here; p routers only forward IPv6); the PEs peer with every reflector
 set protocols bgp system-as 65000
 set protocols bgp parameters router-id 10.255.0.11
 set protocols bgp parameters cluster-id 10.255.0.11
