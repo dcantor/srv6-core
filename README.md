@@ -20,7 +20,13 @@ RAM, all VyOS nodes 1 vCPU / 1 GiB.
                   fd00:a::11         fd00:a::12                        fd00:a::13
 ```
 pe1/pe2 are dual-homed to p1+p2, pe3/pe4 to p2+p3, so every west↔east path crosses p2 (the tests use that).
-A drawn version with every interface and prefix: [docs/topology.pdf](docs/topology.pdf).
+
+![SRv6 core lab topology](docs/topology.png)
+
+Orange links are the IPv6 core (IS-IS, SRv6); grey and purple are the tenant-a and tenant-b access links (IPv4).
+Every box carries the node's loopback, router-id, locator, AS and VRFs/RDs; every link its prefix and both interface
+names. Generated from `lab.conf` by `docs/topology.py`; the same drawing with the tables below is
+[docs/topology.pdf](docs/topology.pdf).
 
 ## Quick start
 ```bash
@@ -66,19 +72,62 @@ set vrf name tenant-a protocols static route6 fd00:c::/40 next-hop fd00:a::12 vr
 (Leaking through BGP `import vrf default` does not work: the IS-IS next hops are link-local and fail nexthop validation.)
 
 ## Addressing
-| node | role | OOB (srv6-oob) | loopback | router-id | IS-IS NET | locator | AS |
+| Node | Role | OOB (srv6-oob) | Loopback | Router-id | IS-IS NET | SRv6 locator | AS |
 |---|---|---|---|---|---|---|---|
-| pe1..pe4 | pe | 10.3.0.11-14 | fd00:a::1-4 | 10.255.0.1-4 | 49.0001.0000.0000.000*n*.00 | fd00:c:*n*::/64 | 65000 |
-| p1 (RR), p2, p3 (RR) | p | 10.3.0.21-23 | fd00:a::11-13 | 10.255.0.11-13 | …0011/0012/0013.00 | fd00:c:11-13::/64 | 65000 (p1, p3) |
-| ce1..ce4 | ce | 10.3.0.31-34 | – | 172.20.*n*.1 | – | – | 6500*n* |
+| pe1 | pe | 10.3.0.11 | fd00:a::1 | 10.255.0.1 | 49.0001.0000.0000.0001.00 | fd00:c:1::/64 | 65000 |
+| pe2 | pe | 10.3.0.12 | fd00:a::2 | 10.255.0.2 | 49.0001.0000.0000.0002.00 | fd00:c:2::/64 | 65000 |
+| pe3 | pe | 10.3.0.13 | fd00:a::3 | 10.255.0.3 | 49.0001.0000.0000.0003.00 | fd00:c:3::/64 | 65000 |
+| pe4 | pe | 10.3.0.14 | fd00:a::4 | 10.255.0.4 | 49.0001.0000.0000.0004.00 | fd00:c:4::/64 | 65000 |
+| p1 | p (RR) | 10.3.0.21 | fd00:a::11 | 10.255.0.11 | 49.0001.0000.0000.0011.00 | fd00:c:11::/64 | 65000 |
+| p2 | p | 10.3.0.22 | fd00:a::12 | 10.255.0.12 | 49.0001.0000.0000.0012.00 | fd00:c:12::/64 | – |
+| p3 | p (RR) | 10.3.0.23 | fd00:a::13 | 10.255.0.13 | 49.0001.0000.0000.0013.00 | fd00:c:13::/64 | 65000 |
+| ce1..ce4 | ce | 10.3.0.31-34 | – | 172.20.*n*.1 (tenant-a) / 172.21.*n*.1 (tenant-b) | – | – | 6500*n* |
 | dc*n*-h1 | host (tenant-a) | 10.3.0.41-44 | – | – | – | – | – |
 | dc*n*-h2 | host (tenant-b) | 10.3.0.51-54 | – | – | – | – | – |
+
+| Link | Prefix | First end (::1 / .1) | Second end (::2 / .2) |
+|---|---|---|---|
+| p1–p2, p1–p3, p2–p3 | fd00:b:0:12::/64, fd00:b:0:13::/64, fd00:b:0:23::/64 | p1 eth1, p1 eth2, p2 eth2 | p2 eth1, p3 eth1, p3 eth2 |
+| p1–pe1, p1–pe2 | fd00:b:0:101::/64, fd00:b:0:102::/64 | p1 eth3, p1 eth4 | pe1 eth1, pe2 eth1 |
+| p2–pe1, p2–pe2, p2–pe3, p2–pe4 | fd00:b:0:201::/64 … fd00:b:0:204::/64 | p2 eth3 … eth6 | pe*n* eth2 (pe1/pe2), eth1 (pe3/pe4) |
+| p3–pe3, p3–pe4 | fd00:b:0:303::/64, fd00:b:0:304::/64 | p3 eth3, p3 eth4 | pe3 eth2, pe4 eth2 |
+| pe*n*–ce*n* tenant-a | 172.16.*n*.0/30 | pe*n* eth3 | ce*n* eth1 |
+| pe*n*–ce*n* tenant-b | 172.17.*n*.0/30 | pe*n* eth4 | ce*n* eth3 |
+| ce*n*–dc*n*-h1 | 172.20.*n*.0/24 | ce*n* eth2 (gateway) | dc*n*-h1 eth1 |
+| ce*n*–dc*n*-h2 | 172.21.*n*.0/24 | ce*n* eth4 (gateway) | dc*n*-h2 eth1 |
+
+VRFs: `tenant-a` table 100, RT 65000:100, RD 65000:10*n*; `tenant-b` table 200, RT 65000:200, RD 65000:20*n* (*n* = PE
+number). OOB network `srv6-oob` 10.3.0.0/24, host 10.3.0.1; serial consoles 127.0.0.1:5301–5319.
 
 Links: core `fd00:b:0:<ab>::/64` (`ab` = the two node numbers, e.g. p1–p2 `fd00:b:0:12::/64`, p2–pe1 `fd00:b:0:201::/64`);
 tenant-a: PE–CE `172.16.n.0/30` (PE .1), CE–host `172.20.n.0/24`; tenant-b: PE–CE `172.17.n.0/30`, CE–host `172.21.n.0/24`
 (CE .1 = gateway, host .2). A fourth token on a `LINKS` entry names the tenant. The first end of a link in
 `lab.conf` gets the first address. `./lab.sh status` prints every link with both addresses, `./lab.sh inventory`
 the whole lab as JSON (what the tests read; a future Nautobot seed would too).
+
+## Packet walk: dc1-h1 → dc3-h1 (tenant-a, dc1 → dc3)
+1. **dc1-h1** 172.20.1.2 sends to 172.20.3.2 via its gateway **ce1** 172.20.1.1 (VRF tenant-a on the CE).
+2. **ce1** has 172.20.3.0/24 from pe1 over that VRF's eBGP session → forwards to **pe1** 172.16.1.1 (VRF tenant-a on the PE).
+3. **pe1**: the VRF route `172.20.3.0/24 encap seg6 segs 1 [ fd00:c:3:0:X:: ]` is the End.DT4 SID pe3 exported with the
+   VPNv4 route (RD 65000:103, RT 65000:100, next hop fd00:a::3) via the reflectors p1 and p3. pe1 wraps the packet in
+   `IPv6 fd00:a::1 → fd00:c:3:0:X::` + SRH.
+4. **p2** (the only shortest path west→east) forwards plain IPv6 towards pe3's locator `fd00:c:3::/64` learned from
+   IS-IS — no VRF, no IPv4 knowledge.
+5. **pe3**: its local SID `seg6local End.DT4 vrftable tenant-a` decapsulates and looks the inner packet up in the VRF →
+   **ce3** 172.16.3.2 → **dc3-h1**.
+6. The reply mirrors the path with pe1's SID. A packet from **dc1-h2** (tenant-b) takes the same core path but enters
+   through CE VRF tenant-b, the second attachment circuit, PE VRF tenant-b and pe3's *other* End.DT4 SID; it can never
+   reach a tenant-a address because no tenant-a route exists in any tenant-b table (different RTs).
+
+### Local SIDs on a PE (pe1)
+| SID | Behaviour | Installed by |
+|---|---|---|
+| `fd00:c:1::` | End (node SID) | IS-IS |
+| `fd00:c:1:0:X::` | End.X per core adjacency (eth1 → p1, eth2 → p2) | IS-IS |
+| `fd00:c:1:0:Y::`, `fd00:c:1:0:Z::` | End.DT4 → VRF tenant-a, End.DT4 → VRF tenant-b (one per tenant) | BGP (`sid vpn export auto` in each VRF) |
+
+Locator structure: block 40 bits · node 24 bits · function 16 bits; the function values are allocated by FRR at run time
+(they can change after a reconfiguration), which is why the tests only ever assert that a SID lies inside the right locator.
 
 ## Tests (`./lab.sh test`, 22 cases)
 | Suite | Checks |

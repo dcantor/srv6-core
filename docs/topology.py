@@ -148,5 +148,6 @@ if "--html-only" not in sys.argv:
         b = pw.chromium.launch(channel="chrome", headless=True); pg = b.new_page(viewport={"width": 1600, "height": 1100})
         pg.goto((OUT / "topology.html").as_uri()); pg.wait_for_load_state("networkidle")
         pg.pdf(path=str(OUT / "topology.pdf"), format="A3", landscape=True, print_background=True, margin={"top": "12mm", "bottom": "12mm", "left": "12mm", "right": "12mm"})
+        pg.locator("svg").screenshot(path=str(OUT / "topology.png"))   # the diagram alone, for the README
         b.close()
-    print(f"wrote docs/topology.pdf ({(OUT / 'topology.pdf').stat().st_size // 1024} KB)")
+    print(f"wrote docs/topology.pdf ({(OUT / 'topology.pdf').stat().st_size // 1024} KB) and docs/topology.png")
