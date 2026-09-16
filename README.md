@@ -116,7 +116,9 @@ Every run captures `show configuration commands` of all VyOS nodes before and af
   `address-family ipv4-unicast` gives End.DT4 (`protocols bgp sid vpn per-vrf export auto` would give End.DT46 — never both).
 - **VPNv4 over IPv6-only sessions** needs `capability extended-nexthop` on both the PE and the RR.
 - **MTU**: the 64-byte SRv6 overhead is absorbed by the 9000-byte core; hosts and CEs stay at 1500.
-- **CirrOS** is IPv4-only with busybox tools and dropbear (password auth only); its `meta-data` must be JSON.
+- **CirrOS** is IPv4-only with busybox tools and dropbear (password auth only); its `meta-data` must be JSON, and it
+  runs the `user-data` script once per instance-id — `lab.sh up` therefore regenerates the seed with a fresh
+  instance-id on every start so the hosts get their addresses back after a reboot.
 - **Don't run this alongside the cat9000v lab** (two 18 GiB Cat9kv); with the IPsec lab down there is ample headroom.
 
 ## Next (not in this pass)

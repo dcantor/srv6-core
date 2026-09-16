@@ -186,9 +186,18 @@ build_host() {
     echo "[$n] creating overlay disk on $(basename "$CIRROS_IMAGE")"
     qemu-img create -q -f qcow2 -b "$CIRROS_IMAGE" -F qcow2 "$d/disk.qcow2"
   fi
+  host_seed "$n"
+  host_xml "$n" > "$d/domain.xml"
+  V define "$d/domain.xml" >/dev/null
+}
+
+host_seed() {   # cloud-init NoCloud seed; a fresh instance-id every time so CirrOS re-runs the user-data script on every boot
+  local n="$1" d peer pn pp pfx end cidr gw; d="$(node_dir "$n")"
+  peer="$(link_peer "$n" 1)"; read -r pn pp pfx end <<<"$peer"
+  cidr="$(link_ip "$n" 1)"; gw="$(link_addr "$pn" "$pp")"
   echo "[$n] building cloud-init (NoCloud) seed ISO"
   # CirrOS parses meta-data as JSON (YAML meta-data fails with "json2fstree failed")
-  printf '{"instance-id": "%s-001", "local-hostname": "%s"}\n' "$n" "$n" > "$d/meta-data"
+  printf '{"instance-id": "%s-%s", "local-hostname": "%s"}\n' "$n" "$(date +%s)" "$n" > "$d/meta-data"
   # CirrOS runs a user-data script; it has no netplan/cloud-init network support
   cat > "$d/user-data" <<U
 #!/bin/sh
@@ -201,8 +210,6 @@ ip addr add $cidr dev eth1
 ip route replace default via $gw dev eth1
 U
   genisoimage -quiet -o "$d/seed.iso.tmp" -V cidata -J -r "$d/user-data" "$d/meta-data" && mv -f "$d/seed.iso.tmp" "$d/seed.iso"
-  host_xml "$n" > "$d/domain.xml"
-  V define "$d/domain.xml" >/dev/null
 }
 
 build() { if is_host "$1"; then build_host "$1"; else build_vyos "$1"; fi; }
@@ -227,6 +234,7 @@ cmd_up() {
   ensure_networks
   for n in $(nodes_or_all "$@"); do
     ours "$n"; defined "$n" || build "$n"
+    is_host "$n" && ! running "$n" && host_seed "$n" >/dev/null
     # pre-create the console log so virtlogd appends to our file instead of a root-only one
     [[ -f "$(node_dir "$n")/console.log" ]] || { touch "$(node_dir "$n")/console.log"; chmod 644 "$(node_dir "$n")/console.log"; }
     if running "$n"; then echo "[$n] already running"; else V start "$n"; echo "[$n] started (console: 127.0.0.1:${CONSOLE_PORT[$n]})"; fi
