@@ -42,6 +42,10 @@ set vrf name tenant-a table 100
 set interfaces ethernet eth3 vrf tenant-a
 set interfaces ethernet eth3 address 172.16.3.1/30
 set interfaces ethernet eth3 description 'tenant-a: ce3 eth1'
+# Linux scopes the SRv6 encapsulation's outer lookup to the ingress VRF for forwarded packets: leak the locator block into the
+# VRF table, recursively via the attached P routers' loopbacks (resolved by IS-IS, so ECMP and failover are kept)
+set vrf name tenant-a protocols static route6 fd00:c::/40 next-hop fd00:a::12 vrf default
+set vrf name tenant-a protocols static route6 fd00:c::/40 next-hop fd00:a::13 vrf default
 # BGP: VPNv4 to the route reflector p1 over the IPv6 loopbacks (extended next hop), SRv6 SIDs from locator main
 set protocols bgp system-as 65000
 set protocols bgp parameters router-id 10.255.0.3

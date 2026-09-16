@@ -12,6 +12,10 @@ V() { virsh -q -c "$LIBVIRT_URI" "$@"; }
 die() { echo "error: $*" >&2; exit 1; }
 node_dir() { echo "$LAB_DIR/nodes/$1"; }
 defined() { V dominfo "$1" &>/dev/null; }
+ours() {   # libvirt domain names are host-global: refuse to touch a same-named VM that belongs to another lab
+  defined "$1" || return 0
+  V dumpxml "$1" | grep -q "<source file='$(node_dir "$1")/" || die "a VM named $1 exists but is not part of this lab ($(V dumpxml "$1" | sed -n "s/.*<title>\(.*\)<\/title>.*/\1/p")) — rename it in lab.conf"
+}
 running() { [[ "$(V domstate "$1" 2>/dev/null)" == "running" ]]; }
 nodes_or_all() { [[ $# -gt 0 ]] && echo "$*" || echo "${ALL_NODES[*]}"; }
 is_host() { [[ "${ROLE[$1]}" == "host" ]]; }
@@ -222,7 +226,7 @@ bootstrap_vyos() {   # VyOS day-0 over the serial console (nodes/<n>/vyos_config
 cmd_up() {
   ensure_networks
   for n in $(nodes_or_all "$@"); do
-    defined "$n" || build "$n"
+    ours "$n"; defined "$n" || build "$n"
     # pre-create the console log so virtlogd appends to our file instead of a root-only one
     [[ -f "$(node_dir "$n")/console.log" ]] || { touch "$(node_dir "$n")/console.log"; chmod 644 "$(node_dir "$n")/console.log"; }
     if running "$n"; then echo "[$n] already running"; else V start "$n"; echo "[$n] started (console: 127.0.0.1:${CONSOLE_PORT[$n]})"; fi
@@ -350,8 +354,8 @@ cmd_verify() {     # a quick look at the control plane and the data plane end to
   echo; echo "== VPNv4 at the route reflector $RR"; vy "$RR" "show bgp ipv4 vpn summary" | grep -E '^fd00|Neighbor'; vy "$RR" "show bgp ipv4 vpn" | grep -E 'Route Distinguisher|\*>'
   for n in "${PES[@]}"; do
     echo; echo "== $n: VRF $VRF_NAME routes with SRv6 encapsulation, local End.DT4 SID"
-    vy "$n" "sudo ip route show vrf $VRF_NAME" | grep -E 'seg6|^172' || true
-    vy "$n" "sudo ip -6 route show" | grep seg6local || echo "   (no seg6local route!)"
+    vy "$n" "sudo ip -c=never route show vrf $VRF_NAME" | grep -E "^172" || true
+    vy "$n" "sudo ip -c=never -6 route show" | grep seg6local || echo "   (no seg6local route!)"
   done
   echo; echo "== ${CES[0]}: routes learned from ${PE_OF[${CES[0]}]}"; vy "${CES[0]}" "show ip route bgp" | grep -E '^B' || true
   echo; echo "== host ping matrix (${#HOSTS[@]} hosts, 3 pings each)"

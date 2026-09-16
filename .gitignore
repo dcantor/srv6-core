@@ -5,8 +5,8 @@ nodes/*/*.iso.tmp
 nodes/*/domain.xml
 nodes/*/console.log
 nodes/*/bootstrap.log
-nodes/host*/meta-data
-nodes/host*/user-data
+nodes/h*/meta-data
+nodes/h*/user-data
 *.qcow2
 images/
 tests/.venv/

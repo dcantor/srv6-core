@@ -11,7 +11,7 @@ set protocols static route 10.0.0.0/8 next-hop 10.3.0.1
 set interfaces ethernet eth1 address 172.16.3.2/30
 set interfaces ethernet eth1 description 'pe3 eth3 (tenant-a)'
 set interfaces ethernet eth2 address 172.20.3.1/24
-set interfaces ethernet eth2 description 'dc3 LAN: host3'
+set interfaces ethernet eth2 description 'dc3 LAN: h3'
 # eBGP to the PE: announce the LAN, learn the other data centres
 set protocols bgp system-as 65003
 set protocols bgp parameters router-id 172.20.3.1
