@@ -40,7 +40,7 @@ Every PE imports the other LANs of a tenant into that tenant's VRF with an SRv6 
                 ${detail}=    Shell    ${pe}    sudo vtysh -c 'show bgp vrf ${t} ipv4 unicast ${d}[lan]'
                 Should Contain    ${detail}    Imported from ${d}[rd]:${d}[lan]    msg=${pe}: ${d}[lan] not imported from RD ${d}[rd]
                 Should Match Regexp    ${detail}    (?m)^\\s*${LOOPBACK}[${d}[pe]] \\(metric    msg=${pe}: ${d}[lan] next hop is not ${d}[pe]
-                ${sid}=    Regex Findall    ${detail}    (?m)^\\s*Remote SID: ([0-9a-f:]+), sid structure=\\[40 24 16
+                ${sid}=    Regex Findall    ${detail}    (?m)^\\s*Remote SID: ([0-9a-f:]+), sid structure=\\[${SRV6}[block_len] ${SRV6}[node_len] ${SRV6}[func_bits]
                 Should Not Be Empty    ${sid}    msg=${pe}: no SRv6 SID with the lab's structure on ${d}[lan]
                 Ip In Network    ${sid}[0]    ${LOCATOR}[${d}[pe]]
                 Should Match Regexp    ${rib}    (?m)^B>\\s+${d}[lan] \\[200/0\\] via ${LOOPBACK}[${d}[pe]] \\(vrf default\\) \\(recursive\\), label \\d+, seg6 ([0-9a-f:]+)    msg=${pe}: ${d}[lan] is not a recursive SRv6 route via ${d}[pe] in the VRF RIB

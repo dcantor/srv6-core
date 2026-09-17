@@ -27,14 +27,16 @@ set interfaces ethernet eth5 mtu 9000
 set interfaces ethernet eth6 address fd00:b:0:204::1/64
 set interfaces ethernet eth6 description 'core: pe4 eth1'
 set interfaces ethernet eth6 mtu 9000
-# SRv6: the locator; dum0 carries the local SIDs (FRR installs them there) and, advertised passively by IS-IS, keeps the
-# locator reachable even when the IS-IS SRv6 sub-TLVs are not understood by a neighbour
-set interfaces dummy dum0 address fd00:c:12::1/64
-set interfaces dummy dum0 description 'SRv6 locator fd00:c:12::/64 (local SIDs)'
-set protocols segment-routing srv6 locator main prefix fd00:c:12::/64
-set protocols segment-routing srv6 locator main block-len 40
-set protocols segment-routing srv6 locator main node-len 24
+# SRv6: the locator (usid-f3216: block 32 / node 16 / function 16 bits); dum0 is where FRR installs
+# the local SIDs — addressed with a /128 so the connected route never outranks the locator's own End SID in zebra
+set interfaces dummy dum0 address fd00:c:12::1/128
+set interfaces dummy dum0 description 'SRv6 locator fd00:c:12::/48 (local SIDs)'
+set protocols segment-routing srv6 locator main prefix fd00:c:12::/48
+set protocols segment-routing srv6 locator main block-len 32
+set protocols segment-routing srv6 locator main node-len 16
 set protocols segment-routing srv6 locator main func-bits 16
+set protocols segment-routing srv6 locator main format usid-f3216
+set protocols segment-routing srv6 locator main behavior-usid
 set protocols segment-routing srv6 encapsulation source-address fd00:a::12
 set protocols segment-routing interface eth1 srv6
 set protocols segment-routing interface eth2 srv6

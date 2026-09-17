@@ -44,21 +44,28 @@ Credentials: VyOS `vyos`/`vyos` (`./lab.sh ssh pe1`), CirrOS `cirros`/`gocubsgo`
 | Layer | What | Where |
 |---|---|---|
 | Underlay | IPv6-only, IS-IS level-2 point-to-point on every core link (`fd00:b::/48`, one /64 per link, MTU 9000), loopbacks `fd00:a::/48` | every PE and P |
-| SRv6 | one locator per node from `fd00:c::/40` (block 40 / node 24 / function 16 bits → a /64 each), advertised by IS-IS (`segment-routing srv6`) and also carried by the passive `dum0` interface that holds the local SIDs; encapsulation source = loopback | every PE and P |
+| SRv6 | **uSID** (`format usid-f3216`, `behavior-usid`): one /48 locator per node from the /32 block `fd00:c::/32` (block 32 / node 16 / function 16 bits), advertised by IS-IS (`segment-routing srv6`); the local SIDs live on `dum0` (addressed /128 so its connected route never outranks the uN in zebra); encapsulation source = loopback | every PE and P |
 | Service | one VRF per tenant on every PE — `tenant-a` (table 100, RT 65000:100, RD 65000:10*n*) and `tenant-b` (table 200, RT 65000:200, RD 65000:20*n*) — each with its own attachment circuit and eBGP session to the CE, VPNv4 to the route reflector over the IPv6 loopbacks with `capability extended-nexthop`, `sid vpn export auto` → one End.DT4 SID per tenant | PEs |
 | Route reflection | p1 **and p3**, each with peer-group `RR-CLIENTS`, VPNv4 only; every PE peers with both and holds each VPN route twice (different cluster-ids), so losing a reflector changes nothing — p2 runs no BGP and knows nothing about the tenants | p1, p3 |
 | Access | the CE keeps the tenants apart too: VRF `tenant-a` (eth1 to the PE, eth2 LAN `172.20.n.0/24`, host h1) and VRF `tenant-b` (eth3 to the PE, eth4 LAN `172.21.n.0/24`, host h2); each VRF runs its own eBGP session announcing its LAN and learning the other three; the CE's default VRF carries only OOB management (plus the empty default BGP instance VyOS insists on while VRF instances exist) | CEs, hosts |
 
 What the data plane looks like on a PE (`sudo ip route show vrf tenant-a` / `sudo ip -6 route | grep seg6local`):
 ```
-172.20.3.0/24  encap seg6 mode encap segs 1 [ fd00:c:3:0:3:: ] via fe80::... dev eth2    # remote LAN → pe3's End.DT4 SID (tenant-a)
-fd00:c:1:0:3::  encap seg6local action End.DT4 vrftable tenant-a                        # our SIDs: one per tenant VRF
-fd00:c:1:0:4::  encap seg6local action End.DT4 vrftable tenant-b
-fd00:c:1::      encap seg6local action End dev dum0                                     # IS-IS End SID
-fd00:c:1:0:2::  encap seg6local action End.X nh6 fe80::... oif eth2                     # IS-IS adjacency SIDs
+172.20.3.0/24   encap seg6 mode encap segs 1 [ fd00:c:3:e000:: ] via fe80::... dev eth2  # remote LAN → pe3's uDT4 (tenant-a)
+fd00:c:1::/48   encap seg6local action End flavors next-csid lblen 32 nflen 16          # uN: the node's micro-SID (IS-IS)
+fd00:c:1:e000:: encap seg6local action End.X nh6 fe80::... oif eth2 flavors next-csid   # uA: one per adjacency (IS-IS)
+fd00:c:1:e002:: encap seg6local action End.DT4 vrftable tenant-a                        # uDT4: one per tenant VRF (BGP)
+fd00:c:1:e003:: encap seg6local action End.DT4 vrftable tenant-b
 ```
-SID function values are allocated by FRR at run time (they can change after a reconfiguration); the tests only assert
-that a SID lies inside the right locator.
+`show segment-routing srv6 sid` in vtysh lists them as uN / uA / uDT4. Function values are allocated by FRR at run time
+(they can change after a reconfiguration); the tests only assert that a SID lies inside the right locator.
+
+**Why uSID.** With a 32-bit block and 16-bit node ids, up to six micro-SIDs pack into one 128-bit segment: the steered path
+p1 → p3 → pe3 (tenant-b) is the single address `fd00:c:11:13:3:e001::`. Each uN owner shifts the address left by 16 bits
+(the kernel's NEXT-C-SID flavour): p1 forwards `fd00:c:13:3:e001::`, p3 forwards `fd00:c:3:e001::`, pe3 decapsulates with
+its uDT4 `e001`. The SRH shrinks from three segments (56 bytes) to one (24 bytes) — and only the destination address changes
+per hop. `steer add … --uncompressed` installs the classic three-address list for comparison; suite 07 checks both. The
+uncompressed format (`SRV6_FORMAT=uncompressed-f4024`, /64 locators from a /40) is still supported by the renderer and tests.
 
 ### The one thing that is not in the textbook
 Linux (6.18 here) scopes the **outer IPv6 lookup of the SRv6 encapsulation to the ingress VRF's table for forwarded
@@ -81,13 +88,13 @@ via p3→p1 half the time); per-locator entries keep the forwarding plane consis
 ## Addressing
 | Node | Role | OOB (srv6-oob) | Loopback | Router-id | IS-IS NET | SRv6 locator | AS |
 |---|---|---|---|---|---|---|---|
-| pe1 | pe | 10.3.0.11 | fd00:a::1 | 10.255.0.1 | 49.0001.0000.0000.0001.00 | fd00:c:1::/64 | 65000 |
-| pe2 | pe | 10.3.0.12 | fd00:a::2 | 10.255.0.2 | 49.0001.0000.0000.0002.00 | fd00:c:2::/64 | 65000 |
-| pe3 | pe | 10.3.0.13 | fd00:a::3 | 10.255.0.3 | 49.0001.0000.0000.0003.00 | fd00:c:3::/64 | 65000 |
-| pe4 | pe | 10.3.0.14 | fd00:a::4 | 10.255.0.4 | 49.0001.0000.0000.0004.00 | fd00:c:4::/64 | 65000 |
-| p1 | p (RR) | 10.3.0.21 | fd00:a::11 | 10.255.0.11 | 49.0001.0000.0000.0011.00 | fd00:c:11::/64 | 65000 |
-| p2 | p | 10.3.0.22 | fd00:a::12 | 10.255.0.12 | 49.0001.0000.0000.0012.00 | fd00:c:12::/64 | – |
-| p3 | p (RR) | 10.3.0.23 | fd00:a::13 | 10.255.0.13 | 49.0001.0000.0000.0013.00 | fd00:c:13::/64 | 65000 |
+| pe1 | pe | 10.3.0.11 | fd00:a::1 | 10.255.0.1 | 49.0001.0000.0000.0001.00 | fd00:c:1::/48 | 65000 |
+| pe2 | pe | 10.3.0.12 | fd00:a::2 | 10.255.0.2 | 49.0001.0000.0000.0002.00 | fd00:c:2::/48 | 65000 |
+| pe3 | pe | 10.3.0.13 | fd00:a::3 | 10.255.0.3 | 49.0001.0000.0000.0003.00 | fd00:c:3::/48 | 65000 |
+| pe4 | pe | 10.3.0.14 | fd00:a::4 | 10.255.0.4 | 49.0001.0000.0000.0004.00 | fd00:c:4::/48 | 65000 |
+| p1 | p (RR) | 10.3.0.21 | fd00:a::11 | 10.255.0.11 | 49.0001.0000.0000.0011.00 | fd00:c:11::/48 | 65000 |
+| p2 | p | 10.3.0.22 | fd00:a::12 | 10.255.0.12 | 49.0001.0000.0000.0012.00 | fd00:c:12::/48 | – |
+| p3 | p (RR) | 10.3.0.23 | fd00:a::13 | 10.255.0.13 | 49.0001.0000.0000.0013.00 | fd00:c:13::/48 | 65000 |
 | ce1..ce4 | ce | 10.3.0.31-34 | – | 172.20.*n*.1 (tenant-a) / 172.21.*n*.1 (tenant-b) | – | – | 6500*n* |
 | dc*n*-h1 | host (tenant-a) | 10.3.0.41-44 | – | – | – | – | – |
 | dc*n*-h2 | host (tenant-b) | 10.3.0.51-54 | – | – | – | – | – |
@@ -113,12 +120,13 @@ tenant-a: PE–CE `172.16.n.0/30` (PE .1), CE–host `172.20.n.0/24`; tenant-b: 
 the whole lab as JSON (what the tests read; a future Nautobot seed would too).
 
 ### Explicit-path steering (traffic engineering)
-`./lab.sh steer add pe1 tenant-b 172.21.3.0/24 p1 p3` pins a tenant prefix on a PE to the segment list
-`[p1 End, p3 End, pe3 End.DT4]` — the long way round the triangle instead of the IGP path via p2. It is a static route in
-the tenant VRF (`interface eth1 vrf default segments a/b/c`, the End.DT4 SID read live from the destination PE);
-`steer del` removes it, `steer show` lists policies. On the wire p1 sees
-`IP6 fd00:a::1 > fd00:c:13:: RT6 (segleft=1, [0]fd00:c:3:0:X::, [1]fd00:c:13::, [2]fd00:c:11::)` and p2 sees nothing;
-the reply still takes the shortest path back (asymmetric, as intended). Suite 07 does exactly this and cleans up.
+`./lab.sh steer add pe1 tenant-b 172.21.3.0/24 p1 p3` pins a tenant prefix on a PE to the path p1 → p3 → pe3 — the long
+way round the triangle instead of the IGP path via p2. It is a static route in the tenant VRF (`interface eth1 vrf default
+segments …`, the uDT4 SID read live from the destination PE); with uSID the tool packs the path into one carrier segment
+`fd00:c:11:13:3:e001::`, with `--uncompressed` (or uncompressed locators) it installs `[p1 End, p3 End, pe3 End.DT4]`.
+`steer del` removes it, `steer show` lists policies. On the wire p1 forwards `IP6 fd00:a::1 > fd00:c:13:3:e001::` (its own
+micro-SID consumed), p3 forwards `… > fd00:c:3:e001::`, and p2 sees nothing; the reply still takes the shortest path back
+(asymmetric, as intended). Suite 07 does exactly this and cleans up.
 
 ### Fast failure detection
 The point-to-point links are UDP tunnels that never lose carrier, so a dead neighbour is only visible through the
@@ -131,10 +139,10 @@ it is toggled — hence the firewall-style cut.)
 ## Packet walk: dc1-h1 → dc3-h1 (tenant-a, dc1 → dc3)
 1. **dc1-h1** 172.20.1.2 sends to 172.20.3.2 via its gateway **ce1** 172.20.1.1 (VRF tenant-a on the CE).
 2. **ce1** has 172.20.3.0/24 from pe1 over that VRF's eBGP session → forwards to **pe1** 172.16.1.1 (VRF tenant-a on the PE).
-3. **pe1**: the VRF route `172.20.3.0/24 encap seg6 segs 1 [ fd00:c:3:0:X:: ]` is the End.DT4 SID pe3 exported with the
+3. **pe1**: the VRF route `172.20.3.0/24 encap seg6 segs 1 [ fd00:c:3:e000:: ]` is the uDT4 SID pe3 exported with the
    VPNv4 route (RD 65000:103, RT 65000:100, next hop fd00:a::3) via the reflectors p1 and p3. pe1 wraps the packet in
-   `IPv6 fd00:a::1 → fd00:c:3:0:X::` + SRH.
-4. **p2** (the only shortest path west→east) forwards plain IPv6 towards pe3's locator `fd00:c:3::/64` learned from
+   `IPv6 fd00:a::1 → fd00:c:3:e000::` + SRH.
+4. **p2** (the only shortest path west→east) forwards plain IPv6 towards pe3's locator `fd00:c:3::/48` learned from
    IS-IS — no VRF, no IPv4 knowledge.
 5. **pe3**: its local SID `seg6local End.DT4 vrftable tenant-a` decapsulates and looks the inner packet up in the VRF →
    **ce3** 172.16.3.2 → **dc3-h1**.
@@ -145,12 +153,12 @@ it is toggled — hence the firewall-style cut.)
 ### Local SIDs on a PE (pe1)
 | SID | Behaviour | Installed by |
 |---|---|---|
-| `fd00:c:1::` | End (node SID) | IS-IS |
-| `fd00:c:1:0:X::` | End.X per core adjacency (eth1 → p1, eth2 → p2) | IS-IS |
-| `fd00:c:1:0:Y::`, `fd00:c:1:0:Z::` | End.DT4 → VRF tenant-a, End.DT4 → VRF tenant-b (one per tenant) | BGP (`sid vpn export auto` in each VRF) |
+| `fd00:c:1::/48` | uN — the node's micro-SID (End with the NEXT-C-SID flavour: shift left 16 bits and forward) | IS-IS |
+| `fd00:c:1:e000::`, `fd00:c:1:e001::` | uA — End.X per core adjacency (eth2 → p2, eth1 → p1) | IS-IS |
+| `fd00:c:1:e002::`, `fd00:c:1:e003::` | uDT4 — End.DT4 → VRF tenant-a, → VRF tenant-b (one per tenant) | BGP (`sid vpn export auto` in each VRF) |
 
-Locator structure: block 40 bits · node 24 bits · function 16 bits; the function values are allocated by FRR at run time
-(they can change after a reconfiguration), which is why the tests only ever assert that a SID lies inside the right locator.
+Locator structure (usid-f3216): block 32 bits · node 16 bits · function 16 bits; the function values are allocated by FRR at
+run time (they can change after a reconfiguration), which is why the tests only ever assert that a SID lies inside the right locator.
 
 ## The tenant provisioning portal
 `./lab.sh webapp` (or the systemd user unit `srv6-webapp`) serves **http://192.168.50.231:8091** — Swagger at `/docs`.
@@ -219,10 +227,10 @@ choice fields upper-cased, and new custom fields need a Nautobot restart before 
 |---|---|
 | 01 management | every node on the OOB network with SSH, host names, host LAN addresses, MTU 9000 on all core links, config saved |
 | 02 underlay | exactly the expected IS-IS L2 adjacencies (2/4/6/4/2), every loopback via IS-IS, PE↔PE pings incl. 1600-byte DF (headroom for the encapsulation) |
-| 03 srv6 | locator Up with 40/24/16 on all 7 nodes, all 7 in `show isis segment-routing srv6 node`, all locators in every RIB, End / End.X SIDs and exactly one End.DT4 SID per tenant VRF in the kernel, seg6 enabled per core interface |
+| 03 srv6 | locator Up with the lab's structure (usid-f3216, 32/16/16, uN with NEXT-C-SID) on all 7 nodes, all 7 in `show isis segment-routing srv6 node`, all locators in every RIB, End / End.X SIDs and exactly one End.DT4 SID per tenant VRF in the kernel, seg6 enabled per core interface |
 | 04 vpn | per tenant: 4 clients Established at **both** reflectors and both reflector sessions up on every PE, every LAN under its RD at the RR, remote LANs imported into the right VRF only (no prefix of the other tenant) with a SID inside the right locator and a recursive seg6 route, CEs learn the other three LANs in the tenant's own VRF over that VRF's session, nothing in the default VRF |
 | 06 rr redundancy | every PE holds every remote VPN route once per reflector; **shutting p1's client sessions** (peer-group `shutdown`, restored in the teardown) leaves every VRF route, every SRv6 encap route and every in-tenant ping intact via p3; the sessions come back after the restore |
-| 07 steering | `steer add` installs the 3-segment route; captures on p1/p3 show the SRH `[pe3-DT4, p3, p1]` with segleft 1 then 0, p2 carries none of it, pings work, the return path crosses p2; `steer del` restores the BGP route |
+| 07 steering | `steer add` installs the one-segment uSID carrier (`fd00:c:11:13:3:e001::`); captures on p1/p3 show the destination shifting hop by hop with the carrier in a one-segment SRH, p2 carries none of it, pings work, the return path crosses p2; the same path as an uncompressed three-segment list also works; `steer del` restores the BGP route |
 | 08 failover | BFD up on all 24 adjacencies; silent cut of p2–pe3 with a live 0.2 s ping: pe3 moves every tenant route to p3 within seconds, BFD reports Down, ≤ 10 packets lost across cut and repair (measured: 4); all BFD sessions and adjacencies back afterwards |
 | 09 nautobot | every device/link/address/VRF/RD/peering in Nautobot matches the inventory; Nautobot's rendering == lab.conf's; every rendered line present on the routers |
 | 05 end to end | every host reaches every host of its tenant (2 × 4×3 pings) and **none of the other tenant's**, not even at the same site; dc1→dc3 traffic transits p2 with `tcpdump` showing `IP6 fd00:a::1 > fd00:c:3:…` both ways; P routers hold no VRF and no tenant routes |
@@ -246,7 +254,8 @@ a terminal page; run it with the cat8000v-ipsec `webapp/.venv` python).
 | `lab.sh` | libvirt controller: `up down bootstrap configure steer nautobot wait status inventory verify test console ssh log rebuild clean` |
 | `nautobot/seed.py`, `nautobot/render.py`, `nautobot/srv6-core-model.graphql` | model the lab in Nautobot; render the configs from it; the saved query |
 | `tools/render.py` | the one config renderer (inventory → VyOS `set` lines), used by `gen_configs.py` and `nautobot/render.py` |
-| `tools/steer.py` | explicit-path SRv6 steering (`add / del / show / sid`) |
+| `tools/steer.py` | explicit-path SRv6 steering (`add / del / show / sid`; uSID carrier or `--uncompressed`) |
+| `tools/backup_configs.py` | `lab.sh backup`: running + intended configs and routing tables → the local Gitea (`lab/srv6-core-configs`); also the last step of every portal run |
 | `webapp/` | the tenant provisioning portal (FastAPI + single page; `restart.sh`, `srv6-webapp.service`) |
 | `docs/demo/record.py` | records `docs/demo/srv6-demo.{gif,mp4}` from the live lab |
 | `docs/topology.pdf`, `docs/topology.py` | the topology as a two-page PDF (diagram, addressing, packet walk), drawn from `lab.sh inventory` — rerun the script after editing `lab.conf` |
@@ -272,7 +281,8 @@ a terminal page; run it with the cat8000v-ipsec `webapp/.venv` python).
   first-boot login. Everything after that is SSH.
 - **VyOS SRv6 specifics** (rolling `current`): a locator needs `protocols segment-routing interface <if> srv6` on at
   least one interface (that is what enables `seg6_enabled`); IS-IS SRv6 needs `segment-routing srv6 interface dum0`
-  where the SIDs are installed; the VRF BGP instance needs its own `system-as`; `sid vpn export auto` under the VRF's
+  where the SIDs are installed — and with uSID that interface must **not** carry the locator prefix itself (zebra
+  prefers the connected /48 over the uN route for the same prefix; a /128 on `dum0` avoids it); the VRF BGP instance needs its own `system-as`; `sid vpn export auto` under the VRF's
   `address-family ipv4-unicast` gives End.DT4 (`protocols bgp sid vpn per-vrf export auto` would give End.DT46 — never both).
 - **VPNv4 over IPv6-only sessions** needs `capability extended-nexthop` on both the PE and the RR.
 - **Changing `rd vpn export` on a live VRF** (FRR 10) silently stops the export until `export vpn` is toggled off and on
@@ -285,4 +295,5 @@ a terminal page; run it with the cat8000v-ipsec `webapp/.venv` python).
 - **Don't run this alongside the cat9000v lab** (two 18 GiB Cat9kv); with the IPsec lab down there is ample headroom.
 
 ## Next
-Golden Config compliance for VyOS, TI-LFA, uSID, measured throughput between the hosts.
+TI-LFA / a full P-router failure, steering policies with fallback modelled in Nautobot, Golden Config compliance for VyOS,
+measured throughput between the hosts.

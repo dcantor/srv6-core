@@ -25,7 +25,8 @@ STEP_TITLES = {"validate": "Validate the allocation", "labconf": "Register in la
                "ces": "Re-wire the CE VMs (new attachment circuit and LAN ports)", "configure": "Push the configuration to the PEs and CEs (SSH)",
                "nautobot": "Nautobot source of truth (seed)", "verify": "Verify: tenant ping matrix, Nautobot rendering == lab.conf", "test": "Robot Framework tests",
                "rm_validate": "Validate the removal", "rm_hosts": "Power off and delete the host VMs", "rm_nautobot": "Remove the tenant from Nautobot",
-               "rm_labconf": "Remove from lab.conf, render the day-0 configs", "rm_configure": "Delete the VRF, interfaces and BGP on the PEs and CEs", "rm_ces": "Re-wire the CE VMs"}
+               "rm_labconf": "Remove from lab.conf, render the day-0 configs", "rm_configure": "Delete the VRF, interfaces and BGP on the PEs and CEs", "rm_ces": "Re-wire the CE VMs",
+               "backup": "Commit the configurations to Gitea"}
 TAGS = [{"name": "state", "description": "Tenants, sites, hosts and live state (eBGP per tenant, VRF routes, SIDs, host reachability), topology."},
         {"name": "provisioning", "description": "Suggest / validate a new tenant or a new site; plan a removal."},
         {"name": "steering", "description": "Explicit-path SRv6 steering policies (applied immediately)."},
@@ -78,7 +79,7 @@ class Run:
         else:
             steps = ["validate", "labconf", "hosts", "ces", "configure", "nautobot", "verify"]
         if self.options.get("test", True): steps.append("test")
-        return steps
+        steps.append("backup"); return steps
 
     def to_dict(self, with_log=True):
         d = {"id": self.id, "mode": self.mode, "status": self.status, "started": self.started, "finished": self.finished, "steps": self.steps, "tests": self.tests,
@@ -161,6 +162,9 @@ class Run:
             self.results_dir = str(latest.resolve().name); self.tests = parse_robot(latest / "output.xml")
             s["summary"] = f"{self.tests['passed']}/{self.tests['total']} passed"
         if rc != 0: raise RuntimeError(f"tests failed ({s['summary']})")
+
+    def do_backup(self, s):
+        self.sh([LAB / "lab.sh", "backup", "-m", f"portal run {self.id}: {self.mode} {(self.spec or {}).get('name', '')}".strip()], check=False); s["summary"] = "running + intended configs, routing tables"
 
     # ---- remove tenant ----------------------------------------------------------------------------------------
     def do_rm_validate(self, s):

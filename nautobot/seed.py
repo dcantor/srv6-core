@@ -132,14 +132,15 @@ def ensure_prefix(prefix, role, description, location=None, **more):
 ensure_prefix("10.3.0.0/24", "oob-management", f"srv6-core OOB network (libvirt {OOB['network']}, host {OOB['gateway']}, NMS 10.3.0.10)", location=site.id)
 ensure_prefix("fd00:a::/48", "loopback", "core loopbacks (IS-IS passive, BGP sessions, SRv6 encapsulation source)", location=site.id, type="container")
 ensure_prefix("fd00:b::/48", "wan-p2p", "core point-to-point links (/64 each, IS-IS level-2, MTU 9000)", location=site.id, type="container")
-ensure_prefix("fd00:c::/40", "srv6-locator", "SRv6 block: one /64 locator per core node (block 40 / node 24 / function 16 bits)", location=site.id, type="container")
+SR = SVC["srv6"]
+ensure_prefix(SR["block"], "srv6-locator", f"SRv6 block ({SR['format']}): one /{SR['block_len'] + SR['node_len']} locator per core node — block {SR['block_len']} / node {SR['node_len']} / function {SR['func_bits']} bits", location=site.id, type="container")
 ensure_prefix("10.255.0.0/24", "router-id", "BGP router-ids of the core nodes (not interface addresses)", location=site.id, type="container")
 for t in tenants:   # one /16 container per tenant and kind, derived from the tenant's links (172.(16+i) circuits, 172.(20+i) LANs)
     for kind, role, label in (("ac", "attachment-circuit", "PE-CE attachment circuits, {t} (/30 per site)"), ("lan", "site-lan", "{t} site LANs (/24 per DC)")):
         for sup in sorted({str(ipaddress.ip_network(l["prefix"]).supernet(new_prefix=16)) for l in inv["links"] if l.get("tenant") == t and (N[l["b"]]["role"] == "host") == (kind == "lan") and ipaddress.ip_network(l["prefix"]).version == 4}):
             ensure_prefix(sup, role, label.format(t=t), type="container", tenant=tenants[t].id)
 for n in inv["nodes"]:
-    if n.get("locator"): ensure_prefix(n["locator"], "srv6-locator", f"SRv6 locator of {n['name']} (End SID {n['locator'].split('/')[0]}, End.X / End.DT4 SIDs allocated by FRR)", location=loc_of(n).id)
+    if n.get("locator"): ensure_prefix(n["locator"], "srv6-locator", f"SRv6 locator of {n['name']} ({'uN' if SR['format'].startswith('usid') else 'End'} SID {n['locator'].split('/')[0]}; uA / uDT4 functions allocated by FRR)", location=loc_of(n).id)
 # VRFs (before the tenant prefixes, which belong to them)
 rts = {t: get_or_create(nb.ipam.route_targets, {"name": SVC["tenants"][t]["rt"]}, tenant=tenants[t].id, description=f"{t} import/export") for t in tenants}
 vrfs = {}
@@ -304,7 +305,7 @@ for pe in [n for n in inv["nodes"] if n["role"] == "pe"]:
 # ---- config context ---------------------------------------------------------------------------------------------------
 CTX = {"domain_name": "lab.local", "oob": {"network": OOB["network"], "gateway": OOB["gateway"], "nms": "10.3.0.10"},
        "isis": {"area": SVC["isis_area"], "level": "level-2", "metric_style": "wide", "network": "point-to-point", "bfd": True},
-       "srv6": {"block": "fd00:c::/40", "block_len": 40, "node_len": 24, "func_bits": 16, "locator_name": "main", "sid_interface": "dum0"},
+       "srv6": {**SR, "locator_name": "main", "sid_interface": "dum0", "behavior_usid": SR["format"].startswith("usid")},
        "core_mtu": 9000, "route_reflectors": SVC["rrs"], "tenants": {t: {"table": v["table"], "rt": v["rt"]} for t, v in SVC["tenants"].items()}}
 ctx = nb.extras.config_contexts.get(name=SITE)
 if ctx is None: nb.extras.config_contexts.create(name=SITE, description="SRv6 core lab constants (IS-IS, SRv6 structure, BFD, MTU, OOB, tenant tables)", locations=[site.id], data=CTX); created.append("config-context:srv6-core")

@@ -51,7 +51,7 @@ Tenant-b uses PE–CE <code>172.17.n.0/30</code> and LANs <code>172.21.n.0/24</c
 <ol>
 <li><b>dc1-h1</b> 172.20.1.2 sends to 172.20.3.2 via its gateway <b>ce1</b> (172.20.1.1).</li>
 <li><b>ce1</b> has 172.20.3.0/24 from pe1 in its VRF tenant-a over that VRF's eBGP session → forwards to <b>pe1</b> 172.16.1.1 (VRF tenant-a on the PE too).</li>
-<li><b>pe1</b>: VRF route 172.20.3.0/24 = <code>encap seg6 segs 1 [ fd00:c:3:0:X:: ]</code> — the End.DT4 SID pe3 exported with the VPNv4 route (RD 65000:103, RT {S["tenants"]["tenant-a"]["rt"]}, next hop fd00:a::3) via the route reflectors p1 and p3 (the PE keeps both copies; losing one reflector changes nothing).
+<li><b>pe1</b>: VRF route 172.20.3.0/24 = <code>encap seg6 segs 1 [ fd00:c:3:e0XX:: ]</code> — the End.DT4 SID pe3 exported with the VPNv4 route (RD 65000:103, RT {S["tenants"]["tenant-a"]["rt"]}, next hop fd00:a::3) via the route reflectors p1 and p3 (the PE keeps both copies; losing one reflector changes nothing).
 Outer IPv6 <code>{pe1["loopback6"]} → fd00:c:3:0:X::</code> + SRH.</li>
 <li><b>p2</b> (the only shortest path west→east) forwards plain IPv6 towards pe3's locator <code>{pe3["locator"]}</code> learned from IS-IS — no VRF, no IPv4 knowledge.</li>
 <li><b>pe3</b>: local SID <code>seg6local End.DT4 vrftable tenant-a</code> decapsulates and looks the inner packet up in the VRF → <b>ce3</b> 172.16.3.2 → <b>dc3-h1</b>.</li>
@@ -60,10 +60,10 @@ Outer IPv6 <code>{pe1["loopback6"]} → fd00:c:3:0:X::</code> + SRH.</li>
 </ol></div>
 <h2>Local SIDs on a PE (pe1)</h2>
 <table><tr><th>SID</th><th>Behaviour</th><th>Installed by</th></tr>
-<tr><td><code>fd00:c:1::</code></td><td>End (node SID)</td><td>IS-IS</td></tr>
-<tr><td><code>fd00:c:1:0:X::</code></td><td>End.X per core adjacency (eth1 → p1, eth2 → p2)</td><td>IS-IS</td></tr>
-<tr><td><code>fd00:c:1:0:Y::</code>, <code>fd00:c:1:0:Z::</code></td><td>End.DT4 → VRF tenant-a, End.DT4 → VRF tenant-b (one per tenant)</td><td>BGP (<code>sid vpn export auto</code> in each VRF)</td></tr></table>
-<p class="foot">Locator structure: block 40 bits · node 24 bits · function 16 bits; function values are allocated by FRR at run time.</p>
+<tr><td><code>fd00:c:1::/48</code></td><td>uN (End, NEXT-C-SID flavour: shift 16 bits, forward)</td><td>IS-IS</td></tr>
+<tr><td><code>fd00:c:1:e000::</code>, <code>fd00:c:1:e001::</code></td><td>uA — End.X per core adjacency</td><td>IS-IS</td></tr>
+<tr><td><code>fd00:c:1:e002::</code>, <code>fd00:c:1:e003::</code></td><td>uDT4 — End.DT4 → VRF tenant-a / tenant-b (one per tenant)</td><td>BGP (<code>sid vpn export auto</code> in each VRF)</td></tr></table>
+<p class="foot">uSID (usid-f3216): block 32 · node 16 · function 16 bits, /48 locators from fd00:c::/32; a steered path p1 → p3 → pe3 is the single segment <code>fd00:c:11:13:3:e001::</code>. Function values are allocated by FRR at run time.</p>
 </div></div>
 <p class="foot">Generated from <code>lab.conf</code> by <code>docs/topology.py</code> · https://github.com/dcantor/srv6-core</p>
 </body></html>"""

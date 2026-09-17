@@ -37,12 +37,13 @@ class _Renderer:
         for p in self.core_ports(n):
             out += [f"set interfaces ethernet {p['name']} address {p['ip']}", f"set interfaces ethernet {p['name']} description 'core: {p['peer']} {p['peer_port']}'",
                     f"set interfaces ethernet {p['name']} mtu 9000"]
-        loc = ipaddress.ip_network(n["locator"])
-        out += ["# SRv6: the locator; dum0 carries the local SIDs (FRR installs them there) and, advertised passively by IS-IS, keeps the",
-                "# locator reachable even when the IS-IS SRv6 sub-TLVs are not understood by a neighbour",
-                f"set interfaces dummy dum0 address {loc.network_address + 1}/{loc.prefixlen}", f"set interfaces dummy dum0 description 'SRv6 locator {n['locator']} (local SIDs)'",
-                f"set protocols segment-routing srv6 locator main prefix {n['locator']}", "set protocols segment-routing srv6 locator main block-len 40",
-                "set protocols segment-routing srv6 locator main node-len 24", "set protocols segment-routing srv6 locator main func-bits 16",
+        loc = ipaddress.ip_network(n["locator"]); sr = self.SVC["srv6"]; usid = sr["format"].startswith("usid")
+        out += [f"# SRv6: the locator ({sr['format']}: block {sr['block_len']} / node {sr['node_len']} / function {sr['func_bits']} bits); dum0 is where FRR installs",
+                "# the local SIDs — addressed with a /128 so the connected route never outranks the locator's own End SID in zebra",
+                f"set interfaces dummy dum0 address {loc.network_address + 1}/128", f"set interfaces dummy dum0 description 'SRv6 locator {n['locator']} (local SIDs)'",
+                f"set protocols segment-routing srv6 locator main prefix {n['locator']}", f"set protocols segment-routing srv6 locator main block-len {sr['block_len']}",
+                f"set protocols segment-routing srv6 locator main node-len {sr['node_len']}", f"set protocols segment-routing srv6 locator main func-bits {sr['func_bits']}",
+                f"set protocols segment-routing srv6 locator main format {sr['format']}"] + (["set protocols segment-routing srv6 locator main behavior-usid"] if usid else []) + [
                 f"set protocols segment-routing srv6 encapsulation source-address {n['loopback6']}"]
         out += [f"set protocols segment-routing interface {p['name']} srv6" for p in self.core_ports(n)]
         out += ["set system sysctl parameter net.ipv6.conf.all.seg6_enabled value 1",
@@ -77,7 +78,7 @@ class _Renderer:
     def pe(self, n):
         """One VRF per tenant: attachment circuit to the CE, eBGP to it, VPNv4 export/import with its own End.DT4 SID."""
         attached_ps = sorted({p["peer"] for p in self.core_ports(n) if self.NODES[p["peer"]]["role"] == "p"})
-        block = ipaddress.ip_network(n["locator"]).supernet(new_prefix=40)   # the SRv6 block all locators are carved from
+        block = ipaddress.ip_network(self.SVC["srv6"]["block"])   # the SRv6 block all locators are carved from
         first_hops = self.shortest_first_hops(n["name"])
         out = self.identity(n) + self.underlay(n) + [
             f"# BGP: VPNv4 to the route reflectors {', '.join(r['name'] for r in self.RRS)} over the IPv6 loopbacks (extended next hop), SRv6 SIDs from locator main",

@@ -15,14 +15,16 @@ set interfaces ethernet eth1 mtu 9000
 set interfaces ethernet eth2 address fd00:b:0:303::2/64
 set interfaces ethernet eth2 description 'core: p3 eth3'
 set interfaces ethernet eth2 mtu 9000
-# SRv6: the locator; dum0 carries the local SIDs (FRR installs them there) and, advertised passively by IS-IS, keeps the
-# locator reachable even when the IS-IS SRv6 sub-TLVs are not understood by a neighbour
-set interfaces dummy dum0 address fd00:c:3::1/64
-set interfaces dummy dum0 description 'SRv6 locator fd00:c:3::/64 (local SIDs)'
-set protocols segment-routing srv6 locator main prefix fd00:c:3::/64
-set protocols segment-routing srv6 locator main block-len 40
-set protocols segment-routing srv6 locator main node-len 24
+# SRv6: the locator (usid-f3216: block 32 / node 16 / function 16 bits); dum0 is where FRR installs
+# the local SIDs — addressed with a /128 so the connected route never outranks the locator's own End SID in zebra
+set interfaces dummy dum0 address fd00:c:3::1/128
+set interfaces dummy dum0 description 'SRv6 locator fd00:c:3::/48 (local SIDs)'
+set protocols segment-routing srv6 locator main prefix fd00:c:3::/48
+set protocols segment-routing srv6 locator main block-len 32
+set protocols segment-routing srv6 locator main node-len 16
 set protocols segment-routing srv6 locator main func-bits 16
+set protocols segment-routing srv6 locator main format usid-f3216
+set protocols segment-routing srv6 locator main behavior-usid
 set protocols segment-routing srv6 encapsulation source-address fd00:a::3
 set protocols segment-routing interface eth1 srv6
 set protocols segment-routing interface eth2 srv6
@@ -62,16 +64,16 @@ set interfaces ethernet eth3 description 'tenant-a: ce3 eth1'
 # Linux scopes the SRv6 encapsulation's outer lookup to the ingress VRF for forwarded packets: leak every remote locator into
 # the VRF table via the attached P router(s) on the IGP shortest path (recursive through IS-IS, so a dead P drops out), and the
 # whole block via every attached P as the fallback
-set vrf name tenant-a protocols static route6 fd00:c:11::/64 next-hop fd00:a::12 vrf default
-set vrf name tenant-a protocols static route6 fd00:c:11::/64 next-hop fd00:a::13 vrf default
-set vrf name tenant-a protocols static route6 fd00:c:12::/64 next-hop fd00:a::12 vrf default
-set vrf name tenant-a protocols static route6 fd00:c:13::/64 next-hop fd00:a::13 vrf default
-set vrf name tenant-a protocols static route6 fd00:c:1::/64 next-hop fd00:a::12 vrf default
-set vrf name tenant-a protocols static route6 fd00:c:2::/64 next-hop fd00:a::12 vrf default
-set vrf name tenant-a protocols static route6 fd00:c:4::/64 next-hop fd00:a::12 vrf default
-set vrf name tenant-a protocols static route6 fd00:c:4::/64 next-hop fd00:a::13 vrf default
-set vrf name tenant-a protocols static route6 fd00:c::/40 next-hop fd00:a::12 vrf default
-set vrf name tenant-a protocols static route6 fd00:c::/40 next-hop fd00:a::13 vrf default
+set vrf name tenant-a protocols static route6 fd00:c:11::/48 next-hop fd00:a::12 vrf default
+set vrf name tenant-a protocols static route6 fd00:c:11::/48 next-hop fd00:a::13 vrf default
+set vrf name tenant-a protocols static route6 fd00:c:12::/48 next-hop fd00:a::12 vrf default
+set vrf name tenant-a protocols static route6 fd00:c:13::/48 next-hop fd00:a::13 vrf default
+set vrf name tenant-a protocols static route6 fd00:c:1::/48 next-hop fd00:a::12 vrf default
+set vrf name tenant-a protocols static route6 fd00:c:2::/48 next-hop fd00:a::12 vrf default
+set vrf name tenant-a protocols static route6 fd00:c:4::/48 next-hop fd00:a::12 vrf default
+set vrf name tenant-a protocols static route6 fd00:c:4::/48 next-hop fd00:a::13 vrf default
+set vrf name tenant-a protocols static route6 fd00:c::/32 next-hop fd00:a::12 vrf default
+set vrf name tenant-a protocols static route6 fd00:c::/32 next-hop fd00:a::13 vrf default
 # eBGP to the CE; export/import with an SRv6 End.DT4 SID (sid vpn export auto)
 set vrf name tenant-a protocols bgp system-as 65000
 set vrf name tenant-a protocols bgp parameters router-id 10.255.0.3
@@ -92,16 +94,16 @@ set interfaces ethernet eth4 description 'tenant-b: ce3 eth3'
 # Linux scopes the SRv6 encapsulation's outer lookup to the ingress VRF for forwarded packets: leak every remote locator into
 # the VRF table via the attached P router(s) on the IGP shortest path (recursive through IS-IS, so a dead P drops out), and the
 # whole block via every attached P as the fallback
-set vrf name tenant-b protocols static route6 fd00:c:11::/64 next-hop fd00:a::12 vrf default
-set vrf name tenant-b protocols static route6 fd00:c:11::/64 next-hop fd00:a::13 vrf default
-set vrf name tenant-b protocols static route6 fd00:c:12::/64 next-hop fd00:a::12 vrf default
-set vrf name tenant-b protocols static route6 fd00:c:13::/64 next-hop fd00:a::13 vrf default
-set vrf name tenant-b protocols static route6 fd00:c:1::/64 next-hop fd00:a::12 vrf default
-set vrf name tenant-b protocols static route6 fd00:c:2::/64 next-hop fd00:a::12 vrf default
-set vrf name tenant-b protocols static route6 fd00:c:4::/64 next-hop fd00:a::12 vrf default
-set vrf name tenant-b protocols static route6 fd00:c:4::/64 next-hop fd00:a::13 vrf default
-set vrf name tenant-b protocols static route6 fd00:c::/40 next-hop fd00:a::12 vrf default
-set vrf name tenant-b protocols static route6 fd00:c::/40 next-hop fd00:a::13 vrf default
+set vrf name tenant-b protocols static route6 fd00:c:11::/48 next-hop fd00:a::12 vrf default
+set vrf name tenant-b protocols static route6 fd00:c:11::/48 next-hop fd00:a::13 vrf default
+set vrf name tenant-b protocols static route6 fd00:c:12::/48 next-hop fd00:a::12 vrf default
+set vrf name tenant-b protocols static route6 fd00:c:13::/48 next-hop fd00:a::13 vrf default
+set vrf name tenant-b protocols static route6 fd00:c:1::/48 next-hop fd00:a::12 vrf default
+set vrf name tenant-b protocols static route6 fd00:c:2::/48 next-hop fd00:a::12 vrf default
+set vrf name tenant-b protocols static route6 fd00:c:4::/48 next-hop fd00:a::12 vrf default
+set vrf name tenant-b protocols static route6 fd00:c:4::/48 next-hop fd00:a::13 vrf default
+set vrf name tenant-b protocols static route6 fd00:c::/32 next-hop fd00:a::12 vrf default
+set vrf name tenant-b protocols static route6 fd00:c::/32 next-hop fd00:a::13 vrf default
 # eBGP to the CE; export/import with an SRv6 End.DT4 SID (sid vpn export auto)
 set vrf name tenant-b protocols bgp system-as 65000
 set vrf name tenant-b protocols bgp parameters router-id 10.255.0.3

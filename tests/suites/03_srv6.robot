@@ -10,9 +10,14 @@ Every core node has its SRv6 locator up with the lab's SID structure
         ${out}=    Vyos    ${n}    show segment-routing srv6 locator
         Should Match Regexp    ${out}    (?m)^main\\s+\\d+\\s+${LOCATOR}[${n}]\\s+Up    msg=${n}: locator main ${LOCATOR}[${n}] is not Up
         ${cfg}=    Vyos    ${n}    show configuration commands | match 'srv6 locator main'
-        Should Contain    ${cfg}    block-len '40'
-        Should Contain    ${cfg}    node-len '24'
-        Should Contain    ${cfg}    func-bits '16'
+        Should Contain    ${cfg}    block-len '${SRV6}[block_len]'
+        Should Contain    ${cfg}    node-len '${SRV6}[node_len]'
+        Should Contain    ${cfg}    func-bits '${SRV6}[func_bits]'
+        Should Contain    ${cfg}    format '${SRV6}[format]'
+        IF    $USID    Should Contain    ${cfg}    behavior-usid
+        ${sids}=    Shell    ${n}    sudo vtysh -c 'show segment-routing srv6 sid'
+        ${want}=    Set Variable If    $USID    uN    End
+        Should Match Regexp    ${sids}    (?m)^\\s*${{ $LOCATOR[$n].split('/')[0] }}\\s+${want}\\b    msg=${n}: no ${want} SID for the locator
     END
 
 IS-IS advertises the SRv6 capability of every core node and every locator is in every routing table
@@ -42,7 +47,8 @@ Every PE has one End.DT4 SID per tenant VRF, an End SID, and End.X SIDs installe
         ${all_dt4}=    Regex Findall    ${sids}    (?m)action End\\.DT4 vrftable
         ${n_t}=    Get Length    ${TENANTS}
         Length Should Be    ${all_dt4}    ${n_t}    msg=${pe}: a tenant VRF without its own SID, or a stray one
-        Should Match Regexp    ${sids}    (?m)^\\S+\\s.*action End dev dum0    msg=${pe}: no End SID from IS-IS
+        Should Match Regexp    ${sids}    (?m)^\\S+\\s.*action End (dev dum0|flavors next-csid)    msg=${pe}: no End / uN SID from IS-IS
+        IF    $USID    Should Match Regexp    ${sids}    (?m)^${{ $LOCATOR[$pe] }}\\s.*action End flavors next-csid lblen ${SRV6}[block_len] nflen ${SRV6}[node_len]    msg=${pe}: the uN SID must carry the NEXT-C-SID flavour
         ${endx}=    Regex Findall    ${sids}    (?m)action End\\.X nh6
         ${n_core}=    Get Length    ${ISIS_NEIGHBORS}[${pe}]
         Length Should Be    ${endx}    ${n_core}    msg=${pe}: expected one End.X SID per core adjacency

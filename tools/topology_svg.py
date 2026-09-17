@@ -38,7 +38,7 @@ def draw(inv, live=None):
         out.append(f'<rect x="{DCX[dc] - lane_w[dc] / 2:.0f}" y="{ROWS["pe"] - 58}" width="{lane_w[dc]:.0f}" height="{ROWS["host"] - ROWS["pe"] + 104}" rx="14" fill="{DC_COLORS[i % len(DC_COLORS)]}" stroke="#cbd5e1"/>'
                    f'<text x="{DCX[dc] + lane_w[dc] / 2 - 12:.0f}" y="{ROWS["host"] + 38}" text-anchor="end" class="lane">{dc}</text>')
     out.append(f'<rect x="{core_left - 20}" y="{ROWS["p"] - 120}" width="{core_right - core_left + 40:.0f}" height="180" rx="14" fill="#fff7ed" stroke="#fdba74"/>'
-               f'<text x="{core_left - 5}" y="{ROWS["p"] - 100}" class="lane">core — IS-IS level-2, IPv6-only, MTU 9000, SRv6 block fd00:c::/40 · reflectors {", ".join(S["rrs"])}</text>')
+               f'<text x="{core_left - 5}" y="{ROWS["p"] - 100}" class="lane">core — IS-IS level-2, IPv6-only, MTU 9000, SRv6 {S["srv6"]["format"]} block {S["srv6"]["block"]} · reflectors {", ".join(S["rrs"])}</text>')
     pe_ac_slots = {}   # per PE: how many attachment circuits drawn so far, to spread them under the box
     for l in inv["links"]:
         a, b = l["a"], l["b"]; ra, rb = N[a]["role"], N[b]["role"]

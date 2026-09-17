@@ -337,7 +337,8 @@ cmd_inventory() {  # the lab as JSON (nodes, links, service) — consumed by tes
     echo '{"lab": "srv6-core", "oob": {"network": "'"$OOB_NET"'", "gateway": "'"$OOB_GATEWAY"'"},'
     local t tj=""; for t in "${TENANTS[@]}"; do tj+="${tj:+, }\"$t\": {\"table\": ${VRF_TABLE[$t]}, \"rt\": \"${VRF_RT[$t]}\"}"; done
     local rj=""; for t in "${RRS[@]}"; do rj+="${rj:+, }\"$t\""; done
-    echo ' "service": {"core_as": '"$CORE_AS"', "rr": "'"$RR"'", "rrs": ['"$rj"'], "isis_area": "'"$ISIS_AREA"'", "tenants": {'"$tj"'}},'
+    local sr; if [[ "$SRV6_FORMAT" == usid* ]]; then sr='"format": "usid-f3216", "block_len": 32, "node_len": 16, "func_bits": 16'; else sr='"format": "uncompressed-f4024", "block_len": 40, "node_len": 24, "func_bits": 16'; fi
+    echo ' "service": {"core_as": '"$CORE_AS"', "rr": "'"$RR"'", "rrs": ['"$rj"'], "isis_area": "'"$ISIS_AREA"'", "srv6": {"block": "'"$SRV6_BLOCK"'", '"$sr"'}, "tenants": {'"$tj"'}},'
     echo ' "nodes": ['
     local first=1
     for n in "${ALL_NODES[@]}"; do
@@ -402,6 +403,11 @@ cmd_verify() {     # a quick look at the control plane and the data plane end to
   "$PY" "$LAB_DIR/tools/host_cmd.py" matrix "${HOSTS[@]}" || true
 }
 
+cmd_backup() {     # commit running + intended configs and routing tables to the local Gitea (lab/srv6-core-configs)
+  [[ -x "$LAB_DIR/tests/.venv/bin/python" ]] || "$LAB_DIR/tests/setup.sh"
+  "$PY" "$LAB_DIR/tools/backup_configs.py" "$@"
+}
+
 cmd_webapp() {     # the tenant provisioning portal (FastAPI/uvicorn) on http://<host>:8091
   [[ -x "$LAB_DIR/webapp/.venv/bin/uvicorn" ]] || { python3 -m venv "$LAB_DIR/webapp/.venv" && "$LAB_DIR/webapp/.venv/bin/pip" install -q -r "$LAB_DIR/webapp/requirements.txt"; }
   cd "$LAB_DIR/webapp" && exec .venv/bin/uvicorn app:app --host "${WEBAPP_HOST:-0.0.0.0}" --port "${WEBAPP_PORT:-8091}"
@@ -423,6 +429,7 @@ usage: $(basename "$0") <command> [node...]
   nautobot seed      model the lab in the shared Nautobot (idempotent; source = lab.conf)
   nautobot render [--check|--live|--write]   render the VyOS configs from Nautobot; compare with lab.conf / the routers
   webapp             start the tenant provisioning portal on http://<host>:8091
+  backup [-m msg]    commit running + intended configs and routing tables to the local Gitea (http://<nms>:3000/lab/srv6-core-configs)
   wait [node..]      wait until SSH answers
   down [node..]      stop VMs (VyOS: ACPI shutdown)
   status             nodes, addresses, links, consoles
@@ -440,6 +447,6 @@ U
 
 cmd="${1:-}"; shift || true
 case "$cmd" in
-  up|down|bootstrap|configure|steer|nautobot|webapp|wait|status|inventory|verify|test|console|ssh|log|rebuild|clean) "cmd_$cmd" "$@" ;;
+  up|down|bootstrap|configure|steer|nautobot|webapp|backup|wait|status|inventory|verify|test|console|ssh|log|rebuild|clean) "cmd_$cmd" "$@" ;;
   *) usage; exit 1 ;;
 esac
