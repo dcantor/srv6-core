@@ -233,9 +233,10 @@ routing tables of every node (RIB per VRF, kernel SRv6 routes, BGP VPNv4, IS-IS 
 to the repository** with each change, so the history shows what passed on which version of the lab.
 
 ## Demo
-`docs/demo/srv6-demo.mp4` / `.gif` (≈2.5 min): status, IS-IS + SRv6 nodes, the SIDs on a PE, VPNv4 at the reflector and
+`docs/demo/srv6-demo.mp4` / `.gif` (≈3.5 min): status, IS-IS + SRv6 nodes, the SIDs on a PE, VPNv4 at the reflector and
 the VRF routes, the 8×8 tenant ping matrix, explicit-path steering with the SRH seen on p1, the p1 reflector being shut
-and restored with nothing changing for the tenants, a silent core link cut with BFD detecting it, and the Robot summary. Recorded from the live lab by `docs/demo/record.py` (real command output replayed in
+and restored with nothing changing for the tenants, a silent core link cut with BFD detecting it, Nautobot's rendering
+matching lab.conf, the Robot summary, and the tenant portal (live tenants, the add-tenant wizard, a completed run, steering). Recorded from the live lab by `docs/demo/record.py` (real command output replayed in
 a terminal page; run it with the cat8000v-ipsec `webapp/.venv` python).
 
 ## What is where

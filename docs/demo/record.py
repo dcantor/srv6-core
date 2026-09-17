@@ -26,7 +26,7 @@ def vy(node, cmd):
 # ---- 1. run the real thing and keep the output ------------------------------------------------------------------
 print("collecting output from the lab ...")
 SCENES = []   # (caption, subcaption, [(prompt_cmd, output, seconds_to_hold)])
-SCENES.append(("The lab", "19 VMs: 4 VyOS PEs, a P triangle (p1/p3 = route reflectors), 4 CEs with two tenant VRFs, 8 CirrOS hosts",
+SCENES.append(("The lab", "19 VMs: 4 VyOS PEs, a P triangle (p1/p3 = route reflectors), 4 CEs with a VRF per tenant, 8 CirrOS hosts; Nautobot models it all",
                [("./lab.sh status | head -21", sh("./lab.sh status | head -21"), 6)]))
 SCENES.append(("Underlay: IS-IS level-2, IPv6-only", "every core link has an adjacency; the locators are advertised as SRv6 capabilities",
                [("./lab.sh ssh p2 'show isis neighbor'", vy("p2", "show isis neighbor"), 4),
@@ -88,6 +88,33 @@ SCENES.append(("Core link failure", "a silent cut of p2's link to pe3 (carrier s
                 ("wait   # the ping finishes", summary, 7)]))
 
 
+# ---- portal scenes: screenshots of the live portal (tenants with live state, wizard, steering, runs) --------------------
+PORTAL = "http://127.0.0.1:8091"
+def portal_shots():
+    import base64
+    shots = []
+    with sync_playwright() as pw:
+        b = pw.chromium.launch(channel="chrome", headless=True); pg = b.new_page(viewport={"width": 1280, "height": 718})
+        def shot(title, sub, hold, clip=None):
+            png = pg.screenshot(clip=clip) if clip else pg.screenshot(); shots.append((title, sub, "data:image/png;base64," + base64.b64encode(png).decode(), hold))
+        pg.goto(PORTAL + "/#tenants"); pg.wait_for_function("document.querySelectorAll('.tenant .pill.up').length >= 1", timeout=180000); time.sleep(2)
+        shot("The tenant provisioning portal", "one VRF per tenant on every PE and CE — live eBGP, VRF / SRv6 routes, End.DT4 SIDs and host reachability from the PEs", 6)
+        pg.evaluate("document.querySelector('.topo').scrollIntoView({block:'start'})"); time.sleep(1)
+        shot("Live topology", "drawn from the same inventory as the docs; hosts coloured by reachability", 4)
+        pg.evaluate("openWizard()"); time.sleep(2); shot("Add a tenant — step 1", "the next tenant letter, kernel table and route target are suggested; pick the sites", 4)
+        pg.evaluate("wizNext()"); time.sleep(2.5); shot("Add a tenant — step 2", "per site: attachment circuit /30, LAN /24, the next free PE and CE ports, a CirrOS host — all editable, re-validated against the lab", 6)
+        pg.evaluate("wizNext()"); time.sleep(2.5); shot("Add a tenant — review", "what will be configured where; Deploy runs lab.conf → VMs → SSH push → Nautobot → verify → tests", 6)
+        pg.evaluate("document.getElementById('wiz').close()")
+        pg.goto(PORTAL + "/#runs"); time.sleep(2)
+        run = next((r["id"] for r in requests.get(PORTAL + "/api/runs").json() if r["mode"] == "tenant" and r["status"] == "success"), None)
+        if run: pg.evaluate(f"watch('{run}')"); time.sleep(4); shot("A run", "tenant-c added on four sites: hosts booted, CEs re-wired, PEs/CEs pushed, Nautobot seeded, 12/12 pings, 52/52 tests", 7)
+        pg.goto(PORTAL + "/#steering"); time.sleep(3); shot("Steering", "explicit-path policies per PE / tenant / prefix through chosen P routers — applied immediately", 4)
+        b.close()
+    return shots
+import requests
+PORTAL_SHOTS = portal_shots()
+
+
 def robot_summary():
     import xml.etree.ElementTree as ET
     root = ET.parse(LAB / "results" / "latest" / "output.xml").getroot(); lines = []
@@ -96,7 +123,10 @@ def robot_summary():
             st = su.find("status"); n = sum(1 for _ in su.iter("test")); lines.append(f"{su.get('name'):26s} {n:2d} tests  {st.get('status')}")
     tot = root.find("statistics/total/stat"); lines.append(f"\n{tot.get('pass')} passed, {tot.get('fail')} failed"); lines.append("    no configuration changes during the run")
     return "==> running Robot Framework suites\n" + "\n".join(lines)
-SCENES.append(("Robot Framework", "management, underlay, SRv6, VPN, end-to-end, RR redundancy, steering, failover — every run keeps configs and routing tables",
+nb_check = sh("./lab.sh nautobot render --check")
+SCENES.append(("Nautobot: the source of truth", "the VyOS configs rendered from Nautobot's model are byte-identical to the ones rendered from lab.conf",
+               [("./lab.sh nautobot render --check", nb_check, 6)]))
+SCENES.append(("Robot Framework", "management, underlay, SRv6, VPN, end-to-end, RR redundancy, steering, failover, Nautobot — every run keeps configs and routing tables",
                [("./lab.sh test", robot_summary(), 7)]))
 
 # ---- 2. replay in a terminal page ---------------------------------------------------------------------------------
@@ -144,7 +174,9 @@ with sync_playwright() as pw:
             snap(page, hold)
             buf = (buf + f'<span class="p">$</span> <span class="c">{html.escape(cmd)}</span>\n' + colour(out) + "\n\n")
             if buf.count("\n") > 44: buf = ""   # start a fresh screen when it would scroll off
-    page.evaluate("document.getElementById('t').textContent='github.com/dcantor/srv6-core'; document.getElementById('s').textContent='./lab.sh up · bootstrap · verify · test  —  ≈6 minutes from cold, 13 GiB RAM'; document.getElementById('term').innerHTML=''"); snap(page, 3)
+    for title, sub, data, hold in PORTAL_SHOTS:
+        page.evaluate("([t,s,d]) => {document.getElementById('t').textContent=t; document.getElementById('s').textContent=s; document.getElementById('term').innerHTML='<img src=\"'+d+'\" style=\"width:100%;display:block;margin:-14px -26px;border-top:1px solid #1e293b\">'}", [title, sub, data]); snap(page, hold)
+    page.evaluate("document.getElementById('t').textContent='github.com/dcantor/srv6-core'; document.getElementById('s').textContent='./lab.sh up · bootstrap · verify · test · webapp  —  ≈6 minutes from cold, 13 GiB RAM; Nautobot is the source of truth'; document.getElementById('term').innerHTML=''"); snap(page, 3)
     b.close()
 
 gif = OUT / "srv6-demo.gif"; frames[0].save(gif, save_all=True, append_images=frames[1:], duration=durs, loop=0, optimize=True)
