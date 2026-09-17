@@ -5,7 +5,7 @@ from pathlib import Path
 import labconf
 
 LAB = Path(__file__).resolve().parents[1]
-CORE_AS = 65000; TABLE_STEP = 100; HOST_RAM_MIB = 256
+CORE_AS = 65000; TABLE_STEP = 100; HOST_RAM_MIB = 256   # Alpine hosts
 TENANT_LETTERS = "abcdefgh"
 
 

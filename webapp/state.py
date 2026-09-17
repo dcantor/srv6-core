@@ -52,7 +52,7 @@ class State:
     def host_reachable(self, host):
         c = paramiko.SSHClient(); c.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         try:
-            c.connect(host["mgmt_ip"], username="cirros", password="gocubsgo", timeout=8, look_for_keys=False, allow_agent=False)
+            c.connect(host["mgmt_ip"], username=os.environ.get("HOST_USERNAME", "lab"), password=os.environ.get("HOST_PASSWORD", "lab"), timeout=8, look_for_keys=False, allow_agent=False)
             _, out, _ = c.exec_command("ip -4 -br addr show eth1; ip route | grep default", timeout=15); txt = out.read().decode(); c.close()
             return {"reachable": True, "detail": " ".join(txt.split())}
         except Exception as e:  # noqa: BLE001

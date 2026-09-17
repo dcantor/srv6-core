@@ -16,3 +16,4 @@ results/latest
 webapp/.venv/
 webapp/runs/
 .gitea-backup/
+nodes/*/network-config

@@ -1,5 +1,5 @@
 """Robot Framework keyword library for the SRv6 core lab: VyOS nodes over SSH (netmiko / paramiko for shell
-commands), CirrOS hosts over SSH (paramiko, password auth), and host-side helpers."""
+commands), the Alpine tenant hosts over SSH (paramiko, password auth), and host-side helpers."""
 import ipaddress
 import os
 import re
@@ -17,7 +17,7 @@ from robot.api.deco import keyword, library
 
 LAB_DIR = Path(__file__).resolve().parents[2]
 VYOS_USER, VYOS_PASS = os.environ.get("VYOS_USERNAME", "vyos"), os.environ.get("VYOS_PASSWORD", "vyos")
-CIRROS_USER, CIRROS_PASS = os.environ.get("CIRROS_USERNAME", "cirros"), os.environ.get("CIRROS_PASSWORD", "gocubsgo")
+HOST_USER, HOST_PASS = os.environ.get("HOST_USERNAME", "lab"), os.environ.get("HOST_PASSWORD", "lab")
 
 
 @library(scope="GLOBAL")
@@ -69,10 +69,10 @@ class LabLib:
             except Exception: pass
         self._ssh.clear()
 
-    # ---- CirrOS hosts --------------------------------------------------------------
+    # ---- tenant hosts (Alpine) --------------------------------------------------------------
     def _host_exec(self, host, command, timeout):
         c = paramiko.SSHClient(); c.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        c.connect(host, username=CIRROS_USER, password=CIRROS_PASS, timeout=20, look_for_keys=False, allow_agent=False)
+        c.connect(host, username=HOST_USER, password=HOST_PASS, timeout=20, look_for_keys=False, allow_agent=False)
         try:
             _, out, err = c.exec_command(command, timeout=float(timeout))
             rc = out.channel.recv_exit_status(); text = out.read().decode() + err.read().decode()
@@ -83,14 +83,14 @@ class LabLib:
 
     @keyword
     def host_command(self, host, command, timeout=60):
-        """Run a shell command on a CirrOS host; returns the output, fails on non-zero rc."""
+        """Run a shell command on a tenant host; returns the output, fails on non-zero rc."""
         rc, text = self._host_exec(host, command, timeout)
         if rc != 0: raise AssertionError(f"'{command}' on {host} failed rc={rc}: {text.strip()[-300:]}")
         return text
 
     @keyword
     def host_command_rc(self, host, command, timeout=60):
-        """Run a command on a CirrOS host and return its exit code (never fails)."""
+        """Run a command on a tenant host and return its exit code (never fails)."""
         return self._host_exec(host, command, timeout)[0]
 
     # ---- background commands (tcpdump while something else happens) ----------------------
@@ -156,6 +156,15 @@ class LabLib:
         logger.info(f"<pre>steer.py {' '.join(args)}\nrc={r.returncode}\n{r.stdout}{r.stderr}</pre>", html=True)
         if r.returncode != 0: raise AssertionError(f"steer.py {' '.join(args)} failed: {(r.stderr or r.stdout).strip()[-400:]}")
         return r.stdout
+
+    @keyword
+    def iperf(self, src, dst, seconds=5, streams=1, udp=False, rate="50M", timeout=120):
+        """Throughput between two tenant hosts (tools/iperf.py); returns the parsed result dict."""
+        args = [sys.executable, str(LAB_DIR / "tools" / "iperf.py"), src, dst, "-t", str(seconds), "-P", str(streams), "--json"] + (["-u", "-b", rate] if udp else [])
+        r = subprocess.run(args, capture_output=True, text=True, timeout=float(timeout))
+        logger.info(f"<pre>iperf.py {src} {dst}\n{r.stdout}{r.stderr}</pre>", html=True)
+        if r.returncode != 0: raise AssertionError(f"iperf failed: {(r.stderr or r.stdout).strip()[-300:]}")
+        import json as _j; return _j.loads(r.stdout)
 
     @keyword
     def ping_loss(self, text):

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""CirrOS hosts over SSH (paramiko, cirros/gocubsgo; dropbear, password auth only).
+"""Tenant hosts (Alpine) over SSH (paramiko, lab/lab, password auth).
    host_cmd.py run HOST CMD          run a command on one host (HOST = name from lab.conf or an address)
    host_cmd.py matrix [host ...]     ping every host from every other host over the tenant LANs and print the matrix"""
 import json, os, subprocess, sys
@@ -7,7 +7,7 @@ from pathlib import Path
 import paramiko
 
 LAB_DIR = Path(__file__).resolve().parents[1]
-USER, PASS = os.environ.get("CIRROS_USERNAME", "cirros"), os.environ.get("CIRROS_PASSWORD", "gocubsgo")
+USER, PASS = os.environ.get("HOST_USERNAME", "lab"), os.environ.get("HOST_PASSWORD", "lab")
 
 
 def inventory():

@@ -31,7 +31,7 @@ A silent core link failure is detected by BFD and traffic reconverges in under t
     ${dst}=    Set Variable    ${SITES}[tenant-a][dc3]
     ${rt}=    Shell    ${PE}    sudo ip -c=never route show vrf tenant-a ${src}[lan]
     Should Not Contain    ${rt}    dev ${alt}    msg=${PE}: ${src}[lan] already avoids ${P} before the failure
-    ${ping}=    Start Background    ${MGMT}[${src}[host]]    ping -c 400 -i 0.2 -W 1 ${dst}[host_ip]    cirros    gocubsgo
+    ${ping}=    Start Background    ${MGMT}[${src}[host]]    ping -c 400 -i 0.2 -W 1 ${dst}[host_ip]    lab    lab
     Configure    ${P}    set firewall ipv6 input filter rule 10 inbound-interface name ${if}    set firewall ipv6 output filter rule 10 outbound-interface name ${if}
     ...    set firewall ipv6 forward filter rule 10 inbound-interface name ${if}    set firewall ipv6 forward filter rule 11 outbound-interface name ${if}    @{CUT}
     Wait Until Keyword Succeeds    20s    2s    Route Should Use Interface    ${PE}    ${src}[lan]    ${alt}

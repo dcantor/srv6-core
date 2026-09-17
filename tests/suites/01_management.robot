@@ -14,7 +14,7 @@ Every VyOS node is reachable over the OOB network and runs VyOS with the expecte
         Should Contain    ${h}    host-name '${n}'
     END
 
-Every CirrOS host is reachable over the OOB network and carries its data-centre address
+Every tenant host is reachable over the OOB network and carries its data-centre address
     FOR    ${h}    IN    @{HOSTS}
         Host Ping    ${MGMT}[${h}]
         Tcp Port Should Be Open    ${MGMT}[${h}]    22

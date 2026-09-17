@@ -253,6 +253,13 @@ def tenant_removal(name: str):
     return plan
 
 
+@app.get("/api/iperf", tags=["state"], summary="Throughput between two tenant hosts (iperf3, blocks for ~10 s)")
+def iperf(src: str = Query(..., examples=["dc1-h1"]), dst: str = Query(..., examples=["dc3-h1"]), seconds: int = Query(5, ge=2, le=30), udp: bool = Query(False), rate: str = Query("50M")):
+    r = subprocess.run([PY, str(LAB / "tools" / "iperf.py"), src, dst, "-t", str(seconds), "--json"] + (["-u", "-b", rate] if udp else []), capture_output=True, text=True, timeout=120)
+    if r.returncode != 0: raise HTTPException(422, (r.stderr or r.stdout).strip()[-400:])
+    return json.loads(r.stdout)
+
+
 @app.get("/api/steering", tags=["steering"], summary="Steering policies present on the PEs")
 def steering_list(): return state.steering()
 

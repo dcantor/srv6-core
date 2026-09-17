@@ -4,7 +4,7 @@
 What is modelled
   locations      site "srv6-core" (type Site) with a "Data Center" location per DC (dc1..dc4); the P routers live at the site
   tenancy        tenant group "srv6-core", tenants tenant-a / tenant-b
-  devices        VyOS PEs / Ps / CEs (roles srv6-pe / srv6-p / srv6-ce, platform vyos) and CirrOS hosts (role host, platform
+  devices        VyOS PEs / Ps / CEs (roles srv6-pe / srv6-p / srv6-ce, platform vyos) and Alpine hosts (role host, platform
                  linux); eth0 = OOB (primary IPv4), ethN with the lab MACs, lo and dum0 as virtual interfaces; cables from LINKS
   custom fields  device: isis_net, srv6_locator (grouping SRv6); interface: none — link roles are prefix roles
   IPAM           prefixes with roles oob-management / loopback / wan-p2p / srv6-locator / attachment-circuit / site-lan / router-id,
@@ -85,7 +85,7 @@ ns = nb.ipam.namespaces.get(name="Global")
 lt_site = nb.dcim.location_types.get(name="Site")
 lt_dc = get_or_create(nb.dcim.location_types, {"name": "Data Center"}, parent=lt_site.id, content_types=["dcim.device", "ipam.prefix", "ipam.vlan"], description="a tenant site of the SRv6 core lab")
 site = get_or_create(nb.dcim.locations, {"name": SITE}, location_type=lt_site.id, status=active.id)
-ensure(site, description="SRv6 WAN core lab: 4 VyOS PEs, P triangle (p1/p3 route reflectors), 2 tenant VRFs, VyOS CEs and CirrOS hosts (github.com/dcantor/srv6-core)")
+ensure(site, description="SRv6 WAN core lab: 4 VyOS PEs, P triangle (p1/p3 route reflectors), 2 tenant VRFs, VyOS CEs and Alpine tenant hosts (github.com/dcantor/srv6-core)")
 dcs = {}
 for dc in sorted({n["dc"] for n in inv["nodes"] if n["dc"] != "core"}):
     dcs[dc] = get_or_create(nb.dcim.locations, {"name": dc}, location_type=lt_dc.id, parent=site.id, status=active.id)
@@ -110,9 +110,9 @@ brole = {n: get_or_create(nb.extras.roles, {"name": n}, color=c, content_types=[
 for r in brole.values():
     if "nautobot_bgp_models.peerendpoint" not in r.content_types: r.update({"content_types": list(r.content_types) + ["nautobot_bgp_models.peerendpoint"]})
 plat = {"vyos": nb.dcim.platforms.get(name="vyos"), "linux": nb.dcim.platforms.get(name="linux")}
-mf_vyos = get_or_create(nb.dcim.manufacturers, {"name": "VyOS"}); mf_cirros = get_or_create(nb.dcim.manufacturers, {"name": "CirrOS"})
+mf_vyos = get_or_create(nb.dcim.manufacturers, {"name": "VyOS"}); mf_alpine = get_or_create(nb.dcim.manufacturers, {"name": "Alpine Linux"})
 dt = {"vyos": get_or_create(nb.dcim.device_types, {"model": "VyOS"}, manufacturer=mf_vyos.id, u_height=0),
-      "cirros": get_or_create(nb.dcim.device_types, {"model": "CirrOS"}, manufacturer=mf_cirros.id, u_height=0, comments="cloud-init NoCloud test host, 256 MiB")}
+      "alpine": get_or_create(nb.dcim.device_types, {"model": "Alpine host"}, manufacturer=mf_alpine.id, u_height=0, comments="Alpine Linux tenant host with iperf3 / tcpdump / mtr (cloud-init NoCloud), 256 MiB")}
 cf = {c.key: c for c in nb.extras.custom_fields.all()}
 for key, label, desc in (("isis_net", "IS-IS NET", "network entity title of the IS-IS level-2 instance"), ("srv6_locator", "SRv6 locator", "the node's locator prefix (block 40 / node 24 / function 16 bits)")):
     if key not in cf: cf[key] = nb.extras.custom_fields.create(key=key, label=label, type="text", content_types=["dcim.device"], grouping="SRv6", description=desc); created.append(f"custom-field:{key}")
@@ -184,9 +184,9 @@ def ensure_ip(address, description, iface=None, tenant=None):
 for n in inv["nodes"]:
     role = n["role"]; loc = loc_of(n)
     d = nb.dcim.devices.get(name=n["name"])
-    fields = dict(role=drole[role].id, device_type=dt["cirros" if role == "host" else "vyos"].id, location=loc.id, platform=plat["linux" if role == "host" else "vyos"].id, status=active.id,
+    fields = dict(role=drole[role].id, device_type=dt["alpine" if role == "host" else "vyos"].id, location=loc.id, platform=plat["linux" if role == "host" else "vyos"].id, status=active.id,
                   comments={"pe": "PE: IS-IS L2 + SRv6 locator, VPNv4 to both reflectors, one VRF per tenant (End.DT4)", "p": "P: IPv6 forwarding only" + (" + VPNv4 route reflector" if n["name"] in SVC["rrs"] else ""),
-                            "ce": "CE: one VRF per tenant, eBGP to the PE per VRF", "host": f"CirrOS test host ({[p for p in n['ports'] if p['peer']][0]['tenant']})"}[role])
+                            "ce": "CE: one VRF per tenant, eBGP to the PE per VRF", "host": f"Alpine tenant host with iperf3 ({[p for p in n['ports'] if p['peer']][0]['tenant']})"}[role])
     if role != "host" and n.get("tenant") is None:
         pass
     if d is None: d = nb.dcim.devices.create(name=n["name"], **fields); created.append(f"device:{n['name']}")

@@ -1,8 +1,16 @@
-#!/bin/sh
+#cloud-config
 # dc2-h1: eth0 = OOB management (10.3.0.42), eth1 = ce2 eth2 (dc2 LAN 172.20.2.0/24, gateway 172.20.2.1)
-hostname dc2-h1
-ip link set eth0 up
-ip addr add 10.3.0.42/24 dev eth0
-ip link set eth1 up
-ip addr add 172.20.2.2/24 dev eth1
-ip route replace default via 172.20.2.1 dev eth1
+hostname: dc2-h1
+users:
+  - name: lab
+    plain_text_passwd: lab
+    lock_passwd: false
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    shell: /bin/sh
+ssh_pwauth: true
+write_files:
+  - path: /etc/motd
+    content: "dc2-h1 — dc2 tenant host: eth1 172.20.2.2/24 (gateway 172.20.2.1), OOB eth0 10.3.0.42. iperf3 / tcpdump / mtr installed.\n"
+runcmd:
+  - rc-update add sshd default
+  - rc-service sshd restart

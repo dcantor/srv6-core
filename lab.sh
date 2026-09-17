@@ -141,9 +141,9 @@ vyos_xml() {       # VyOS PE / P / CE: virtio disk, eth0 = OOB, eth1.. = point-t
 X
 }
 
-host_xml() {       # CirrOS end host: eth0 = OOB, eth1 = UDP tunnel to its CE; cloud-init NoCloud seed on an IDE cdrom
+host_xml() {       # Alpine end host: eth0 = OOB, eth1 = UDP tunnel to its CE; cloud-init NoCloud seed on an IDE cdrom
   local n="$1" d; d="$(node_dir "$n")"
-  domain_head_xml "$n" "CirrOS host ($n, ${DC[$n]})" "$CIRROS_RAM_MIB" 1
+  domain_head_xml "$n" "Alpine host ($n, ${DC[$n]})" "$HOST_RAM_MIB" 1
   cat <<X
     <disk type='file' device='cdrom'>
       <driver name='qemu' type='raw'/>
@@ -178,39 +178,59 @@ build_vyos() {
 
 build_host() {
   local n="$1" d peer pn pp pfx end cidr gw; d="$(node_dir "$n")"
-  [[ -f "$CIRROS_IMAGE" ]] || die "CirrOS image not found: $CIRROS_IMAGE"
+  [[ -f "$HOST_IMAGE" ]] || die "host base image not found: $HOST_IMAGE (build it with tools/build_host_image.sh)"
   peer="$(link_peer "$n" 1)"; [[ -n "$peer" ]] || die "$n eth1 is not wired in LINKS"
   read -r pn pp pfx end _ <<<"$peer"
   cidr="$(link_ip "$n" 1)"; gw="$(link_addr "$pn" "$pp")"
   mkdir -p "$d"
   if [[ ! -f "$d/disk.qcow2" ]]; then
-    echo "[$n] creating overlay disk on $(basename "$CIRROS_IMAGE")"
-    qemu-img create -q -f qcow2 -b "$CIRROS_IMAGE" -F qcow2 "$d/disk.qcow2"
+    echo "[$n] creating overlay disk on $(basename "$HOST_IMAGE")"
+    qemu-img create -q -f qcow2 -b "$HOST_IMAGE" -F qcow2 "$d/disk.qcow2"
   fi
   host_seed "$n"
   host_xml "$n" > "$d/domain.xml"
   V define "$d/domain.xml" >/dev/null
 }
 
-host_seed() {   # cloud-init NoCloud seed; a fresh instance-id every time so CirrOS re-runs the user-data script on every boot
+host_seed() {   # cloud-init NoCloud seed for an Alpine host: static addresses (network-config v2 by MAC), lab / lab, sshd
   local n="$1" d peer pn pp pfx end cidr gw; d="$(node_dir "$n")"
   peer="$(link_peer "$n" 1)"; read -r pn pp pfx end _ <<<"$peer"
   cidr="$(link_ip "$n" 1)"; gw="$(link_addr "$pn" "$pp")"
   echo "[$n] building cloud-init (NoCloud) seed ISO"
-  # CirrOS parses meta-data as JSON (YAML meta-data fails with "json2fstree failed")
-  printf '{"instance-id": "%s-%s", "local-hostname": "%s"}\n' "$n" "$(date +%s)" "$n" > "$d/meta-data"
-  # CirrOS runs a user-data script; it has no netplan/cloud-init network support
-  cat > "$d/user-data" <<U
-#!/bin/sh
-# $n: eth0 = OOB management (${MGMT_IP[$n]}), eth1 = $pn $(port_name "$pn" "$pp") (${DC[$n]} LAN $pfx, gateway $gw)
-hostname $n
-ip link set eth0 up
-ip addr add ${MGMT_IP[$n]}/24 dev eth0
-ip link set eth1 up
-ip addr add $cidr dev eth1
-ip route replace default via $gw dev eth1
+  printf 'instance-id: %s-001\nlocal-hostname: %s\n' "$n" "$n" > "$d/meta-data"
+  cat > "$d/network-config" <<U
+version: 2
+ethernets:
+  oob:
+    match: { macaddress: "$(mac "$n" 0)" }
+    set-name: eth0
+    addresses: [${MGMT_IP[$n]}/24]
+    routes: [{ to: 10.0.0.0/8, via: $OOB_GATEWAY }]
+  lan:
+    match: { macaddress: "$(mac "$n" 1)" }
+    set-name: eth1
+    addresses: [$cidr]
+    routes: [{ to: 0.0.0.0/0, via: $gw }]
 U
-  genisoimage -quiet -o "$d/seed.iso.tmp" -V cidata -J -r "$d/user-data" "$d/meta-data" && mv -f "$d/seed.iso.tmp" "$d/seed.iso"
+  cat > "$d/user-data" <<U
+#cloud-config
+# $n: eth0 = OOB management (${MGMT_IP[$n]}), eth1 = $pn $(port_name "$pn" "$pp") (${DC[$n]} LAN $pfx, gateway $gw)
+hostname: $n
+users:
+  - name: lab
+    plain_text_passwd: lab
+    lock_passwd: false
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    shell: /bin/sh
+ssh_pwauth: true
+write_files:
+  - path: /etc/motd
+    content: "$n — ${DC[$n]} tenant host: eth1 $cidr (gateway $gw), OOB eth0 ${MGMT_IP[$n]}. iperf3 / tcpdump / mtr installed.\n"
+runcmd:
+  - rc-update add sshd default
+  - rc-service sshd restart
+U
+  genisoimage -quiet -o "$d/seed.iso.tmp" -V cidata -J -r "$d/user-data" "$d/meta-data" "$d/network-config" && mv -f "$d/seed.iso.tmp" "$d/seed.iso"
 }
 
 build() { if is_host "$1"; then build_host "$1"; else build_vyos "$1"; fi; }
@@ -235,7 +255,7 @@ cmd_up() {
   ensure_networks
   for n in $(nodes_or_all "$@"); do
     ours "$n"; defined "$n" || build "$n"
-    is_host "$n" && ! running "$n" && host_seed "$n" >/dev/null
+    true
     # pre-create the console log so virtlogd appends to our file instead of a root-only one
     [[ -f "$(node_dir "$n")/console.log" ]] || { touch "$(node_dir "$n")/console.log"; chmod 644 "$(node_dir "$n")/console.log"; }
     if running "$n"; then echo "[$n] already running"; else V start "$n"; echo "[$n] started (console: 127.0.0.1:${CONSOLE_PORT[$n]})"; fi
@@ -314,7 +334,7 @@ cmd_clean() {      # destroy VMs and delete overlay disks (base images untouched
   for n in $(nodes_or_all "$@"); do
     running "$n" && V destroy "$n" >/dev/null
     defined "$n" && V undefine "$n" >/dev/null
-    rm -f "$(node_dir "$n")"/{disk.qcow2,seed.iso,seed.iso.tmp,meta-data,user-data,domain.xml,console.log,bootstrap.log}
+    rm -f "$(node_dir "$n")"/{disk.qcow2,seed.iso,seed.iso.tmp,meta-data,user-data,network-config,domain.xml,console.log,bootstrap.log}
     echo "[$n] removed"
   done
 }
@@ -376,7 +396,7 @@ cmd_console() {
 
 cmd_ssh() {
   local n="${1:?node}"; shift || true
-  if is_host "$n"; then echo "(CirrOS: user cirros, password gocubsgo)" >&2; ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -o PubkeyAuthentication=no "cirros@${MGMT_IP[$n]}" "$@"
+  if is_host "$n"; then echo "(host: user lab, password lab)" >&2; ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -o PubkeyAuthentication=no "lab@${MGMT_IP[$n]}" "$@"
   else ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR "vyos@${MGMT_IP[$n]}" "$@"; fi
 }
 
@@ -401,6 +421,11 @@ cmd_verify() {     # a quick look at the control plane and the data plane end to
   vy "${CES[0]}" "show ip route bgp" | grep -E '^B' || true; vy "${CES[0]}" "show ip route vrf tenant-b bgp" | grep -E '^B' || true
   echo; echo "== host ping matrix (${#HOSTS[@]} hosts, 3 pings each) — expected: reachable inside a tenant, unreachable across (h1 = tenant-a, h2 = tenant-b)"
   "$PY" "$LAB_DIR/tools/host_cmd.py" matrix "${HOSTS[@]}" || true
+}
+
+cmd_iperf() {      # throughput between two tenant hosts: iperf <src> <dst> [-t s] [-u -b RATE] | iperf --scenarios
+  [[ -x "$LAB_DIR/tests/.venv/bin/python" ]] || "$LAB_DIR/tests/setup.sh"
+  "$PY" "$LAB_DIR/tools/iperf.py" "$@"
 }
 
 cmd_backup() {     # commit running + intended configs and routing tables to the local Gitea (lab/srv6-core-configs)
@@ -429,6 +454,7 @@ usage: $(basename "$0") <command> [node...]
   nautobot seed      model the lab in the shared Nautobot (idempotent; source = lab.conf)
   nautobot render [--check|--live|--write]   render the VyOS configs from Nautobot; compare with lab.conf / the routers
   webapp             start the tenant provisioning portal on http://<host>:8091
+  iperf <src> <dst> [-t s] [-u -b RATE] | iperf --scenarios   throughput between tenant hosts (iperf3 on the Alpine hosts)
   backup [-m msg]    commit running + intended configs and routing tables to the local Gitea (http://<nms>:3000/lab/srv6-core-configs)
   wait [node..]      wait until SSH answers
   down [node..]      stop VMs (VyOS: ACPI shutdown)
@@ -437,7 +463,7 @@ usage: $(basename "$0") <command> [node...]
   verify             IS-IS / SRv6 / VPNv4 / VRF routes / host ping matrix
   test [robot args]  run the Robot Framework tests
   console <node>     attach to the serial console
-  ssh <node> [cmd]   ssh to a node's OOB address (vyos/vyos, cirros/gocubsgo)
+  ssh <node> [cmd]   ssh to a node's OOB address (vyos/vyos, hosts lab/lab)
   log <node> [n]     follow a node's console log
   rebuild [node..]   re-generate domain XML / host seed ISOs (keeps disks)
   clean [node..]     stop, undefine and delete overlay disks
@@ -447,6 +473,6 @@ U
 
 cmd="${1:-}"; shift || true
 case "$cmd" in
-  up|down|bootstrap|configure|steer|nautobot|webapp|backup|wait|status|inventory|verify|test|console|ssh|log|rebuild|clean) "cmd_$cmd" "$@" ;;
+  up|down|bootstrap|configure|steer|nautobot|webapp|iperf|backup|wait|status|inventory|verify|test|console|ssh|log|rebuild|clean) "cmd_$cmd" "$@" ;;
   *) usage; exit 1 ;;
 esac

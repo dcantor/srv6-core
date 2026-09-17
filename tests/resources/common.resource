@@ -22,7 +22,7 @@ Shell
     RETURN    ${out}
 
 Host
-    [Documentation]    Run a command on a CirrOS host by name.
+    [Documentation]    Run a command on a tenant host by name.
     [Arguments]    ${host}    ${command}
     ${out}=    Host Command    ${MGMT}[${host}]    ${command}
     RETURN    ${out}

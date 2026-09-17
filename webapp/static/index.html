@@ -60,7 +60,7 @@
     <div class="row"><div><label>Tenant name</label><input id="w-name"></div><div><label>Kernel table</label><input id="w-table" type="number"></div><div><label>Route target</label><input id="w-rt"></div></div>
     <div class="row" style="margin-top:10px"><div><label>Description</label><input id="w-desc"></div></div>
     <label style="margin-top:10px">Sites (one CE VRF, one attachment circuit and one host per site)</label><div id="w-dcs"></div>
-    <p class="hint">Everything else is allocated for you: the attachment circuit /30s and LAN /24s from the tenant's block, the next free PE and CE ports, and a CirrOS host per site (name, OOB address, console, node index).</p>
+    <p class="hint">Everything else is allocated for you: the attachment circuit /30s and LAN /24s from the tenant's block, the next free PE and CE ports, and an Alpine host per site (name, OOB address, console, node index).</p>
   </div>
   <div class="step" data-step="2"><div id="w-sites"></div><p class="hint">Edit anything that should differ; the review re-validates against the running lab (free ports, unused prefixes, unique names).</p></div>
   <div class="step" data-step="3"><div id="w-review"></div>
@@ -89,7 +89,8 @@ function render() {
     .map(([l, n, c]) => `<div class="kpi"><div class="n ${c}">${n}</div><div class="l">${l}</div></div>`).join('');
   $('tenants').innerHTML = ST.tenants.map(t => `<div class="card tenant ${t.health || ''}"><h2>${esc(t.name)} <span class="pill ${t.health || ''}">${t.health || 'model'}</span>
       <small>table ${t.table} · RT ${t.rt} · <a href="${t.nautobot.vrf}" target="_blank">VRF</a> · <a href="${t.nautobot.tenant}" target="_blank">tenant</a> · <a href="${t.nautobot.prefixes}" target="_blank">prefixes</a></small>
-      <span style="float:right"><button onclick="openSiteWizard('${t.name}')">Add site</button> <button class="danger" onclick="openRemove('${t.name}')">Remove</button></span></h2>
+      <span style="float:right"><button onclick="throughput('${t.name}')">Throughput</button> <button onclick="openSiteWizard('${t.name}')">Add site</button> <button class="danger" onclick="openRemove('${t.name}')">Remove</button></span></h2>
+    <div id="tp-${t.name}" class="hint"></div>
     <table><thead><tr><th>Site</th><th>PE</th><th>RD</th><th>Attachment circuit</th><th>CE</th><th>LAN</th><th>Host</th><th>eBGP CE↔PE</th><th>VRF routes (SRv6)</th><th>End.DT4 SID</th></tr></thead><tbody>
     ${t.sites.map(s => { const l = s.live || {}; const h = l.host || {}; return `<tr><td><b>${s.dc}</b></td><td>${s.pe} ${s.pe_port}</td><td class="mono">${s.rd || ''}</td><td class="mono">${s.attachment_circuit}</td><td>${s.ce} ${s.ce_pe_port} / ${s.ce_lan_port}</td><td class="mono">${s.lan}</td>
       <td>${s.host} <span class="pill ${h.reachable ? 'ok' : (l.host ? 'bad' : '')}">${h.reachable ? 'up' : (l.host ? 'down' : '…')}</span><div class="hint mono">${s.host_ip} · oob ${s.host_mgmt}</div></td>
@@ -144,7 +145,7 @@ async function wizNext() {
       <table><thead><tr><th>Site</th><th>PE side</th><th>CE side (VRF ${esc(spec.name)})</th><th>Host</th><th>What is configured</th></tr></thead><tbody>${spec.sites.map(s => `<tr><td><b>${s.dc}</b></td>
         <td>${s.pe} ${s.pe_port} ${s.attachment_circuit.replace(/0\/30$/, '1')}/30<br><span class="hint">VRF ${esc(spec.name)}, eBGP to the CE, sid vpn export auto</span></td>
         <td>${s.ce} ${s.ce_pe_port} ${s.attachment_circuit.replace(/0\/30$/, '2')}/30, ${s.ce_lan_port} ${s.lan.replace(/0\/24$/, '1')}/24<br><span class="hint">eBGP to the PE, announces ${s.lan}</span></td>
-        <td>${s.host} ${s.lan.replace(/0\/24$/, '2')} (gw .1)<br><span class="hint">CirrOS, OOB ${s.host_mgmt}, console ${s.host_console}</span></td>
+        <td>${s.host} ${s.lan.replace(/0\/24$/, '2')} (gw .1)<br><span class="hint">Alpine, OOB ${s.host_mgmt}, console ${s.host_console}</span></td>
         <td class="hint">PE: VRF + interface + BGP · CE: VRF + 2 interfaces + BGP (re-wired VM) · host VM · Nautobot: tenant, VRF, RT, prefixes, device, cables, peering</td></tr>`).join('')}</tbody></table>`;
     return wizGoto(3);
   }
@@ -153,6 +154,16 @@ async function wizNext() {
   const d = await r.json(); $('w-next').disabled = false;
   if (!r.ok) return $('w-msg').textContent = typeof d.detail === 'string' ? d.detail : JSON.stringify(d.detail);
   $('wiz').close(); show('runs'); watch(d.id);
+}
+
+// ---- throughput ------------------------------------------------------------------------------------------------
+async function throughput(name) {
+  const t = ST.tenants.find(x => x.name === name); if (t.sites.length < 2) return alert('needs two sites');
+  const src = t.sites[0].host, dst = t.sites[t.sites.length - 1].host; const el = $('tp-' + name);
+  el.innerHTML = `iperf3 ${src} → ${dst} (5 s TCP) running…`;
+  const r = await fetch(`/api/iperf?src=${src}&dst=${dst}&seconds=5`); const d = await r.json();
+  if (!r.ok) return el.innerHTML = `<span class="msg">${esc(d.detail)}</span>`;
+  el.innerHTML = `<b>${src} → ${dst}</b> (${d.to}): <b>${d.mbps_received} Mbit/s</b> TCP received (${d.mbps_sent} sent, ${d.retransmits} retransmits) across the SRv6 core — ${new Date().toLocaleTimeString()}`;
 }
 
 // ---- removal ---------------------------------------------------------------------------------------------------

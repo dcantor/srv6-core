@@ -3,13 +3,14 @@
 A segment-routing-over-IPv6 service-provider core simulated on one Linux host with libvirt/KVM: four **VyOS PEs**
 (one per data centre), three **VyOS P routers** in a triangle (p1 and p3 are also VPNv4 route reflectors), a **VyOS CE**
 per data centre serving **two tenants** — `tenant-a` (host h1) and `tenant-b` (host h2) — each in its own VRF on the
-CE and over its own attachment circuit into its own VRF on the PE, and a **CirrOS host** per tenant per site. The core is IPv6-only with IS-IS level-2 carrying the SRv6 locators; each tenant's IPv4 prefixes travel
+CE and over its own attachment circuit into its own VRF on the PE, and an **Alpine Linux host** (iperf3, tcpdump, mtr)
+per tenant per site. The core is IPv6-only with IS-IS level-2 carrying the SRv6 locators; each tenant's IPv4 prefixes travel
 as BGP VPNv4 routes whose next hop is that tenant's **SRv6 End.DT4 SID** on the remote PE, so every h1 reaches every
 other h1, every h2 every other h2, and the two never meet — not even at the same site. Nineteen VMs (plus one CirrOS host per site per extra tenant), about 13 GiB of
 RAM, all VyOS nodes 1 vCPU / 1 GiB.
 
 ```
- hosts (CirrOS)   dc1-h1 172.20.1.2  dc1-h2 172.21.1.2   … the same in dc2, dc3, dc4 (172.20.n / 172.21.n)
+ hosts (Alpine)   dc1-h1 172.20.1.2  dc1-h2 172.21.1.2   … the same in dc2, dc3, dc4 (172.20.n / 172.21.n)
                    | eth2 (VRF tenant-a) | eth4 (VRF tenant-b)
  CEs   (VyOS)     ce1 AS65001 — eBGP to pe1 once per tenant      ce2 AS65002         ce3 AS65003         ce4 AS65004
                    | eth1 172.16.n.0/30 → PE VRF tenant-a          |                   |                   |
@@ -37,7 +38,7 @@ names. Generated from `lab.conf` by `docs/topology.py`; the same drawing with th
 ./lab.sh test          # Robot Framework, results/<timestamp>/report.html
 ./lab.sh down          # ACPI shutdown; configs are saved, the next `up` converges without bootstrap
 ```
-Credentials: VyOS `vyos`/`vyos` (`./lab.sh ssh pe1`), CirrOS `cirros`/`gocubsgo` (`./lab.sh ssh h1`); consoles
+Credentials: VyOS `vyos`/`vyos` (`./lab.sh ssh pe1`), hosts `lab`/`lab` (`./lab.sh ssh dc1-h1`); consoles
 `./lab.sh console <node>`. The whole thing comes up in about six minutes from cold.
 
 ## The design
@@ -118,6 +119,23 @@ tenant-a: PE–CE `172.16.n.0/30` (PE .1), CE–host `172.20.n.0/24`; tenant-b: 
 (CE .1 = gateway, host .2). A fourth token on a `LINKS` entry names the tenant. The first end of a link in
 `lab.conf` gets the first address. `./lab.sh status` prints every link with both addresses, `./lab.sh inventory`
 the whole lab as JSON (what the tests read; a future Nautobot seed would too).
+
+### Throughput (`./lab.sh iperf`)
+The hosts run Alpine Linux with iperf3 (base image built once by `tools/build_host_image.sh` from the Alpine NoCloud
+cloud-init image; per-host overlays with a NoCloud seed carrying static addresses; user `lab`/`lab`).
+`./lab.sh iperf dc1-h1 dc3-h1` measures across the core; `./lab.sh iperf --scenarios` compares the shortest path with a
+steered path as a uSID carrier and as an uncompressed SRH. What a 1 vCPU VyOS software data plane over UDP-tunnelled
+links gives on this host:
+
+| dc1 → dc3, TCP 5 s | Mbit/s |
+|---|---|
+| shortest path (pe1 → p2 → pe3) | ~140 |
+| steered pe1 → p1 → p3 → pe3, one uSID segment | ~120 |
+| steered, uncompressed three-segment SRH | ~120 |
+| UDP at 20 Mbit/s | 0 % loss, jitter < 0.1 ms |
+
+Suite 10 asserts a floor (30 Mbit/s), UDP loss/jitter at a fixed rate, and that steering / uSID do not collapse throughput;
+the portal has a **Throughput** button per tenant (`GET /api/iperf`).
 
 ### Explicit-path steering (traffic engineering)
 `./lab.sh steer add pe1 tenant-b 172.21.3.0/24 p1 p3` pins a tenant prefix on a PE to the path p1 → p3 → pe3 — the long
@@ -222,7 +240,7 @@ rendered line is on the routers — suite 09 asserts both plus the model itself.
 invisible to REST reads (verify through GraphQL), VRF prefixes go through `vrf-prefix-assignments`, GraphQL returns
 choice fields upper-cased, and new custom fields need a Nautobot restart before GraphQL sees them.
 
-## Tests (`./lab.sh test`, 36 cases)
+## Tests (`./lab.sh test`, 40 cases)
 | Suite | Checks |
 |---|---|
 | 01 management | every node on the OOB network with SSH, host names, host LAN addresses, MTU 9000 on all core links, config saved |
@@ -233,6 +251,7 @@ choice fields upper-cased, and new custom fields need a Nautobot restart before 
 | 07 steering | `steer add` installs the one-segment uSID carrier (`fd00:c:11:13:3:e001::`); captures on p1/p3 show the destination shifting hop by hop with the carrier in a one-segment SRH, p2 carries none of it, pings work, the return path crosses p2; the same path as an uncompressed three-segment list also works; `steer del` restores the BGP route |
 | 08 failover | BFD up on all 24 adjacencies; silent cut of p2–pe3 with a live 0.2 s ping: pe3 moves every tenant route to p3 within seconds, BFD reports Down, ≤ 10 packets lost across cut and repair (measured: 4); all BFD sessions and adjacencies back afterwards |
 | 09 nautobot | every device/link/address/VRF/RD/peering in Nautobot matches the inventory; Nautobot's rendering == lab.conf's; every rendered line present on the routers |
+| 10 throughput | iperf3 dc1 → dc3: TCP above the floor, UDP at 20 Mbit/s with no loss, steered (uSID and uncompressed) within half of the shortest path |
 | 05 end to end | every host reaches every host of its tenant (2 × 4×3 pings) and **none of the other tenant's**, not even at the same site; dc1→dc3 traffic transits p2 with `tcpdump` showing `IP6 fd00:a::1 > fd00:c:3:…` both ways; P routers hold no VRF and no tenant routes |
 
 Every run lands in `results/<timestamp>/` — `report.html`, `log.html`, `output.xml`, and `configs/{pre-run,post-run}/` with
@@ -254,6 +273,7 @@ a terminal page; run it with the cat8000v-ipsec `webapp/.venv` python).
 | `lab.sh` | libvirt controller: `up down bootstrap configure steer nautobot wait status inventory verify test console ssh log rebuild clean` |
 | `nautobot/seed.py`, `nautobot/render.py`, `nautobot/srv6-core-model.graphql` | model the lab in Nautobot; render the configs from it; the saved query |
 | `tools/render.py` | the one config renderer (inventory → VyOS `set` lines), used by `gen_configs.py` and `nautobot/render.py` |
+| `tools/build_host_image.sh`, `tools/iperf.py` | the Alpine host base image (iperf3 etc.); throughput between hosts (`lab.sh iperf`) |
 | `tools/steer.py` | explicit-path SRv6 steering (`add / del / show / sid`; uSID carrier or `--uncompressed`) |
 | `tools/backup_configs.py` | `lab.sh backup`: running + intended configs and routing tables → the local Gitea (`lab/srv6-core-configs`); also the last step of every portal run |
 | `webapp/` | the tenant provisioning portal (FastAPI + single page; `restart.sh`, `srv6-webapp.service`) |
@@ -289,9 +309,9 @@ a terminal page; run it with the cat8000v-ipsec `webapp/.venv` python).
   again — seen when the tenant-a RD moved from 65000:*n* to 65000:10*n*. `./lab.sh configure` re-applies
   `vyos_config.txt` over SSH (idempotent) for changes after the first boot; adding NICs needs `down`, `rebuild`, `up` first.
 - **MTU**: the 64-byte SRv6 overhead is absorbed by the 9000-byte core; hosts and CEs stay at 1500.
-- **CirrOS** is IPv4-only with busybox tools and dropbear (password auth only); its `meta-data` must be JSON, and it
-  runs the `user-data` script once per instance-id — `lab.sh up` therefore regenerates the seed with a fresh
-  instance-id on every start so the hosts get their addresses back after a reboot.
+- **Hosts are Alpine** (cloud-init NoCloud): `network-config` v2 by MAC gives static addresses on every boot (`to: 0.0.0.0/0`,
+  not `default`, for the route — this cloud-init rejects the word); the image has iperf3 / tcpdump / mtr but no `sudo`.
+  The earlier CirrOS hosts were replaced because they had no iperf3 and re-ran user-data only per instance-id.
 - **Don't run this alongside the cat9000v lab** (two 18 GiB Cat9kv); with the IPsec lab down there is ample headroom.
 
 ## Next
