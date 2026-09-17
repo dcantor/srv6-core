@@ -5,7 +5,7 @@ A segment-routing-over-IPv6 service-provider core simulated on one Linux host wi
 per data centre serving **two tenants** — `tenant-a` (host h1) and `tenant-b` (host h2) — each in its own VRF on the
 CE and over its own attachment circuit into its own VRF on the PE, and a **CirrOS host** per tenant per site. The core is IPv6-only with IS-IS level-2 carrying the SRv6 locators; each tenant's IPv4 prefixes travel
 as BGP VPNv4 routes whose next hop is that tenant's **SRv6 End.DT4 SID** on the remote PE, so every h1 reaches every
-other h1, every h2 every other h2, and the two never meet — not even at the same site. Nineteen VMs, about 13 GiB of
+other h1, every h2 every other h2, and the two never meet — not even at the same site. Nineteen VMs (plus one CirrOS host per site per extra tenant), about 13 GiB of
 RAM, all VyOS nodes 1 vCPU / 1 GiB.
 
 ```
@@ -152,6 +152,38 @@ it is toggled — hence the firewall-style cut.)
 Locator structure: block 40 bits · node 24 bits · function 16 bits; the function values are allocated by FRR at run time
 (they can change after a reconfiguration), which is why the tests only ever assert that a SID lies inside the right locator.
 
+## The tenant provisioning portal
+`./lab.sh webapp` (or the systemd user unit `srv6-webapp`) serves **http://192.168.50.231:8091** — Swagger at `/docs`.
+
+| View | What it does |
+|---|---|
+| Tenants | one card per tenant with its sites: PE port, RD, attachment circuit, CE ports, LAN, host — joined with live state from the PEs (eBGP session to the CE, prefixes received, VRF / SRv6 route counts, the tenant's End.DT4 SID) and host reachability; the topology drawn live (hosts coloured by reachability); links into Nautobot (VRF, tenant, prefixes) |
+| Add tenant | a 3-step wizard: name / kernel table / route target / sites (all suggested: next letter, next table, `65000:<table>`), then the per-site allocation — attachment circuit `/30` and LAN `/24` from the tenant's blocks (`172.(16+i)` / `172.(20+i)`), the next free PE and CE ports, a CirrOS host (name, OOB address, console, node index) — editable and re-validated against the running lab, then a review and **Deploy** |
+| Add site | the same wizard for an existing tenant and one more data centre |
+| Remove | what the removal deletes (hosts, VRF, interfaces, BGP, Nautobot objects) and a run that does it |
+| Steering | the explicit-path policies present on the PEs; add one (PE, tenant, remote prefix, ordered list of P routers) or remove one — applied immediately through `tools/steer.py` |
+| Runs | every pipeline run with its steps, streamed log, the Robot report; failed or interrupted runs can be **resumed** from the failed step |
+
+An **add tenant / add site** run: validate → `lab.conf` + day-0 configs (`gen_configs.py`) → host VMs created and booted → the CEs at the
+chosen sites re-wired (their VM definition gains the new links; ~60 s reboot each, the PEs are untouched because they anchor
+the UDP links and have spare ports) → configuration pushed to the PEs and CEs over SSH (`lab.sh configure`) → Nautobot seeded →
+verify (ping matrix of the tenant's hosts, `nautobot render --check`) → Robot suites 04 / 05 / 09. **Remove tenant** runs the
+reverse (hosts deleted, Nautobot objects removed, `lab.conf`, VRF + interfaces + BGP deleted on the PEs/CEs, CEs re-wired, seed,
+verify, tests). Adding a tenant takes about six minutes plus the tests.
+
+![Tenants with live state](docs/screenshots/portal-tenants.png)
+![Add-tenant wizard: per-site allocation](docs/screenshots/portal-wizard-sites.png)
+![Add-tenant wizard: review](docs/screenshots/portal-wizard-review.png)
+![A run: steps, log, Robot report](docs/screenshots/portal-runs.png)
+
+Proven on the live lab: `tenant-c` added on all four sites from the wizard (four new hosts, CEs re-wired, 12/12 pings between
+the new hosts, Nautobot == lab.conf, 52/52 tests with three tenants), then removed again through the portal (16/16 tests,
+`lab.conf` byte-identical to before).
+
+Under the hood: `webapp/labconf.py` (structured edits of `lab.conf`), `webapp/tenants.py` (facts, suggestions, validation, plans),
+`webapp/state.py` (live state collector), `webapp/app.py` (FastAPI, runs), `webapp/static/index.html`, `tools/topology_svg.py`
+(the drawing, shared with the PDF), `nautobot/remove_tenant.py`.
+
 ## Nautobot: the source of truth
 The lab is modelled in the shared Nautobot (the cat9000v NMS, on this lab's OOB network as **10.3.0.10**):
 `./lab.sh nautobot seed` (idempotent, from `lab.conf`), `./lab.sh nautobot render --check | --live | --write`.
@@ -214,6 +246,7 @@ a terminal page; run it with the cat8000v-ipsec `webapp/.venv` python).
 | `nautobot/seed.py`, `nautobot/render.py`, `nautobot/srv6-core-model.graphql` | model the lab in Nautobot; render the configs from it; the saved query |
 | `tools/render.py` | the one config renderer (inventory → VyOS `set` lines), used by `gen_configs.py` and `nautobot/render.py` |
 | `tools/steer.py` | explicit-path SRv6 steering (`add / del / show / sid`) |
+| `webapp/` | the tenant provisioning portal (FastAPI + single page; `restart.sh`, `srv6-webapp.service`) |
 | `docs/demo/record.py` | records `docs/demo/srv6-demo.{gif,mp4}` from the live lab |
 | `docs/topology.pdf`, `docs/topology.py` | the topology as a two-page PDF (diagram, addressing, packet walk), drawn from `lab.sh inventory` — rerun the script after editing `lab.conf` |
 | `tools/gen_configs.py` | renders `nodes/<n>/vyos_config.txt` (the day-0 `set` lines) from `lab.sh inventory` — run after editing `lab.conf` |
@@ -251,5 +284,4 @@ a terminal page; run it with the cat8000v-ipsec `webapp/.venv` python).
 - **Don't run this alongside the cat9000v lab** (two 18 GiB Cat9kv); with the IPsec lab down there is ample headroom.
 
 ## Next
-A tenant-provisioning portal on top of Nautobot (add tenant / add site: VRF, RT, RD, LANs, attachment circuits,
-hosts — pushed with `configure`, verified with the suites), Golden Config compliance for VyOS, TI-LFA, uSID.
+Golden Config compliance for VyOS, TI-LFA, uSID, measured throughput between the hosts.

@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>SRv6 Tenant Provisioning Portal</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root { --ink:#0f172a; --muted:#64748b; --line:#e2e8f0; --bg:#f8fafc; --card:#fff; --accent:#c2410c; --ok:#15803d; --warn:#b45309; --bad:#b91c1c; --blue:#1d4ed8 }
+  * { box-sizing:border-box } body { margin:0; font:14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color:var(--ink); background:var(--bg) }
+  header { background:#0b1020; color:#e2e8f0; padding:14px 26px; display:flex; align-items:center; gap:26px; flex-wrap:wrap }
+  header h1 { font-size:19px; margin:0 } header .sub { color:#94a3b8; font-size:12px } header nav a { color:#cbd5e1; text-decoration:none; padding:6px 12px; border-radius:6px } header nav a.on, header nav a:hover { background:#1e293b; color:#fff }
+  header .right { margin-left:auto; color:#94a3b8; font-size:12px } header .right a { color:#7dd3fc }
+  main { max-width:1500px; margin:0 auto; padding:18px 26px } .view { display:none } .view.on { display:block }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px 18px; margin-bottom:16px }
+  .card h2 { font-size:15px; margin:0 0 10px } .card h2 small { color:var(--muted); font-weight:400; margin-left:8px }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(420px, 1fr)); gap:16px }
+  table { border-collapse:collapse; width:100%; font-size:13px } th, td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); vertical-align:top } th { color:var(--muted); font-weight:600; font-size:12px }
+  code, .mono { font-family:ui-monospace, Menlo, Consolas, monospace; font-size:12px }
+  .pill { display:inline-block; font-size:11px; padding:2px 8px; border-radius:999px; background:#e2e8f0; color:var(--ink) } .pill.up, .pill.ok, .pill.success, .pill.PASS { background:#dcfce7; color:var(--ok) } .pill.degraded, .pill.running, .pill.warn { background:#fef3c7; color:var(--warn) } .pill.down, .pill.bad, .pill.failed, .pill.FAIL, .pill.interrupted { background:#fee2e2; color:var(--bad) }
+  button { font:inherit; padding:7px 14px; border-radius:7px; border:1px solid var(--line); background:#fff; cursor:pointer } button.primary { background:var(--accent); color:#fff; border-color:var(--accent) } button.danger { color:var(--bad); border-color:#fca5a5 } button:disabled { opacity:.5; cursor:default }
+  input, select { font:inherit; padding:6px 8px; border:1px solid var(--line); border-radius:6px; width:100% } label { display:block; font-size:12px; color:var(--muted); margin-bottom:3px }
+  .row { display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end } .row > div { flex:1; min-width:140px }
+  .hint { color:var(--muted); font-size:12px } .msg { color:var(--bad); font-size:13px; white-space:pre-wrap }
+  .topo svg { width:100%; height:auto; display:block }
+  .steps { list-style:none; padding:0; margin:0 } .steps li { padding:6px 0; border-bottom:1px solid var(--line); display:flex; gap:10px; align-items:baseline } .steps li .t { flex:1 } .steps li .s { color:var(--muted); font-size:12px }
+  pre.log { background:#0b1020; color:#cbd5e1; padding:12px; border-radius:8px; font-size:12px; max-height:420px; overflow:auto; white-space:pre-wrap }
+  .tenant { border-left:5px solid var(--accent) } .tenant.up { border-left-color:var(--ok) } .tenant.degraded { border-left-color:var(--warn) } .tenant.down { border-left-color:var(--bad) }
+  .wiz .step { display:none } .wiz .step.on { display:block } .actions { display:flex; gap:10px; margin-top:12px; align-items:center }
+  .kpis { display:grid; grid-template-columns:repeat(auto-fit, minmax(150px,1fr)); gap:12px; margin-bottom:14px } .kpi { background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:10px 14px } .kpi .n { font-size:24px; font-weight:600 } .kpi .l { color:var(--muted); font-size:12px }
+  dialog { border:1px solid var(--line); border-radius:10px; padding:18px 20px; width:min(760px, 95vw) } dialog::backdrop { background:rgba(15,23,42,.45) }
+</style></head>
+<body>
+<header><div><h1>SRv6 Tenant Provisioning Portal</h1><div class="sub">VyOS SRv6 core · IS-IS + BGP L3VPN (End.DT4) · Nautobot source of truth · Robot Framework validation</div></div>
+  <nav><a href="#tenants" class="on" data-view="tenants">Tenants</a><a href="#steering" data-view="steering">Steering</a><a href="#runs" data-view="runs">Runs</a><a href="/docs" target="_blank">API</a></nav>
+  <div class="right" id="hdr">Nautobot: <a id="nb-link" href="#" target="_blank">open</a></div></header>
+<main>
+<section id="v-tenants" class="view on">
+  <div class="kpis" id="kpis"></div>
+  <div class="card"><h2>Tenants <small>one VRF per tenant on every PE and CE; tenants never meet</small>
+    <span style="float:right"><button onclick="refresh(true)">Refresh live state</button> <button class="primary" onclick="openWizard()">Add tenant</button></span></h2>
+    <div id="tenants"></div></div>
+  <div class="card topo"><h2>Topology <small>hosts coloured by reachability over the OOB network; every link with its prefix and interfaces</small></h2><div id="topo"></div></div>
+</section>
+
+<section id="v-steering" class="view">
+  <div class="card"><h2>Explicit-path steering <small>pin a tenant prefix on a PE to a segment list through chosen P routers — applied immediately</small></h2>
+    <div class="row"><div><label>Source PE</label><select id="st-pe"></select></div><div><label>Tenant</label><select id="st-tenant"></select></div><div><label>Prefix (a remote site LAN)</label><select id="st-prefix"></select></div>
+      <div><label>Path (P routers, in order; the first must be attached to the PE)</label><input id="st-via" value="p1 p3"></div><div style="flex:0"><button class="primary" onclick="steerAdd()">Apply</button></div></div>
+    <div class="msg" id="st-msg"></div>
+    <h2 style="margin-top:16px">Policies present on the PEs</h2><table id="st-table"><thead><tr><th>PE</th><th>Tenant</th><th>Prefix</th><th>Segment list</th><th>Out</th><th></th></tr></thead><tbody></tbody></table>
+    <p class="hint">The segment list is the End SID of every listed P router followed by the End.DT4 SID of the PE that owns the prefix (read live). Return traffic keeps the IGP shortest path. Suite 07 shows the SRH on the wire.</p></div>
+</section>
+
+<section id="v-runs" class="view">
+  <div class="grid"><div class="card"><h2>Runs <small>one at a time</small> <span style="float:right"><button onclick="startTests()">Run the test suites</button></span></h2><table id="runs"><thead><tr><th>Started</th><th>Mode</th><th>Tenant</th><th>Status</th><th>Tests</th></tr></thead><tbody></tbody></table></div>
+    <div class="card" id="runcard"><h2 id="run-title">Run</h2><div id="run-body" class="hint">select a run</div></div></div>
+</section>
+</main>
+
+<dialog id="wiz" class="wiz">
+  <h2 id="wiz-title">Add a tenant</h2>
+  <div class="step on" data-step="1">
+    <div class="row"><div><label>Tenant name</label><input id="w-name"></div><div><label>Kernel table</label><input id="w-table" type="number"></div><div><label>Route target</label><input id="w-rt"></div></div>
+    <div class="row" style="margin-top:10px"><div><label>Description</label><input id="w-desc"></div></div>
+    <label style="margin-top:10px">Sites (one CE VRF, one attachment circuit and one host per site)</label><div id="w-dcs"></div>
+    <p class="hint">Everything else is allocated for you: the attachment circuit /30s and LAN /24s from the tenant's block, the next free PE and CE ports, and a CirrOS host per site (name, OOB address, console, node index).</p>
+  </div>
+  <div class="step" data-step="2"><div id="w-sites"></div><p class="hint">Edit anything that should differ; the review re-validates against the running lab (free ports, unused prefixes, unique names).</p></div>
+  <div class="step" data-step="3"><div id="w-review"></div>
+    <label style="margin-top:10px"><input type="checkbox" id="w-test" checked style="width:auto"> run the Robot suites (VPN, end-to-end, Nautobot) at the end (~10 min)</label>
+    <p class="hint">What happens: lab.conf + day-0 configs → host VMs created and booted → the CEs at the chosen sites are re-wired (each reboots for ~60 s: that site's other tenants lose connectivity for that time) → configuration pushed over SSH to the PEs and CEs → Nautobot seeded → ping matrix + Nautobot-vs-lab.conf check → tests.</p></div>
+  <div class="msg" id="w-msg"></div>
+  <div class="actions"><button onclick="wizBack()" id="w-back">Back</button><button class="primary" onclick="wizNext()" id="w-next">Next</button><span style="flex:1"></span><button onclick="document.getElementById('wiz').close()">Cancel</button></div>
+</dialog>
+<dialog id="rm"><h2 id="rm-title">Remove tenant</h2><div id="rm-body"></div><div class="actions"><button class="danger" id="rm-go">Remove</button><button onclick="document.getElementById('rm').close()">Cancel</button></div></dialog>
+
+<script>
+const $ = id => document.getElementById(id); const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let ST = null, wizSpec = null, wizMode = 'tenant', wizStep = 1, watching = null;
+document.querySelectorAll('nav a[data-view]').forEach(a => a.onclick = e => { e.preventDefault(); show(a.dataset.view); });
+function show(v) { document.querySelectorAll('.view').forEach(x => x.classList.toggle('on', x.id === 'v-' + v)); document.querySelectorAll('nav a[data-view]').forEach(a => a.classList.toggle('on', a.dataset.view === v)); location.hash = v; if (v === 'runs') loadRuns(); if (v === 'steering') loadSteering(); }
+
+async function refresh(live) {
+  const r = await fetch('/api/state' + (live ? '?refresh=1' : '?live=0')); ST = await r.json(); render();
+  if (!live && !ST.live_done) refresh(true);
+}
+function render() {
+  $('nb-link').href = ST.nautobot_url; const hosts = ST.nodes.filter(n => n.role === 'host'); const hl = ST.hosts_live || {};
+  const up = Object.values(hl).filter(h => h.reachable).length;
+  $('kpis').innerHTML = [['Tenants', ST.tenants.length, ''], ['Sites', ST.tenants.reduce((a, t) => a + t.sites.length, 0), ''], ['Hosts reachable', ST.live_done ? `${up} / ${hosts.length}` : '…', ST.live_done ? (up === hosts.length ? 'ok' : 'bad') : ''],
+    ['PEs', ST.pes.length, ''], ['Route reflectors', ST.service.rrs.join(', '), ''], ['Steering policies', (ST.steering || []).length, '']]
+    .map(([l, n, c]) => `<div class="kpi"><div class="n ${c}">${n}</div><div class="l">${l}</div></div>`).join('');
+  $('tenants').innerHTML = ST.tenants.map(t => `<div class="card tenant ${t.health || ''}"><h2>${esc(t.name)} <span class="pill ${t.health || ''}">${t.health || 'model'}</span>
+      <small>table ${t.table} · RT ${t.rt} · <a href="${t.nautobot.vrf}" target="_blank">VRF</a> · <a href="${t.nautobot.tenant}" target="_blank">tenant</a> · <a href="${t.nautobot.prefixes}" target="_blank">prefixes</a></small>
+      <span style="float:right"><button onclick="openSiteWizard('${t.name}')">Add site</button> <button class="danger" onclick="openRemove('${t.name}')">Remove</button></span></h2>
+    <table><thead><tr><th>Site</th><th>PE</th><th>RD</th><th>Attachment circuit</th><th>CE</th><th>LAN</th><th>Host</th><th>eBGP CE↔PE</th><th>VRF routes (SRv6)</th><th>End.DT4 SID</th></tr></thead><tbody>
+    ${t.sites.map(s => { const l = s.live || {}; const h = l.host || {}; return `<tr><td><b>${s.dc}</b></td><td>${s.pe} ${s.pe_port}</td><td class="mono">${s.rd || ''}</td><td class="mono">${s.attachment_circuit}</td><td>${s.ce} ${s.ce_pe_port} / ${s.ce_lan_port}</td><td class="mono">${s.lan}</td>
+      <td>${s.host} <span class="pill ${h.reachable ? 'ok' : (l.host ? 'bad' : '')}">${h.reachable ? 'up' : (l.host ? 'down' : '…')}</span><div class="hint mono">${s.host_ip} · oob ${s.host_mgmt}</div></td>
+      <td><span class="pill ${l.bgp === 'Established' ? 'ok' : (l.bgp ? 'bad' : '')}">${l.bgp || '…'}</span>${l.prefixes_from_ce != null ? ` <span class="hint">${l.prefixes_from_ce} pfx</span>` : ''}${l.error ? `<div class="msg">${esc(l.error)}</div>` : ''}</td>
+      <td>${l.vrf_routes ?? '…'} (${l.srv6_routes ?? '…'})</td><td class="mono">${l.dt4_sid || '…'}</td></tr>`; }).join('')}</tbody></table></div>`).join('') || '<div class="hint">no tenants</div>';
+  fetch('/api/topology.svg' + (ST.live_done ? '' : '?live=0')).then(r => r.text()).then(svg => $('topo').innerHTML = svg);
+}
+
+// ---- wizard --------------------------------------------------------------------------------------------------
+async function openWizard() {
+  wizMode = 'tenant'; const r = await fetch('/api/tenants/suggest'); wizSpec = await r.json();
+  $('wiz-title').textContent = 'Add a tenant'; $('w-name').value = wizSpec.name; $('w-table').value = wizSpec.table; $('w-rt').value = wizSpec.rt; $('w-desc').value = wizSpec.description || '';
+  $('w-dcs').innerHTML = wizSpec.context.dcs.map(d => `<label style="display:inline-flex;gap:6px;align-items:center;margin-right:14px;color:var(--ink)"><input type="checkbox" class="w-dc" value="${d}" checked style="width:auto"> ${d}</label>`).join('');
+  document.querySelectorAll('.w-dc').forEach(c => c.disabled = false); wizGoto(1); $('w-msg').textContent = ''; $('wiz').showModal();
+}
+async function openSiteWizard(tenant) {
+  wizMode = 'site'; const t = ST.tenants.find(x => x.name === tenant); const free = ST.dcs.filter(d => !t.sites.some(s => s.dc === d));
+  if (!free.length) return alert(`${tenant} already has a site in every DC`);
+  const r = await fetch(`/api/tenants/${tenant}/suggest-site?dc=${free[0]}`); wizSpec = await r.json(); wizSpec.context = { dcs: free };
+  $('wiz-title').textContent = `Add a site to ${tenant}`; $('w-name').value = tenant; $('w-table').value = wizSpec.table; $('w-rt').value = wizSpec.rt; $('w-desc').value = '';
+  $('w-dcs').innerHTML = free.map((d, i) => `<label style="display:inline-flex;gap:6px;align-items:center;margin-right:14px;color:var(--ink)"><input type="radio" name="w-dc" class="w-dc" value="${d}" ${i ? '' : 'checked'} style="width:auto"> ${d}</label>`).join('');
+  wizGoto(1); $('w-msg').textContent = ''; $('wiz').showModal();
+}
+function wizGoto(n) { wizStep = n; document.querySelectorAll('#wiz .step').forEach(s => s.classList.toggle('on', +s.dataset.step === n)); $('w-back').disabled = n === 1; $('w-next').textContent = n === 3 ? 'Deploy' : 'Next'; }
+function wizBack() { if (wizStep > 1) wizGoto(wizStep - 1); }
+function siteForm(s, i) {
+  return `<div class="card" style="padding:10px 14px"><b>${s.dc}</b> <span class="hint">PE ${s.pe}, CE ${s.ce}</span>
+    <div class="row" style="margin-top:6px"><div><label>PE port</label><input data-i="${i}" data-k="pe_port" value="${s.pe_port}"></div><div><label>CE port → PE</label><input data-i="${i}" data-k="ce_pe_port" value="${s.ce_pe_port}"></div><div><label>CE LAN port</label><input data-i="${i}" data-k="ce_lan_port" value="${s.ce_lan_port}"></div>
+      <div><label>Attachment circuit /30</label><input data-i="${i}" data-k="attachment_circuit" value="${s.attachment_circuit}"></div><div><label>LAN /24</label><input data-i="${i}" data-k="lan" value="${s.lan}"></div></div>
+    <div class="row" style="margin-top:6px"><div><label>Host name</label><input data-i="${i}" data-k="host" value="${s.host}"></div><div><label>Host OOB address</label><input data-i="${i}" data-k="host_mgmt" value="${s.host_mgmt}"></div><div><label>Console port</label><input data-i="${i}" data-k="host_console" value="${s.host_console}"></div><div><label>Node index</label><input data-i="${i}" data-k="host_idx" value="${s.host_idx}"></div></div></div>`;
+}
+function collect() {
+  const spec = { name: $('w-name').value.trim(), table: +$('w-table').value, rt: $('w-rt').value.trim(), description: $('w-desc').value, sites: wizSpec.sites.map(s => ({ ...s })) };
+  document.querySelectorAll('#w-sites input[data-k]').forEach(inp => { const s = spec.sites[+inp.dataset.i]; s[inp.dataset.k] = ['host_console', 'host_idx'].includes(inp.dataset.k) ? +inp.value : inp.value.trim(); });
+  return spec;
+}
+async function wizNext() {
+  $('w-msg').textContent = '';
+  if (wizStep === 1) {
+    const dcs = [...document.querySelectorAll('.w-dc')].filter(c => c.checked).map(c => c.value);
+    if (!dcs.length) return $('w-msg').textContent = 'select at least one site';
+    if (wizMode === 'tenant') { const r = await fetch('/api/tenants/suggest?dcs=' + dcs.join(',')); const s = await r.json(); wizSpec.sites = s.sites; }
+    else { const r = await fetch(`/api/tenants/${$('w-name').value}/suggest-site?dc=${dcs[0]}`); const s = await r.json(); if (s.detail) return $('w-msg').textContent = s.detail; wizSpec.sites = s.sites; }
+    const bad = wizSpec.sites.find(s => s.error); if (bad) return $('w-msg').textContent = `${bad.dc}: ${bad.error}`;
+    $('w-sites').innerHTML = wizSpec.sites.map(siteForm).join(''); return wizGoto(2);
+  }
+  if (wizStep === 2) {
+    const spec = collect(); const r = await fetch('/api/tenants/validate?new_tenant=' + (wizMode === 'tenant'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(spec) });
+    const v = await r.json(); if (!r.ok) return $('w-msg').textContent = JSON.stringify(v.detail); if (v.problems.length) return $('w-msg').textContent = v.problems.join('\n');
+    wizSpec.sites = spec.sites;
+    $('w-review').innerHTML = `<p><b>${esc(spec.name)}</b> — kernel table ${spec.table}, route target ${esc(spec.rt)}; RD 65000:${spec.table}+PE# on each PE</p>
+      <table><thead><tr><th>Site</th><th>PE side</th><th>CE side (VRF ${esc(spec.name)})</th><th>Host</th><th>What is configured</th></tr></thead><tbody>${spec.sites.map(s => `<tr><td><b>${s.dc}</b></td>
+        <td>${s.pe} ${s.pe_port} ${s.attachment_circuit.replace(/0\/30$/, '1')}/30<br><span class="hint">VRF ${esc(spec.name)}, eBGP to the CE, sid vpn export auto</span></td>
+        <td>${s.ce} ${s.ce_pe_port} ${s.attachment_circuit.replace(/0\/30$/, '2')}/30, ${s.ce_lan_port} ${s.lan.replace(/0\/24$/, '1')}/24<br><span class="hint">eBGP to the PE, announces ${s.lan}</span></td>
+        <td>${s.host} ${s.lan.replace(/0\/24$/, '2')} (gw .1)<br><span class="hint">CirrOS, OOB ${s.host_mgmt}, console ${s.host_console}</span></td>
+        <td class="hint">PE: VRF + interface + BGP · CE: VRF + 2 interfaces + BGP (re-wired VM) · host VM · Nautobot: tenant, VRF, RT, prefixes, device, cables, peering</td></tr>`).join('')}</tbody></table>`;
+    return wizGoto(3);
+  }
+  const spec = collect(); $('w-next').disabled = true;
+  const r = await fetch('/api/runs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode: wizMode, tenant: spec, options: { test: $('w-test').checked } }) });
+  const d = await r.json(); $('w-next').disabled = false;
+  if (!r.ok) return $('w-msg').textContent = typeof d.detail === 'string' ? d.detail : JSON.stringify(d.detail);
+  $('wiz').close(); show('runs'); watch(d.id);
+}
+
+// ---- removal ---------------------------------------------------------------------------------------------------
+async function openRemove(name) {
+  const r = await fetch(`/api/tenants/${name}/removal`); const d = await r.json();
+  if (!r.ok) return alert(JSON.stringify(d.detail));
+  $('rm-title').textContent = `Remove ${name}`; $('rm-body').innerHTML = `<p>This deletes the hosts <b>${d.hosts.join(', ')}</b>, the VRF <b>${name}</b> (table ${d.table}, RT ${d.rt}) with its interfaces and BGP on <b>${d.pes.join(', ')}</b> and <b>${d.ces.join(', ')}</b> (the CEs are re-wired and reboot), and everything of the tenant in Nautobot.</p>
+    <table><thead><tr><th>Site</th><th>Attachment circuit</th><th>LAN</th><th>Host</th></tr></thead><tbody>${d.sites.map(s => `<tr><td>${s.dc}</td><td class="mono">${s.attachment_circuit}</td><td class="mono">${s.lan}</td><td>${s.host}</td></tr>`).join('')}</tbody></table>`;
+  $('rm-go').onclick = async () => { const rr = await fetch('/api/runs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode: 'remove', name, options: { test: true } }) }); const x = await rr.json(); if (!rr.ok) return alert(JSON.stringify(x.detail)); $('rm').close(); show('runs'); watch(x.id); };
+  $('rm').showModal();
+}
+
+// ---- steering ---------------------------------------------------------------------------------------------------
+async function loadSteering() {
+  if (!ST) await refresh(false);
+  $('st-pe').innerHTML = ST.pes.map(p => `<option>${p}</option>`).join(''); $('st-tenant').innerHTML = ST.tenants.map(t => `<option>${t.name}</option>`).join('');
+  const fill = () => { const t = ST.tenants.find(x => x.name === $('st-tenant').value); const pe = $('st-pe').value; $('st-prefix').innerHTML = t.sites.filter(s => s.pe !== pe).map(s => `<option value="${s.lan}">${s.lan} (${s.dc}, behind ${s.pe})</option>`).join(''); };
+  $('st-pe').onchange = fill; $('st-tenant').onchange = fill; fill();
+  const r = await fetch('/api/steering'); const pol = await r.json();
+  $('st-table').querySelector('tbody').innerHTML = pol.map(p => `<tr><td>${p.pe}</td><td>${p.tenant}</td><td class="mono">${p.prefix}</td><td class="mono">${(p.segments || []).join(' → ')}</td><td>${p.interface}</td><td><button class="danger" onclick="steerDel('${p.pe}','${p.tenant}','${p.prefix}')">Remove</button></td></tr>`).join('') || '<tr><td colspan="6" class="hint">no policies — every prefix follows the IGP shortest path</td></tr>';
+}
+async function steerAdd() { $('st-msg').textContent = ''; const r = await fetch('/api/steering', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pe: $('st-pe').value, tenant: $('st-tenant').value, prefix: $('st-prefix').value, via: $('st-via').value.trim().split(/\s+/) }) }); const d = await r.json(); if (!r.ok) return $('st-msg').textContent = typeof d.detail === 'string' ? d.detail : JSON.stringify(d.detail); $('st-msg').textContent = ''; loadSteering(); }
+async function steerDel(pe, tenant, prefix) { await fetch(`/api/steering?pe=${pe}&tenant=${tenant}&prefix=${encodeURIComponent(prefix)}`, { method: 'DELETE' }); loadSteering(); }
+
+// ---- runs --------------------------------------------------------------------------------------------------------
+async function loadRuns() {
+  const r = await fetch('/api/runs'); const list = await r.json();
+  $('runs').querySelector('tbody').innerHTML = list.map(x => `<tr style="cursor:pointer" onclick="watch('${x.id}')"><td>${new Date(x.started * 1000).toLocaleString()}</td><td>${x.mode}</td><td>${esc(x.tenant || '')}</td><td><span class="pill ${x.status}">${x.status}</span></td><td>${x.tests ? `${x.tests.passed}/${x.tests.total}` : ''}</td></tr>`).join('') || '<tr><td colspan="5" class="hint">no runs yet</td></tr>';
+}
+async function startTests() { const r = await fetch('/api/runs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode: 'test', options: { suites: ['all'] } }) }); const d = await r.json(); if (!r.ok) return alert(JSON.stringify(d.detail)); watch(d.id); }
+async function watch(id) {
+  if (watching) clearInterval(watching); let offset = 0, log = [];
+  const tick = async () => {
+    const r = await fetch(`/api/runs/${id}?since=${offset}`); const d = await r.json(); log = log.concat(d.log || []); offset = (d.log_offset || 0) + (d.log || []).length;
+    $('run-title').innerHTML = `${d.mode} ${esc(d.tenant || '')} <span class="pill ${d.status}">${d.status}</span> <small class="hint">${d.id}</small>` + (['failed', 'interrupted'].includes(d.status) ? ` <button onclick="resume('${d.id}')">Resume</button>` : '');
+    $('run-body').innerHTML = `<ul class="steps">${d.steps.map(s => `<li><span class="pill ${s.status}">${s.status}</span><span class="t">${esc(s.title)}</span><span class="s">${esc(s.summary || '')}</span></li>`).join('')}</ul>
+      ${d.tests ? `<h3>Tests: ${d.tests.passed}/${d.tests.total} passed ${d.results_dir ? `· <a href="/results/${d.results_dir}/report.html" target="_blank">report</a> · <a href="/results/${d.results_dir}/log.html" target="_blank">log</a>` : ''}</h3>
+        ${d.tests.suites.map(s => `<div><b>${esc(s.name)}</b> ${s.passed}/${s.tests.length}${s.tests.filter(t => t.status !== 'PASS').map(t => `<div class="msg">✗ ${esc(t.name)}: ${esc(t.message)}</div>`).join('')}</div>`).join('')}` : ''}
+      ${d.error ? `<div class="msg">${esc(d.error)}</div>` : ''}<pre class="log">${log.map(l => esc(l.line)).join('\n')}</pre>`;
+    const pre = $('run-body').querySelector('pre'); pre.scrollTop = pre.scrollHeight;
+    if (!['queued', 'running'].includes(d.status)) { clearInterval(watching); watching = null; loadRuns(); refresh(true); }
+  };
+  await tick(); watching = setInterval(tick, 2500); loadRuns();
+}
+async function resume(id) { const r = await fetch(`/api/runs/${id}/resume`, { method: 'POST' }); const d = await r.json(); if (!r.ok) return alert(JSON.stringify(d.detail)); watch(d.id); }
+
+show(location.hash.slice(1) || 'tenants'); refresh(false);
+</script>
+</body></html>

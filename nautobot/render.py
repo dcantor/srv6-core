@@ -37,7 +37,8 @@ def inventory_from_nautobot():
     ROLE = {"srv6-pe": "pe", "srv6-p": "p", "srv6-ce": "ce", "host": "host"}
     devs = {x["name"]: x for x in d["devices"]}
     # tenant of an address: the VRF its parent prefix belongs to (prefix roles attachment-circuit / site-lan carry a tenant)
-    vrf_of_prefix = {pf["prefix"]: v["name"] for v in d["vrfs"] for pf in v["prefixes"]}
+    lab_vrfs = [v for v in d["vrfs"] if v["tenant"] and v["tenant"]["tenant_group"] and v["tenant"]["tenant_group"]["name"] == "srv6-core"]
+    vrf_of_prefix = {pf["prefix"]: v["name"] for v in lab_vrfs for pf in v["prefixes"]}
     nodes = []
     for name, x in sorted(devs.items(), key=lambda kv: kv[0]):
         role = ROLE[x["role"]["name"]]; loc = x["location"]["name"]; dc = loc if loc != "srv6-core" else "core"

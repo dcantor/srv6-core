@@ -27,9 +27,9 @@ query srv6_core_model {
       }
     }
   }
-  vrfs(name: ["tenant-a", "tenant-b"]) {
+  vrfs {
     name description
-    tenant { name }
+    tenant { name tenant_group { name } }
     import_targets { name }
     export_targets { name }
     prefixes { prefix role { name } }

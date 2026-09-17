@@ -1,0 +1,115 @@
+# pe3 (10.3.0.13) show configuration commands captured 2026-09-16 20:13:54
+set interfaces dummy dum0 address 'fd00:c:3::1/64'
+set interfaces dummy dum0 description 'SRv6 locator fd00:c:3::/64 (local SIDs)'
+set interfaces ethernet eth0 address '10.3.0.13/24'
+set interfaces ethernet eth0 description 'OOB management'
+set interfaces ethernet eth0 hw-id '52:54:00:c6:03:00'
+set interfaces ethernet eth1 address 'fd00:b:0:203::2/64'
+set interfaces ethernet eth1 description 'core: p2 eth5'
+set interfaces ethernet eth1 hw-id '52:54:00:c6:03:01'
+set interfaces ethernet eth1 mtu '9000'
+set interfaces ethernet eth2 address 'fd00:b:0:303::2/64'
+set interfaces ethernet eth2 description 'core: p3 eth3'
+set interfaces ethernet eth2 hw-id '52:54:00:c6:03:02'
+set interfaces ethernet eth2 mtu '9000'
+set interfaces ethernet eth3 address '172.16.3.1/30'
+set interfaces ethernet eth3 description 'tenant-a: ce3 eth1'
+set interfaces ethernet eth3 hw-id '52:54:00:c6:03:03'
+set interfaces ethernet eth3 vrf 'tenant-a'
+set interfaces ethernet eth4 address '172.17.3.1/30'
+set interfaces ethernet eth4 description 'tenant-b: ce3 eth3'
+set interfaces ethernet eth4 hw-id '52:54:00:c6:03:04'
+set interfaces ethernet eth4 vrf 'tenant-b'
+set interfaces ethernet eth6 hw-id '52:54:00:c6:03:06'
+set interfaces loopback lo address 'fd00:a::3/128'
+set protocols bgp neighbor fd00:a::11 address-family ipv4-vpn
+set protocols bgp neighbor fd00:a::11 capability extended-nexthop
+set protocols bgp neighbor fd00:a::11 description 'p1 route reflector'
+set protocols bgp neighbor fd00:a::11 remote-as '65000'
+set protocols bgp neighbor fd00:a::11 update-source 'fd00:a::3'
+set protocols bgp neighbor fd00:a::13 address-family ipv4-vpn
+set protocols bgp neighbor fd00:a::13 capability extended-nexthop
+set protocols bgp neighbor fd00:a::13 description 'p3 route reflector'
+set protocols bgp neighbor fd00:a::13 remote-as '65000'
+set protocols bgp neighbor fd00:a::13 update-source 'fd00:a::3'
+set protocols bgp parameters log-neighbor-changes
+set protocols bgp parameters router-id '10.255.0.3'
+set protocols bgp srv6 locator 'main'
+set protocols bgp system-as '65000'
+set protocols isis interface dum0 passive
+set protocols isis interface eth1 bfd
+set protocols isis interface eth1 network point-to-point
+set protocols isis interface eth2 bfd
+set protocols isis interface eth2 network point-to-point
+set protocols isis interface lo passive
+set protocols isis level 'level-2'
+set protocols isis log-adjacency-changes
+set protocols isis metric-style 'wide'
+set protocols isis net '49.0001.0000.0000.0003.00'
+set protocols isis segment-routing srv6 interface 'dum0'
+set protocols isis segment-routing srv6 locator 'main'
+set protocols segment-routing interface eth1 srv6
+set protocols segment-routing interface eth2 srv6
+set protocols segment-routing srv6 encapsulation source-address 'fd00:a::3'
+set protocols segment-routing srv6 locator main block-len '40'
+set protocols segment-routing srv6 locator main func-bits '16'
+set protocols segment-routing srv6 locator main node-len '24'
+set protocols segment-routing srv6 locator main prefix 'fd00:c:3::/64'
+set protocols static route 10.0.0.0/8 next-hop 10.3.0.1
+set service lldp interface all
+set service ssh port '22'
+set system config-management commit-revisions '100'
+set system console device ttyS0 kernel
+set system console device ttyS0 speed '115200'
+set system domain-name 'lab.local'
+set system host-name 'pe3'
+set system login operator-group default command-policy allow '*'
+set system login user vyos authentication encrypted-password '$6$rounds=656000$g17WIUX5Wl/AUYgo$swMpoxH5sRQc5urGBSMhlmoNMEtVKQji3FteFzg/WlqMvxtdgM5/8cBPlcJXYwNklAiNxXoehuPlMnH4RkqGZ0'
+set system option reboot-on-upgrade-failure '5'
+set system sysctl parameter net.ipv6.conf.all.seg6_enabled value '1'
+set system syslog local facility all level 'info'
+set system syslog local facility local7 level 'debug'
+set vrf name tenant-a protocols bgp address-family ipv4-unicast export vpn
+set vrf name tenant-a protocols bgp address-family ipv4-unicast import vpn
+set vrf name tenant-a protocols bgp address-family ipv4-unicast rd vpn export '65000:103'
+set vrf name tenant-a protocols bgp address-family ipv4-unicast redistribute connected
+set vrf name tenant-a protocols bgp address-family ipv4-unicast route-target vpn both '65000:100'
+set vrf name tenant-a protocols bgp address-family ipv4-unicast sid vpn export 'auto'
+set vrf name tenant-a protocols bgp neighbor 172.16.3.2 address-family ipv4-unicast
+set vrf name tenant-a protocols bgp neighbor 172.16.3.2 description 'ce3 (tenant-a)'
+set vrf name tenant-a protocols bgp neighbor 172.16.3.2 remote-as '65003'
+set vrf name tenant-a protocols bgp parameters router-id '10.255.0.3'
+set vrf name tenant-a protocols bgp system-as '65000'
+set vrf name tenant-a protocols static route6 fd00:c:1::/64 next-hop fd00:a::12 vrf 'default'
+set vrf name tenant-a protocols static route6 fd00:c:2::/64 next-hop fd00:a::12 vrf 'default'
+set vrf name tenant-a protocols static route6 fd00:c:4::/64 next-hop fd00:a::12 vrf 'default'
+set vrf name tenant-a protocols static route6 fd00:c:4::/64 next-hop fd00:a::13 vrf 'default'
+set vrf name tenant-a protocols static route6 fd00:c:11::/64 next-hop fd00:a::12 vrf 'default'
+set vrf name tenant-a protocols static route6 fd00:c:11::/64 next-hop fd00:a::13 vrf 'default'
+set vrf name tenant-a protocols static route6 fd00:c:12::/64 next-hop fd00:a::12 vrf 'default'
+set vrf name tenant-a protocols static route6 fd00:c:13::/64 next-hop fd00:a::13 vrf 'default'
+set vrf name tenant-a protocols static route6 fd00:c::/40 next-hop fd00:a::12 vrf 'default'
+set vrf name tenant-a protocols static route6 fd00:c::/40 next-hop fd00:a::13 vrf 'default'
+set vrf name tenant-a table '100'
+set vrf name tenant-b protocols bgp address-family ipv4-unicast export vpn
+set vrf name tenant-b protocols bgp address-family ipv4-unicast import vpn
+set vrf name tenant-b protocols bgp address-family ipv4-unicast rd vpn export '65000:203'
+set vrf name tenant-b protocols bgp address-family ipv4-unicast redistribute connected
+set vrf name tenant-b protocols bgp address-family ipv4-unicast route-target vpn both '65000:200'
+set vrf name tenant-b protocols bgp address-family ipv4-unicast sid vpn export 'auto'
+set vrf name tenant-b protocols bgp neighbor 172.17.3.2 address-family ipv4-unicast
+set vrf name tenant-b protocols bgp neighbor 172.17.3.2 description 'ce3 (tenant-b)'
+set vrf name tenant-b protocols bgp neighbor 172.17.3.2 remote-as '65003'
+set vrf name tenant-b protocols bgp parameters router-id '10.255.0.3'
+set vrf name tenant-b protocols bgp system-as '65000'
+set vrf name tenant-b protocols static route6 fd00:c:1::/64 next-hop fd00:a::12 vrf 'default'
+set vrf name tenant-b protocols static route6 fd00:c:2::/64 next-hop fd00:a::12 vrf 'default'
+set vrf name tenant-b protocols static route6 fd00:c:4::/64 next-hop fd00:a::12 vrf 'default'
+set vrf name tenant-b protocols static route6 fd00:c:4::/64 next-hop fd00:a::13 vrf 'default'
+set vrf name tenant-b protocols static route6 fd00:c:11::/64 next-hop fd00:a::12 vrf 'default'
+set vrf name tenant-b protocols static route6 fd00:c:11::/64 next-hop fd00:a::13 vrf 'default'
+set vrf name tenant-b protocols static route6 fd00:c:12::/64 next-hop fd00:a::12 vrf 'default'
+set vrf name tenant-b protocols static route6 fd00:c:13::/64 next-hop fd00:a::13 vrf 'default'
+set vrf name tenant-b protocols static route6 fd00:c::/40 next-hop fd00:a::12 vrf 'default'
+set vrf name tenant-b protocols static route6 fd00:c::/40 next-hop fd00:a::13 vrf 'default'
+set vrf name tenant-b table '200'

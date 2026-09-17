@@ -20,7 +20,9 @@ echo "==> capturing VyOS configurations and routing tables (pre-run)"
 .venv/bin/python capture_configs.py "$out/configs/pre-run" || echo "warning: config capture failed" >&2
 
 echo "==> running Robot Framework suites"
-.venv/bin/robot --outputdir "$out" --name "srv6 core lab" --loglevel INFO "$@" suites/
+# explicit suite files on the command line replace the default "every suite"
+args=("$@"); explicit=0; for x in "$@"; do [[ "$x" == *.robot ]] && explicit=1; done; [[ $explicit -eq 1 ]] || args+=(suites/)
+.venv/bin/robot --outputdir "$out" --name "srv6 core lab" --loglevel INFO "${args[@]}"
 rc=$?
 
 echo "==> capturing VyOS configurations and routing tables (post-run backup)"

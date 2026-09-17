@@ -7,80 +7,9 @@ from pathlib import Path
 LAB_DIR = Path(__file__).resolve().parents[1]; OUT = LAB_DIR / "docs"
 inv = json.loads(subprocess.run([str(LAB_DIR / "lab.sh"), "inventory"], capture_output=True, text=True, check=True).stdout)
 N = {n["name"]: n for n in inv["nodes"]}; S = inv["service"]
-ROWS = {"p": 175, "pe": 370, "ce": 540, "host": 690}
-DCX = {"dc1": 190, "dc2": 555, "dc3": 985, "dc4": 1350}
-COLS = {**{f"pe{i}": DCX[f"dc{i}"] for i in range(1, 5)}, **{f"ce{i}": DCX[f"dc{i}"] for i in range(1, 5)},
-        **{f"dc{i}-h1": DCX[f"dc{i}"] - 82 for i in range(1, 5)}, **{f"dc{i}-h2": DCX[f"dc{i}"] + 82 for i in range(1, 5)}, "p1": 370, "p2": 770, "p3": 1170}
-BOX = {"p": (240, 74), "pe": (270, 92), "ce": (270, 92), "host": (156, 56)}
-TENANT_COLOR = {"tenant-a": "#475569", "tenant-b": "#7c3aed"}
-import math
-FILL = {"p": ("#fde7d6", "#c2410c"), "pe": ("#fee2e2", "#b91c1c"), "ce": ("#dbeafe", "#1d4ed8"), "host": ("#dcfce7", "#15803d")}
-DC_COLOR = {"dc1": "#eff6ff", "dc2": "#fdf4ff", "dc3": "#f0fdf4", "dc4": "#fefce8"}
-
-
-def center(n): return COLS[n], ROWS[N[n]["role"]]
-def edge(n, towards_y, dx=0):
-    x, y = center(n); h = BOX[N[n]["role"]][1] / 2
-    return x + dx, (y - h if towards_y < y else y + h)
-
-
-svg = []
-# data-centre swim lanes behind the access rows
-for dc, x in DCX.items():
-    svg.append(f'<rect x="{x-172}" y="{ROWS["pe"]-58}" width="344" height="{ROWS["host"]-ROWS["pe"]+104}" rx="14" fill="{DC_COLOR[dc]}" stroke="#cbd5e1"/>'
-               f'<text x="{x+158}" y="{ROWS["host"]+38}" text-anchor="end" class="lane">{dc}</text>')
-svg.append(f'<rect x="150" y="{ROWS["p"]-120}" width="1240" height="180" rx="14" fill="#fff7ed" stroke="#fdba74"/>'
-           f'<text x="165" y="{ROWS["p"]-100}" class="lane">core — IS-IS level-2, IPv6-only, MTU 9000, SRv6 block fd00:c::/40</text>')
-# links
-for l in inv["links"]:
-    a, b = l["a"], l["b"]; (ax, ay), (bx, by) = center(a), center(b)
-    off = 0
-    if N[a]["role"] == "pe" and N[b]["role"] == "ce": off = -60 if l["tenant"] == "tenant-a" else 60
-    if N[a]["role"] == "ce" and N[b]["role"] == "host": off = COLS[b] - COLS[a]
-    ax, ay = edge(a, by, off); bx, by = edge(b, ay) if N[a]["role"] != N[b]["role"] else (bx, by)
-    if N[a]["role"] == N[b]["role"] == "p":   # the triangle: p1-p2 and p2-p3 straight, p1-p3 arched underneath
-        ax, ay = center(a); bx, by = center(b)
-        if {a, b} == {"p1", "p3"}:
-            svg.append(f'<path d="M{ax},{ay-37} C{ax+120},{ay-120} {bx-120},{by-120} {bx},{by-37}" class="core"/>')
-            svg.append(f'<text x="{(ax+bx)/2}" y="{ay-90}" text-anchor="middle" class="lbl core">{l["a_port"]} · {l["prefix"]} · {l["b_port"]}</text>')
-        else:
-            svg.append(f'<line x1="{ax+120}" y1="{ay}" x2="{bx-120}" y2="{by}" class="core"/>')
-            svg.append(f'<text x="{(ax+bx)/2}" y="{ay-8}" text-anchor="middle" class="lbl core">{l["prefix"]}</text>')
-            svg.append(f'<text x="{(ax+bx)/2}" y="{ay+16}" text-anchor="middle" class="port">{l["a_port"]} · {l["b_port"]}</text>')
-        continue
-    cls = "core" if N[b]["role"] == "pe" else "access"
-    style = f' style="stroke:{TENANT_COLOR[l["tenant"]]}"' if l.get("tenant") else ""
-    svg.append(f'<line x1="{ax}" y1="{ay}" x2="{bx}" y2="{by}" class="{cls}"{style}/>')
-    mx, my = (ax + bx) / 2, (ay + by) / 2
-    if cls == "core":
-        at = lambda t: (ax + (bx - ax) * t, ay + (by - ay) * t)
-        ang = math.degrees(math.atan2(by - ay, bx - ax)); ang = ang - 180 if ang > 90 else ang
-        lx, ly = at(0.3 if abs(bx - ax) > 250 else 0.62)
-        svg.append(f'<text x="{lx}" y="{ly-5}" text-anchor="middle" class="lbl core" transform="rotate({ang:.0f} {lx} {ly})">{l["prefix"]}</text>')
-        px, py = at(0.1); qx, qy = at(0.9)
-        svg.append(f'<text x="{px + (7 if bx >= ax else -7)}" y="{py+4}" class="port" text-anchor="{"start" if bx >= ax else "end"}">{l["a_port"]}</text>')
-        svg.append(f'<text x="{qx + (7 if ax >= bx else -7)}" y="{qy+4}" class="port" text-anchor="{"start" if ax >= bx else "end"}">{l["b_port"]}</text>')
-    else:
-        left = l["tenant"] == "tenant-a" and N[b]["role"] != "host"; anc = "end" if left else "start"; dx = -6 if left else 6
-        svg.append(f'<text x="{mx+dx}" y="{my+4}" class="lbl" text-anchor="{anc}" style="fill:{TENANT_COLOR[l["tenant"]]}">{l["prefix"]}</text>')
-        svg.append(f'<text x="{ax+dx}" y="{ay+13}" class="port" text-anchor="{anc}">{l["a_port"]} .{l["a_ip"].split("/")[0].split(".")[-1]}</text>')
-        svg.append(f'<text x="{bx+dx}" y="{by-5}" class="port" text-anchor="{anc}">{l["b_port"]} .{l["b_ip"].split("/")[0].split(".")[-1]}</text>')
-# nodes
-for n in inv["nodes"]:
-    x, y = center(n["name"]); w, h = BOX[n["role"]]; fill, stroke = FILL[n["role"]]
-    lans = {p["tenant"]: p["prefix"] for p in n["ports"] if p["peer"] and N[p["peer"]]["role"] == "host"}
-    tn = sorted(S["tenants"])
-    lines = {"p": [],
-             "pe": [f'{n["loopback6"]} · rid {n["router_id"]} · AS {n["asn"]}', f'locator {n["locator"]}'] + [f'VRF {t} · RD {S["core_as"]}:{S["tenants"][t]["table"] + n["idx"]} · End.DT4' for t in tn],
-             "ce": [f'AS {n["asn"]} · eBGP → {n["pe"]} per tenant'] + [f'VRF {t}: {lans.get(t)}' for t in tn],
-             "host": [f'{n["ports"][0]["ip"]} · gw .1', f'{n["ports"][0]["tenant"]}']}[n["role"]] if n["role"] != "p" else [
-                 f'{n["loopback6"]} · rid {n["router_id"]}', f'locator {n["locator"]}', "VPNv4 route reflector · AS 65000" if n["name"] in S["rrs"] else "IPv6 forwarding only, no BGP / VRF"]
-    role = {"p": "P" + (" / RR" if n["name"] in S["rrs"] else ""), "pe": "PE", "ce": "CE", "host": "host"}[n["role"]]
-    svg.append(f'<g><rect x="{x-w/2}" y="{y-h/2}" width="{w}" height="{h}" rx="9" fill="{fill}" stroke="{stroke}" stroke-width="1.6"/>'
-               f'<text x="{x-w/2+10}" y="{y-h/2+19}" class="name">{n["name"]}</text><text x="{x+w/2-10}" y="{y-h/2+19}" text-anchor="end" class="role">{role} · {n["mgmt_ip"]}</text>'
-               + "".join(f'<text x="{x-w/2+10}" y="{y-h/2+19+14*(i+1)}" class="sub">{html.escape(t)}</text>' for i, t in enumerate(lines)) + "</g>")
-
-diagram = f'<svg viewBox="0 0 1540 770" xmlns="http://www.w3.org/2000/svg">{"".join(svg)}</svg>'
+sys.path.insert(0, str(LAB_DIR / "tools")); from topology_svg import draw   # noqa: E402
+diagram, tcolor = draw(inv)
+legend = "".join(f'<span><i style="background:{c}"></i>{t} access (IPv4)</span>' for t, c in tcolor.items())
 
 pe1 = N["pe1"]; pe3 = N["pe3"]
 page = f"""<!doctype html><html><head><meta charset="utf-8"><title>SRv6 core lab — topology</title>
@@ -90,10 +19,7 @@ page = f"""<!doctype html><html><head><meta charset="utf-8"><title>SRv6 core lab
  h1 {{ font-size: 24px; margin: 0 0 4px }} h2 {{ font-size: 15px; margin: 18px 0 6px; color: #334155 }}
  p.sub {{ color: #475569; margin: 0 0 10px; font-size: 13px }}
  svg {{ width: 100%; height: auto; display: block }}
- svg .name {{ font: 600 14px system-ui }} svg .role {{ font: 11px system-ui; fill: #475569 }} svg .sub {{ font: 10.5px ui-monospace, Menlo, monospace; fill: #334155 }}
- svg .lane {{ font: 600 12px system-ui; fill: #64748b; letter-spacing: .04em }}
- svg line.core, svg path.core {{ stroke: #c2410c; stroke-width: 2; fill: none }} svg line.access {{ stroke: #64748b; stroke-width: 1.6 }}
- svg .lbl {{ font: 10.5px ui-monospace, Menlo, monospace; fill: #334155 }} svg .lbl.core {{ fill: #9a3412 }} svg .port {{ font: 9.5px ui-monospace, Menlo, monospace; fill: #64748b }}
+
  .grid {{ display: grid; grid-template-columns: 1.15fr 1fr; gap: 22px; margin-top: 8px; break-before: page }}
  svg {{ margin-top: 18px }}
  table {{ border-collapse: collapse; font-size: 11.5px; width: 100% }} th, td {{ border: 1px solid #e2e8f0; padding: 4px 7px; text-align: left; vertical-align: top }} th {{ background: #f1f5f9 }}
@@ -105,8 +31,8 @@ page = f"""<!doctype html><html><head><meta charset="utf-8"><title>SRv6 core lab
 </style></head><body>
 <h1>SRv6 WAN core lab — topology</h1>
 <p class="sub">Four VyOS PEs (one per data centre) dual-homed to a VyOS P-router triangle; IS-IS level-2 IPv6-only underlay carrying the SRv6 locators;
-BGP VPNv4 over SRv6 (End.DT4) reflected by p1; a VyOS CE per data centre with two tenants — <b>tenant-a</b> (h1) and <b>tenant-b</b> (h2) — each in its own VRF on the CE and on its own attachment circuit into its own VRF on the PE. Tenants never meet: h1s reach h1s, h2s reach h2s. 19 VMs on one libvirt/KVM host, ≈13 GiB RAM.
-<span class="legend" style="margin-left:14px"><span><i style="background:#c2410c"></i>core link (IPv6 /64, IS-IS, SRv6)</span><span><i style="background:#475569"></i>tenant-a access (IPv4)</span><span><i style="background:#7c3aed"></i>tenant-b access (IPv4)</span></span></p>
+BGP VPNv4 over SRv6 (End.DT4) reflected by p1; a VyOS CE per data centre with one VRF per tenant ({", ".join(sorted(S["tenants"]))}), each tenant on its own attachment circuit into its own VRF on the PE and with its own host per site. Tenants never meet. {len(inv["nodes"])} VMs on one libvirt/KVM host.
+<span class="legend" style="margin-left:14px"><span><i style="background:#c2410c"></i>core link (IPv6 /64, IS-IS, SRv6)</span>{legend}</span></p>
 {diagram}
 <div class="grid">
 <div>

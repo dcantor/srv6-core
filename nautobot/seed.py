@@ -134,10 +134,10 @@ ensure_prefix("fd00:a::/48", "loopback", "core loopbacks (IS-IS passive, BGP ses
 ensure_prefix("fd00:b::/48", "wan-p2p", "core point-to-point links (/64 each, IS-IS level-2, MTU 9000)", location=site.id, type="container")
 ensure_prefix("fd00:c::/40", "srv6-locator", "SRv6 block: one /64 locator per core node (block 40 / node 24 / function 16 bits)", location=site.id, type="container")
 ensure_prefix("10.255.0.0/24", "router-id", "BGP router-ids of the core nodes (not interface addresses)", location=site.id, type="container")
-ensure_prefix("172.16.0.0/16", "attachment-circuit", "PE-CE attachment circuits, tenant-a (/30 per site)", type="container", tenant=tenants["tenant-a"].id)
-ensure_prefix("172.17.0.0/16", "attachment-circuit", "PE-CE attachment circuits, tenant-b (/30 per site)", type="container", tenant=tenants["tenant-b"].id)
-ensure_prefix("172.20.0.0/16", "site-lan", "tenant-a site LANs (/24 per DC)", type="container", tenant=tenants["tenant-a"].id)
-ensure_prefix("172.21.0.0/16", "site-lan", "tenant-b site LANs (/24 per DC)", type="container", tenant=tenants["tenant-b"].id)
+for t in tenants:   # one /16 container per tenant and kind, derived from the tenant's links (172.(16+i) circuits, 172.(20+i) LANs)
+    for kind, role, label in (("ac", "attachment-circuit", "PE-CE attachment circuits, {t} (/30 per site)"), ("lan", "site-lan", "{t} site LANs (/24 per DC)")):
+        for sup in sorted({str(ipaddress.ip_network(l["prefix"]).supernet(new_prefix=16)) for l in inv["links"] if l.get("tenant") == t and (N[l["b"]]["role"] == "host") == (kind == "lan") and ipaddress.ip_network(l["prefix"]).version == 4}):
+            ensure_prefix(sup, role, label.format(t=t), type="container", tenant=tenants[t].id)
 for n in inv["nodes"]:
     if n.get("locator"): ensure_prefix(n["locator"], "srv6-locator", f"SRv6 locator of {n['name']} (End SID {n['locator'].split('/')[0]}, End.X / End.DT4 SIDs allocated by FRR)", location=loc_of(n).id)
 # VRFs (before the tenant prefixes, which belong to them)
@@ -212,6 +212,10 @@ for n in inv["nodes"]:
         else: desc = "unwired"
         i = ensure_if(port["name"], "1000base-t", desc, mac=f"{MAC_OUI}:{idx:02x}:{pnum:02x}")
         if port["ip"]: ensure_ip(port["ip"], f"{n['name']} {port['name']}" + (f" ({port['tenant']})" if port.get("tenant") else ""), i, tenants.get(port.get("tenant")))
+        else:   # unwired (e.g. after a tenant was removed): no cable, no address
+            cur = requests.get(f"{a.url}/api/dcim/interfaces/{i.id}/", params={"depth": 1}, headers=H, timeout=30).json()
+            if cur.get("cable"): requests.delete(f"{a.url}/api/dcim/cables/{cur['cable']['id']}/", headers=H, timeout=30); created.append(f"cable removed from unwired {n['name']} {port['name']}")
+            for x in nb.ipam.ip_address_to_interface.filter(interface=i.id): x.delete(); created.append(f"address unassigned from unwired {n['name']} {port['name']}")
     if role in ("pe", "p"):
         lo = ensure_if("lo", "virtual", "loopback: IS-IS passive, BGP source, SRv6 encapsulation source")
         ensure_ip(f"{n['loopback6']}/128", f"{n['name']} loopback", lo)

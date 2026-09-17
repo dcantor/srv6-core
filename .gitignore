@@ -13,3 +13,5 @@ tests/.venv/
 __pycache__/
 # test results are committed (report, log, output.xml, configs and routing tables per run); only the pointer symlink is local
 results/latest
+webapp/.venv/
+webapp/runs/

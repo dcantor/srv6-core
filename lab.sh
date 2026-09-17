@@ -14,7 +14,8 @@ node_dir() { echo "$LAB_DIR/nodes/$1"; }
 defined() { V dominfo "$1" &>/dev/null; }
 ours() {   # libvirt domain names are host-global: refuse to touch a same-named VM that belongs to another lab
   defined "$1" || return 0
-  V dumpxml "$1" | grep -q "<source file='$(node_dir "$1")/" || die "a VM named $1 exists but is not part of this lab ($(V dumpxml "$1" | sed -n "s/.*<title>\(.*\)<\/title>.*/\1/p")) — rename it in lab.conf"
+  local xml; xml="$(V dumpxml "$1")"   # (no `| grep -q`: with pipefail an early grep exit makes virsh fail spuriously)
+  [[ "$xml" == *"<source file='$(node_dir "$1")/"* ]] || die "a VM named $1 exists but is not part of this lab ($(sed -n "s/.*<title>\(.*\)<\/title>.*/\1/p" <<<"$xml")) — rename it in lab.conf"
 }
 running() { [[ "$(V domstate "$1" 2>/dev/null)" == "running" ]]; }
 nodes_or_all() { [[ $# -gt 0 ]] && echo "$*" || echo "${ALL_NODES[*]}"; }
@@ -288,8 +289,9 @@ cmd_nautobot() {   # seed | render [--check|--live|--write|--inventory|--node N]
   case "$sub" in
     seed)   NAUTOBOT_URL="$NAUTOBOT_URL" NAUTOBOT_TOKEN="$tok" "$PY" "$LAB_DIR/nautobot/seed.py" "$@" ;;
     render) NAUTOBOT_URL="$NAUTOBOT_URL" NAUTOBOT_TOKEN="$tok" "$PY" "$LAB_DIR/nautobot/render.py" "$@" ;;
+    remove-tenant) NAUTOBOT_URL="$NAUTOBOT_URL" NAUTOBOT_TOKEN="$tok" "$PY" "$LAB_DIR/nautobot/remove_tenant.py" "$@" ;;
     token)  echo "$tok" ;;
-    *) die "usage: lab.sh nautobot seed | render [--check|--live|--write|--inventory|--node NAME] | token" ;;
+    *) die "usage: lab.sh nautobot seed | render [--check|--live|--write|--inventory|--node NAME] | remove-tenant NAME | token" ;;
   esac
 }
 
@@ -400,6 +402,11 @@ cmd_verify() {     # a quick look at the control plane and the data plane end to
   "$PY" "$LAB_DIR/tools/host_cmd.py" matrix "${HOSTS[@]}" || true
 }
 
+cmd_webapp() {     # the tenant provisioning portal (FastAPI/uvicorn) on http://<host>:8091
+  [[ -x "$LAB_DIR/webapp/.venv/bin/uvicorn" ]] || { python3 -m venv "$LAB_DIR/webapp/.venv" && "$LAB_DIR/webapp/.venv/bin/pip" install -q -r "$LAB_DIR/webapp/requirements.txt"; }
+  cd "$LAB_DIR/webapp" && exec .venv/bin/uvicorn app:app --host "${WEBAPP_HOST:-0.0.0.0}" --port "${WEBAPP_PORT:-8091}"
+}
+
 cmd_test() {       # Robot Framework suite; results in results/<date>_<time>/
   [[ -x "$LAB_DIR/tests/.venv/bin/robot" ]] || "$LAB_DIR/tests/setup.sh"
   exec "$LAB_DIR/tests/run.sh" "$@"
@@ -415,6 +422,7 @@ usage: $(basename "$0") <command> [node...]
   steer del <pe> <tenant> <prefix> | steer show [pe..]
   nautobot seed      model the lab in the shared Nautobot (idempotent; source = lab.conf)
   nautobot render [--check|--live|--write]   render the VyOS configs from Nautobot; compare with lab.conf / the routers
+  webapp             start the tenant provisioning portal on http://<host>:8091
   wait [node..]      wait until SSH answers
   down [node..]      stop VMs (VyOS: ACPI shutdown)
   status             nodes, addresses, links, consoles
@@ -432,6 +440,6 @@ U
 
 cmd="${1:-}"; shift || true
 case "$cmd" in
-  up|down|bootstrap|configure|steer|nautobot|wait|status|inventory|verify|test|console|ssh|log|rebuild|clean) "cmd_$cmd" "$@" ;;
+  up|down|bootstrap|configure|steer|nautobot|webapp|wait|status|inventory|verify|test|console|ssh|log|rebuild|clean) "cmd_$cmd" "$@" ;;
   *) usage; exit 1 ;;
 esac

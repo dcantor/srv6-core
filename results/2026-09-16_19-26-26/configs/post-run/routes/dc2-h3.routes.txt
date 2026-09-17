@@ -1,0 +1,21 @@
+# dc2-h3 (10.3.0.62) CirrOS host captured 2026-09-16 19:53:28
+
+==== addresses: ip -4 addr
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue qlen 1000
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever
+2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast qlen 1000
+    inet 10.3.0.62/24 scope global eth0
+       valid_lft forever preferred_lft forever
+3: eth1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast qlen 1000
+    inet 172.22.2.2/24 scope global eth1
+       valid_lft forever preferred_lft forever
+
+==== IPv4 routing table: ip route
+default via 172.22.2.1 dev eth1 
+10.3.0.0/24 dev eth0 scope link  src 10.3.0.62 
+172.22.2.0/24 dev eth1 scope link  src 172.22.2.2
+
+==== ARP: ip neigh
+172.22.2.1 dev eth1 lladdr 52:54:00:c6:09:06 used 0/0/0 probes 1 STALE
+10.3.0.1 dev eth0 lladdr 52:54:00:69:6e:34 ref 1 used 0/0/0 probes 1 DELAY
