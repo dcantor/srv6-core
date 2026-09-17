@@ -1,0 +1,2317 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<robot generator="Robot 7.5 (Python 3.14.4 on linux)" generated="2026-09-16T23:38:13.727595" rpa="false" schemaversion="5">
+<suite id="s1" name="srv6 core lab" source="/home/dcantor/srv6-core/tests/suites/01_management.robot">
+<test id="s1-t1" name="Every VyOS node is reachable over the OOB network and runs VyOS with the expected host name" line="7">
+<for flavor="IN">
+<iter>
+<kw name="Host Ping" owner="LabLib">
+<msg time="2026-09-16T23:38:18.038223" level="INFO">PING 10.3.0.11 (10.3.0.11) 56(84) bytes of data.
+64 bytes from 10.3.0.11: icmp_seq=1 ttl=64 time=0.132 ms
+64 bytes from 10.3.0.11: icmp_seq=2 ttl=64 time=0.173 ms
+64 bytes from 10.3.0.11: icmp_seq=3 ttl=64 time=0.154 ms
+
+--- 10.3.0.11 ping statistics ---
+3 packets transmitted, 3 received, 0% packet loss, time 2055ms
+rtt min/avg/max/mdev = 0.132/0.153/0.173/0.016 ms
+</msg>
+<arg>${MGMT}[${n}]</arg>
+<doc>ICMP ping from the lab host; fails unless at least one reply.</doc>
+<status status="PASS" start="2026-09-16T23:38:15.981071" elapsed="2.057273"/>
+</kw>
+<kw name="Tcp Port Should Be Open" owner="LabLib">
+<arg>${MGMT}[${n}]</arg>
+<arg>22</arg>
+<status status="PASS" start="2026-09-16T23:38:18.038507" elapsed="0.000426"/>
+</kw>
+<kw name="Vyos" owner="common">
+<kw name="Run Vyos Command" owner="LabLib">
+<msg time="2026-09-16T23:38:21.604806" level="INFO" html="true">&lt;pre&gt;10.3.0.11$ show version | match Version
+Version:          VyOS 2026.09.09-0029-rolling&lt;/pre&gt;</msg>
+<msg time="2026-09-16T23:38:21.605003" level="INFO">${out} = Version:          VyOS 2026.09.09-0029-rolling</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<arg>${timeout}</arg>
+<doc>Run an operational-mode command on a VyOS node and return its output.</doc>
+<status status="PASS" start="2026-09-16T23:38:18.039497" elapsed="3.565543"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-16T23:38:21.605129" elapsed="0.000060"/>
+</return>
+<msg time="2026-09-16T23:38:21.605333" level="INFO">${v} = Version:          VyOS 2026.09.09-0029-rolling</msg>
+<var>${v}</var>
+<arg>${n}</arg>
+<arg>show version | match Version</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="PASS" start="2026-09-16T23:38:18.039147" elapsed="3.566207"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${v}</arg>
+<arg>VyOS</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-16T23:38:21.605475" elapsed="0.000528"/>
+</kw>
+<kw name="Vyos" owner="common">
+<kw name="Run Vyos Command" owner="LabLib">
+<msg time="2026-09-16T23:38:21.763248" level="INFO" html="true">&lt;pre&gt;10.3.0.11$ show configuration commands | match host-name
+set system host-name 'pe1'&lt;/pre&gt;</msg>
+<msg time="2026-09-16T23:38:21.763394" level="INFO">${out} = set system host-name 'pe1'</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<arg>${timeout}</arg>
+<doc>Run an operational-mode command on a VyOS node and return its output.</doc>
+<status status="PASS" start="2026-09-16T23:38:21.606509" elapsed="0.156904"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-16T23:38:21.763478" elapsed="0.000046"/>
+</return>
+<msg time="2026-09-16T23:38:21.763635" level="INFO">${h} = set system host-name 'pe1'</msg>
+<var>${h}</var>
+<arg>${n}</arg>
+<arg>show configuration commands | match host-name</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="PASS" start="2026-09-16T23:38:21.606190" elapsed="0.157467"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${h}</arg>
+<arg>host-name '${n}'</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-16T23:38:21.763815" elapsed="0.000358"/>
+</kw>
+<var name="${n}">pe1</var>
+<status status="PASS" start="2026-09-16T23:38:15.980646" elapsed="5.783555"/>
+</iter>
+<iter>
+<kw name="Host Ping" owner="LabLib">
+<msg time="2026-09-16T23:38:23.799210" level="INFO">PING 10.3.0.12 (10.3.0.12) 56(84) bytes of data.
+64 bytes from 10.3.0.12: icmp_seq=1 ttl=64 time=0.142 ms
+64 bytes from 10.3.0.12: icmp_seq=2 ttl=64 time=0.127 ms
+64 bytes from 10.3.0.12: icmp_seq=3 ttl=64 time=0.136 ms
+
+--- 10.3.0.12 ping statistics ---
+3 packets transmitted, 3 received, 0% packet loss, time 2033ms
+rtt min/avg/max/mdev = 0.127/0.135/0.142/0.006 ms
+</msg>
+<arg>${MGMT}[${n}]</arg>
+<doc>ICMP ping from the lab host; fails unless at least one reply.</doc>
+<status status="PASS" start="2026-09-16T23:38:21.764357" elapsed="2.034970"/>
+</kw>
+<kw name="Tcp Port Should Be Open" owner="LabLib">
+<arg>${MGMT}[${n}]</arg>
+<arg>22</arg>
+<status status="PASS" start="2026-09-16T23:38:23.799506" elapsed="0.000472"/>
+</kw>
+<kw name="Vyos" owner="common">
+<kw name="Run Vyos Command" owner="LabLib">
+<msg time="2026-09-16T23:38:27.331407" level="INFO" html="true">&lt;pre&gt;10.3.0.12$ show version | match Version
+Version:          VyOS 2026.09.09-0029-rolling&lt;/pre&gt;</msg>
+<msg time="2026-09-16T23:38:27.331552" level="INFO">${out} = Version:          VyOS 2026.09.09-0029-rolling</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<arg>${timeout}</arg>
+<doc>Run an operational-mode command on a VyOS node and return its output.</doc>
+<status status="PASS" start="2026-09-16T23:38:23.800464" elapsed="3.531114"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-16T23:38:27.331651" elapsed="0.000047"/>
+</return>
+<msg time="2026-09-16T23:38:27.331810" level="INFO">${v} = Version:          VyOS 2026.09.09-0029-rolling</msg>
+<var>${v}</var>
+<arg>${n}</arg>
+<arg>show version | match Version</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="PASS" start="2026-09-16T23:38:23.800156" elapsed="3.531678"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${v}</arg>
+<arg>VyOS</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-16T23:38:27.331989" elapsed="0.000367"/>
+</kw>
+<kw name="Vyos" owner="common">
+<kw name="Run Vyos Command" owner="LabLib">
+<msg time="2026-09-16T23:38:27.489289" level="INFO" html="true">&lt;pre&gt;10.3.0.12$ show configuration commands | match host-name
+set system host-name 'pe2'&lt;/pre&gt;</msg>
+<msg time="2026-09-16T23:38:27.489461" level="INFO">${out} = set system host-name 'pe2'</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<arg>${timeout}</arg>
+<doc>Run an operational-mode command on a VyOS node and return its output.</doc>
+<status status="PASS" start="2026-09-16T23:38:27.332799" elapsed="0.156688"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-16T23:38:27.489547" elapsed="0.000040"/>
+</return>
+<msg time="2026-09-16T23:38:27.489702" level="INFO">${h} = set system host-name 'pe2'</msg>
+<var>${h}</var>
+<arg>${n}</arg>
+<arg>show configuration commands | match host-name</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="PASS" start="2026-09-16T23:38:27.332479" elapsed="0.157242"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${h}</arg>
+<arg>host-name '${n}'</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-16T23:38:27.489852" elapsed="0.000359"/>
+</kw>
+<var name="${n}">pe2</var>
+<status status="PASS" start="2026-09-16T23:38:21.764299" elapsed="5.725942"/>
+</iter>
+<iter>
+<kw name="Host Ping" owner="LabLib">
+<msg time="2026-09-16T23:38:29.559254" level="INFO">PING 10.3.0.13 (10.3.0.13) 56(84) bytes of data.
+64 bytes from 10.3.0.13: icmp_seq=1 ttl=64 time=0.124 ms
+64 bytes from 10.3.0.13: icmp_seq=2 ttl=64 time=0.113 ms
+64 bytes from 10.3.0.13: icmp_seq=3 ttl=64 time=0.126 ms
+
+--- 10.3.0.13 ping statistics ---
+3 packets transmitted, 3 received, 0% packet loss, time 2067ms
+rtt min/avg/max/mdev = 0.113/0.121/0.126/0.005 ms
+</msg>
+<arg>${MGMT}[${n}]</arg>
+<doc>ICMP ping from the lab host; fails unless at least one reply.</doc>
+<status status="PASS" start="2026-09-16T23:38:27.490420" elapsed="2.068950"/>
+</kw>
+<kw name="Tcp Port Should Be Open" owner="LabLib">
+<arg>${MGMT}[${n}]</arg>
+<arg>22</arg>
+<status status="PASS" start="2026-09-16T23:38:29.559529" elapsed="0.000426"/>
+</kw>
+<kw name="Vyos" owner="common">
+<kw name="Run Vyos Command" owner="LabLib">
+<msg time="2026-09-16T23:38:33.097256" level="INFO" html="true">&lt;pre&gt;10.3.0.13$ show version | match Version
+Version:          VyOS 2026.09.09-0029-rolling&lt;/pre&gt;</msg>
+<msg time="2026-09-16T23:38:33.097399" level="INFO">${out} = Version:          VyOS 2026.09.09-0029-rolling</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<arg>${timeout}</arg>
+<doc>Run an operational-mode command on a VyOS node and return its output.</doc>
+<status status="PASS" start="2026-09-16T23:38:29.560372" elapsed="3.537049"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-16T23:38:33.097492" elapsed="0.000043"/>
+</return>
+<msg time="2026-09-16T23:38:33.097633" level="INFO">${v} = Version:          VyOS 2026.09.09-0029-rolling</msg>
+<var>${v}</var>
+<arg>${n}</arg>
+<arg>show version | match Version</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="PASS" start="2026-09-16T23:38:29.560126" elapsed="3.537523"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${v}</arg>
+<arg>VyOS</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-16T23:38:33.097774" elapsed="0.000360"/>
+</kw>
+<kw name="Vyos" owner="common">
+<kw name="Run Vyos Command" owner="LabLib">
+<msg time="2026-09-16T23:38:33.254889" level="INFO" html="true">&lt;pre&gt;10.3.0.13$ show configuration commands | match host-name
+set system host-name 'pe3'&lt;/pre&gt;</msg>
+<msg time="2026-09-16T23:38:33.255027" level="INFO">${out} = set system host-name 'pe3'</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<arg>${timeout}</arg>
+<doc>Run an operational-mode command on a VyOS node and return its output.</doc>
+<status status="PASS" start="2026-09-16T23:38:33.098465" elapsed="0.156584"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-16T23:38:33.255127" elapsed="0.000040"/>
+</return>
+<msg time="2026-09-16T23:38:33.255264" level="INFO">${h} = set system host-name 'pe3'</msg>
+<var>${h}</var>
+<arg>${n}</arg>
+<arg>show configuration commands | match host-name</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="PASS" start="2026-09-16T23:38:33.098254" elapsed="0.157028"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${h}</arg>
+<arg>host-name '${n}'</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-16T23:38:33.255404" elapsed="0.000303"/>
+</kw>
+<var name="${n}">pe3</var>
+<status status="PASS" start="2026-09-16T23:38:27.490348" elapsed="5.765395"/>
+</iter>
+<iter>
+<kw name="Host Ping" owner="LabLib">
+<msg time="2026-09-16T23:38:35.318171" level="INFO">PING 10.3.0.14 (10.3.0.14) 56(84) bytes of data.
+64 bytes from 10.3.0.14: icmp_seq=1 ttl=64 time=0.128 ms
+64 bytes from 10.3.0.14: icmp_seq=2 ttl=64 time=0.132 ms
+64 bytes from 10.3.0.14: icmp_seq=3 ttl=64 time=0.130 ms
+
+--- 10.3.0.14 ping statistics ---
+3 packets transmitted, 3 received, 0% packet loss, time 2060ms
+rtt min/avg/max/mdev = 0.128/0.130/0.132/0.001 ms
+</msg>
+<arg>${MGMT}[${n}]</arg>
+<doc>ICMP ping from the lab host; fails unless at least one reply.</doc>
+<status status="PASS" start="2026-09-16T23:38:33.255891" elapsed="2.062378"/>
+</kw>
+<kw name="Tcp Port Should Be Open" owner="LabLib">
+<arg>${MGMT}[${n}]</arg>
+<arg>22</arg>
+<status status="PASS" start="2026-09-16T23:38:35.318400" elapsed="0.000335"/>
+</kw>
+<kw name="Vyos" owner="common">
+<kw name="Run Vyos Command" owner="LabLib">
+<msg time="2026-09-16T23:38:38.847382" level="INFO" html="true">&lt;pre&gt;10.3.0.14$ show version | match Version
+Version:          VyOS 2026.09.09-0029-rolling&lt;/pre&gt;</msg>
+<msg time="2026-09-16T23:38:38.847559" level="INFO">${out} = Version:          VyOS 2026.09.09-0029-rolling</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<arg>${timeout}</arg>
+<doc>Run an operational-mode command on a VyOS node and return its output.</doc>
+<status status="PASS" start="2026-09-16T23:38:35.319145" elapsed="3.528448"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-16T23:38:38.847679" elapsed="0.000065"/>
+</return>
+<msg time="2026-09-16T23:38:38.847884" level="INFO">${v} = Version:          VyOS 2026.09.09-0029-rolling</msg>
+<var>${v}</var>
+<arg>${n}</arg>
+<arg>show version | match Version</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="PASS" start="2026-09-16T23:38:35.318875" elapsed="3.529034"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${v}</arg>
+<arg>VyOS</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-16T23:38:38.848041" elapsed="0.000286"/>
+</kw>
+<kw name="Vyos" owner="common">
+<kw name="Run Vyos Command" owner="LabLib">
+<msg time="2026-09-16T23:38:39.005018" level="INFO" html="true">&lt;pre&gt;10.3.0.14$ show configuration commands | match host-name
+set system host-name 'pe4'&lt;/pre&gt;</msg>
+<msg time="2026-09-16T23:38:39.005171" level="INFO">${out} = set system host-name 'pe4'</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<arg>${timeout}</arg>
+<doc>Run an operational-mode command on a VyOS node and return its output.</doc>
+<status status="PASS" start="2026-09-16T23:38:38.848648" elapsed="0.156547"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-16T23:38:39.005264" elapsed="0.000045"/>
+</return>
+<msg time="2026-09-16T23:38:39.005417" level="INFO">${h} = set system host-name 'pe4'</msg>
+<var>${h}</var>
+<arg>${n}</arg>
+<arg>show configuration commands | match host-name</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="PASS" start="2026-09-16T23:38:38.848443" elapsed="0.156990"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${h}</arg>
+<arg>host-name '${n}'</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-16T23:38:39.005550" elapsed="0.000324"/>
+</kw>
+<var name="${n}">pe4</var>
+<status status="PASS" start="2026-09-16T23:38:33.255839" elapsed="5.750064"/>
+</iter>
+<iter>
+<kw name="Host Ping" owner="LabLib">
+<msg time="2026-09-16T23:38:41.078191" level="INFO">PING 10.3.0.21 (10.3.0.21) 56(84) bytes of data.
+64 bytes from 10.3.0.21: icmp_seq=1 ttl=64 time=0.134 ms
+64 bytes from 10.3.0.21: icmp_seq=2 ttl=64 time=0.130 ms
+64 bytes from 10.3.0.21: icmp_seq=3 ttl=64 time=0.123 ms
+
+--- 10.3.0.21 ping statistics ---
+3 packets transmitted, 3 received, 0% packet loss, time 2070ms
+rtt min/avg/max/mdev = 0.123/0.129/0.134/0.004 ms
+</msg>
+<arg>${MGMT}[${n}]</arg>
+<doc>ICMP ping from the lab host; fails unless at least one reply.</doc>
+<status status="PASS" start="2026-09-16T23:38:39.006043" elapsed="2.072247"/>
+</kw>
+<kw name="Tcp Port Should Be Open" owner="LabLib">
+<arg>${MGMT}[${n}]</arg>
+<arg>22</arg>
+<status status="PASS" start="2026-09-16T23:38:41.078418" elapsed="0.000331"/>
+</kw>
+<kw name="Vyos" owner="common">
+<kw name="Run Vyos Command" owner="LabLib">
+<msg time="2026-09-16T23:38:44.595130" level="INFO" html="true">&lt;pre&gt;10.3.0.21$ show version | match Version
+Version:          VyOS 2026.09.09-0029-rolling&lt;/pre&gt;</msg>
+<msg time="2026-09-16T23:38:44.595271" level="INFO">${out} = Version:          VyOS 2026.09.09-0029-rolling</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<arg>${timeout}</arg>
+<doc>Run an operational-mode command on a VyOS node and return its output.</doc>
+<status status="PASS" start="2026-09-16T23:38:41.079157" elapsed="3.516133"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-16T23:38:44.595349" elapsed="0.000041"/>
+</return>
+<msg time="2026-09-16T23:38:44.595488" level="INFO">${v} = Version:          VyOS 2026.09.09-0029-rolling</msg>
+<var>${v}</var>
+<arg>${n}</arg>
+<arg>show version | match Version</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="PASS" start="2026-09-16T23:38:41.078884" elapsed="3.516621"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${v}</arg>
+<arg>VyOS</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-16T23:38:44.595668" elapsed="0.000321"/>
+</kw>
+<kw name="Vyos" owner="common">
+<kw name="Run Vyos Command" owner="LabLib">
+<msg time="2026-09-16T23:38:44.752722" level="INFO" html="true">&lt;pre&gt;10.3.0.21$ show configuration commands | match host-name
+set system host-name 'p1'&lt;/pre&gt;</msg>
+<msg time="2026-09-16T23:38:44.752870" level="INFO">${out} = set system host-name 'p1'</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<arg>${timeout}</arg>
+<doc>Run an operational-mode command on a VyOS node and return its output.</doc>
+<status status="PASS" start="2026-09-16T23:38:44.596308" elapsed="0.156586"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-16T23:38:44.752952" elapsed="0.000040"/>
+</return>
+<msg time="2026-09-16T23:38:44.753094" level="INFO">${h} = set system host-name 'p1'</msg>
+<var>${h}</var>
+<arg>${n}</arg>
+<arg>show configuration commands | match host-name</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="PASS" start="2026-09-16T23:38:44.596102" elapsed="0.157015"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${h}</arg>
+<arg>host-name '${n}'</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-16T23:38:44.753266" elapsed="0.000296"/>
+</kw>
+<var name="${n}">p1</var>
+<status status="PASS" start="2026-09-16T23:38:39.005987" elapsed="5.747613"/>
+</iter>
+<iter>
+<kw name="Host Ping" owner="LabLib">
+<msg time="2026-09-16T23:38:46.839190" level="INFO">PING 10.3.0.22 (10.3.0.22) 56(84) bytes of data.
+64 bytes from 10.3.0.22: icmp_seq=1 ttl=64 time=0.117 ms
+64 bytes from 10.3.0.22: icmp_seq=2 ttl=64 time=0.107 ms
+64 bytes from 10.3.0.22: icmp_seq=3 ttl=64 time=0.125 ms
+
+--- 10.3.0.22 ping statistics ---
+3 packets transmitted, 3 received, 0% packet loss, time 2083ms
+rtt min/avg/max/mdev = 0.107/0.116/0.125/0.007 ms
+</msg>
+<arg>${MGMT}[${n}]</arg>
+<doc>ICMP ping from the lab host; fails unless at least one reply.</doc>
+<status status="PASS" start="2026-09-16T23:38:44.753842" elapsed="2.085448"/>
+</kw>
+<kw name="Tcp Port Should Be Open" owner="LabLib">
+<arg>${MGMT}[${n}]</arg>
+<arg>22</arg>
+<status status="PASS" start="2026-09-16T23:38:46.839426" elapsed="0.000347"/>
+</kw>
+<kw name="Vyos" owner="common">
+<kw name="Run Vyos Command" owner="LabLib">
+<msg time="2026-09-16T23:38:50.370658" level="INFO" html="true">&lt;pre&gt;10.3.0.22$ show version | match Version
+Version:          VyOS 2026.09.09-0029-rolling&lt;/pre&gt;</msg>
+<msg time="2026-09-16T23:38:50.370815" level="INFO">${out} = Version:          VyOS 2026.09.09-0029-rolling</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<arg>${timeout}</arg>
+<doc>Run an operational-mode command on a VyOS node and return its output.</doc>
+<status status="PASS" start="2026-09-16T23:38:46.840243" elapsed="3.530592"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-16T23:38:50.370900" elapsed="0.000040"/>
+</return>
+<msg time="2026-09-16T23:38:50.371034" level="INFO">${v} = Version:          VyOS 2026.09.09-0029-rolling</msg>
+<var>${v}</var>
+<arg>${n}</arg>
+<arg>show version | match Version</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="PASS" start="2026-09-16T23:38:46.839944" elapsed="3.531113"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${v}</arg>
+<arg>VyOS</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-16T23:38:50.371197" elapsed="0.000286"/>
+</kw>
+<kw name="Vyos" owner="common">
+<kw name="Run Vyos Command" owner="LabLib">
+<msg time="2026-09-16T23:38:50.528345" level="INFO" html="true">&lt;pre&gt;10.3.0.22$ show configuration commands | match host-name
+set system host-name 'p2'&lt;/pre&gt;</msg>
+<msg time="2026-09-16T23:38:50.528537" level="INFO">${out} = set system host-name 'p2'</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<arg>${timeout}</arg>
+<doc>Run an operational-mode command on a VyOS node and return its output.</doc>
+<status status="PASS" start="2026-09-16T23:38:50.371857" elapsed="0.156705"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-16T23:38:50.528642" elapsed="0.000072"/>
+</return>
+<msg time="2026-09-16T23:38:50.528847" level="INFO">${h} = set system host-name 'p2'</msg>
+<var>${h}</var>
+<arg>${n}</arg>
+<arg>show configuration commands | match host-name</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="PASS" start="2026-09-16T23:38:50.371603" elapsed="0.157267"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${h}</arg>
+<arg>host-name '${n}'</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-16T23:38:50.529040" elapsed="0.000410"/>
+</kw>
+<var name="${n}">p2</var>
+<status status="PASS" start="2026-09-16T23:38:44.753743" elapsed="5.775748"/>
+</iter>
+<iter>
+<kw name="Host Ping" owner="LabLib">
+<msg time="2026-09-16T23:38:52.599235" level="INFO">PING 10.3.0.23 (10.3.0.23) 56(84) bytes of data.
+64 bytes from 10.3.0.23: icmp_seq=1 ttl=64 time=0.124 ms
+64 bytes from 10.3.0.23: icmp_seq=2 ttl=64 time=0.131 ms
+64 bytes from 10.3.0.23: icmp_seq=3 ttl=64 time=0.138 ms
+
+--- 10.3.0.23 ping statistics ---
+3 packets transmitted, 3 received, 0% packet loss, time 2068ms
+rtt min/avg/max/mdev = 0.124/0.131/0.138/0.005 ms
+</msg>
+<arg>${MGMT}[${n}]</arg>
+<doc>ICMP ping from the lab host; fails unless at least one reply.</doc>
+<status status="PASS" start="2026-09-16T23:38:50.529700" elapsed="2.069633"/>
+</kw>
+<kw name="Tcp Port Should Be Open" owner="LabLib">
+<arg>${MGMT}[${n}]</arg>
+<arg>22</arg>
+<status status="PASS" start="2026-09-16T23:38:52.599465" elapsed="0.000319"/>
+</kw>
+<kw name="Vyos" owner="common">
+<kw name="Run Vyos Command" owner="LabLib">
+<msg time="2026-09-16T23:38:56.086308" level="INFO" html="true">&lt;pre&gt;10.3.0.23$ show version | match Version
+Version:          VyOS 2026.09.09-0029-rolling&lt;/pre&gt;</msg>
+<msg time="2026-09-16T23:38:56.086449" level="INFO">${out} = Version:          VyOS 2026.09.09-0029-rolling</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<arg>${timeout}</arg>
+<doc>Run an operational-mode command on a VyOS node and return its output.</doc>
+<status status="PASS" start="2026-09-16T23:38:52.600184" elapsed="3.486285"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-16T23:38:56.086529" elapsed="0.000041"/>
+</return>
+<msg time="2026-09-16T23:38:56.086666" level="INFO">${v} = Version:          VyOS 2026.09.09-0029-rolling</msg>
+<var>${v}</var>
+<arg>${n}</arg>
+<arg>show version | match Version</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="PASS" start="2026-09-16T23:38:52.599926" elapsed="3.486757"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${v}</arg>
+<arg>VyOS</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-16T23:38:56.086842" elapsed="0.000309"/>
+</kw>
+<kw name="Vyos" owner="common">
+<kw name="Run Vyos Command" owner="LabLib">
+<msg time="2026-09-16T23:38:56.218754" level="INFO" html="true">&lt;pre&gt;10.3.0.23$ show configuration commands | match host-name
+set system host-name 'p3'&lt;/pre&gt;</msg>
+<msg time="2026-09-16T23:38:56.218927" level="INFO">${out} = set system host-name 'p3'</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<arg>${timeout}</arg>
+<doc>Run an operational-mode command on a VyOS node and return its output.</doc>
+<status status="PASS" start="2026-09-16T23:38:56.087490" elapsed="0.131459"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-16T23:38:56.219017" elapsed="0.000040"/>
+</return>
+<msg time="2026-09-16T23:38:56.219164" level="INFO">${h} = set system host-name 'p3'</msg>
+<var>${h}</var>
+<arg>${n}</arg>
+<arg>show configuration commands | match host-name</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="PASS" start="2026-09-16T23:38:56.087273" elapsed="0.131949"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${h}</arg>
+<arg>host-name '${n}'</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-16T23:38:56.219337" elapsed="0.000294"/>
+</kw>
+<var name="${n}">p3</var>
+<status status="PASS" start="2026-09-16T23:38:50.529614" elapsed="5.690046"/>
+</iter>
+<iter>
+<kw name="Host Ping" owner="LabLib">
+<msg time="2026-09-16T23:38:58.294215" level="INFO">PING 10.3.0.31 (10.3.0.31) 56(84) bytes of data.
+64 bytes from 10.3.0.31: icmp_seq=1 ttl=64 time=0.130 ms
+64 bytes from 10.3.0.31: icmp_seq=2 ttl=64 time=0.116 ms
+64 bytes from 10.3.0.31: icmp_seq=3 ttl=64 time=0.132 ms
+
+--- 10.3.0.31 ping statistics ---
+3 packets transmitted, 3 received, 0% packet loss, time 2073ms
+rtt min/avg/max/mdev = 0.116/0.126/0.132/0.007 ms
+</msg>
+<arg>${MGMT}[${n}]</arg>
+<doc>ICMP ping from the lab host; fails unless at least one reply.</doc>
+<status status="PASS" start="2026-09-16T23:38:56.219838" elapsed="2.074485"/>
+</kw>
+<kw name="Tcp Port Should Be Open" owner="LabLib">
+<arg>${MGMT}[${n}]</arg>
+<arg>22</arg>
+<status status="PASS" start="2026-09-16T23:38:58.294463" elapsed="0.000400"/>
+</kw>
+<kw name="Vyos" owner="common">
+<kw name="Run Vyos Command" owner="LabLib">
+<msg time="2026-09-16T23:39:01.776799" level="INFO" html="true">&lt;pre&gt;10.3.0.31$ show version | match Version
+Version:          VyOS 2026.09.09-0029-rolling&lt;/pre&gt;</msg>
+<msg time="2026-09-16T23:39:01.776945" level="INFO">${out} = Version:          VyOS 2026.09.09-0029-rolling</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<arg>${timeout}</arg>
+<doc>Run an operational-mode command on a VyOS node and return its output.</doc>
+<status status="PASS" start="2026-09-16T23:38:58.295310" elapsed="3.481668"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-16T23:39:01.777056" elapsed="0.000047"/>
+</return>
+<msg time="2026-09-16T23:39:01.777212" level="INFO">${v} = Version:          VyOS 2026.09.09-0029-rolling</msg>
+<var>${v}</var>
+<arg>${n}</arg>
+<arg>show version | match Version</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="PASS" start="2026-09-16T23:38:58.295050" elapsed="3.482179"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${v}</arg>
+<arg>VyOS</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-16T23:39:01.777342" elapsed="0.000306"/>
+</kw>
+<kw name="Vyos" owner="common">
+<kw name="Run Vyos Command" owner="LabLib">
+<msg time="2026-09-16T23:39:01.909374" level="INFO" html="true">&lt;pre&gt;10.3.0.31$ show configuration commands | match host-name
+set system host-name 'ce1'&lt;/pre&gt;</msg>
+<msg time="2026-09-16T23:39:01.909520" level="INFO">${out} = set system host-name 'ce1'</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<arg>${timeout}</arg>
+<doc>Run an operational-mode command on a VyOS node and return its output.</doc>
+<status status="PASS" start="2026-09-16T23:39:01.778088" elapsed="0.131453"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-16T23:39:01.909599" elapsed="0.000045"/>
+</return>
+<msg time="2026-09-16T23:39:01.909770" level="INFO">${h} = set system host-name 'ce1'</msg>
+<var>${h}</var>
+<arg>${n}</arg>
+<arg>show configuration commands | match host-name</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="PASS" start="2026-09-16T23:39:01.777806" elapsed="0.131982"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${h}</arg>
+<arg>host-name '${n}'</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-16T23:39:01.909904" elapsed="0.000355"/>
+</kw>
+<var name="${n}">ce1</var>
+<status status="PASS" start="2026-09-16T23:38:56.219775" elapsed="5.690515"/>
+</iter>
+<iter>
+<kw name="Host Ping" owner="LabLib">
+<msg time="2026-09-16T23:39:03.990257" level="INFO">PING 10.3.0.32 (10.3.0.32) 56(84) bytes of data.
+64 bytes from 10.3.0.32: icmp_seq=1 ttl=64 time=0.127 ms
+64 bytes from 10.3.0.32: icmp_seq=2 ttl=64 time=0.153 ms
+64 bytes from 10.3.0.32: icmp_seq=3 ttl=64 time=0.128 ms
+
+--- 10.3.0.32 ping statistics ---
+3 packets transmitted, 3 received, 0% packet loss, time 2078ms
+rtt min/avg/max/mdev = 0.127/0.136/0.153/0.012 ms
+</msg>
+<arg>${MGMT}[${n}]</arg>
+<doc>ICMP ping from the lab host; fails unless at least one reply.</doc>
+<status status="PASS" start="2026-09-16T23:39:01.910443" elapsed="2.079932"/>
+</kw>
+<kw name="Tcp Port Should Be Open" owner="LabLib">
+<arg>${MGMT}[${n}]</arg>
+<arg>22</arg>
+<status status="PASS" start="2026-09-16T23:39:03.990518" elapsed="0.000428"/>
+</kw>
+<kw name="Vyos" owner="common">
+<kw name="Run Vyos Command" owner="LabLib">
+<msg time="2026-09-16T23:39:07.473781" level="INFO" html="true">&lt;pre&gt;10.3.0.32$ show version | match Version
+Version:          VyOS 2026.09.09-0029-rolling&lt;/pre&gt;</msg>
+<msg time="2026-09-16T23:39:07.473949" level="INFO">${out} = Version:          VyOS 2026.09.09-0029-rolling</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<arg>${timeout}</arg>
+<doc>Run an operational-mode command on a VyOS node and return its output.</doc>
+<status status="PASS" start="2026-09-16T23:39:03.991468" elapsed="3.482506"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-16T23:39:07.474050" elapsed="0.000048"/>
+</return>
+<msg time="2026-09-16T23:39:07.474211" level="INFO">${v} = Version:          VyOS 2026.09.09-0029-rolling</msg>
+<var>${v}</var>
+<arg>${n}</arg>
+<arg>show version | match Version</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="PASS" start="2026-09-16T23:39:03.991160" elapsed="3.483069"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${v}</arg>
+<arg>VyOS</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-16T23:39:07.474356" elapsed="0.000291"/>
+</kw>
+<kw name="Vyos" owner="common">
+<kw name="Run Vyos Command" owner="LabLib">
+<msg time="2026-09-16T23:39:07.606356" level="INFO" html="true">&lt;pre&gt;10.3.0.32$ show configuration commands | match host-name
+set system host-name 'ce2'&lt;/pre&gt;</msg>
+<msg time="2026-09-16T23:39:07.606498" level="INFO">${out} = set system host-name 'ce2'</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<arg>${timeout}</arg>
+<doc>Run an operational-mode command on a VyOS node and return its output.</doc>
+<status status="PASS" start="2026-09-16T23:39:07.475064" elapsed="0.131457"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-16T23:39:07.606588" elapsed="0.000055"/>
+</return>
+<msg time="2026-09-16T23:39:07.606798" level="INFO">${h} = set system host-name 'ce2'</msg>
+<var>${h}</var>
+<arg>${n}</arg>
+<arg>show configuration commands | match host-name</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="PASS" start="2026-09-16T23:39:07.474793" elapsed="0.132023"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${h}</arg>
+<arg>host-name '${n}'</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-16T23:39:07.606941" elapsed="0.000306"/>
+</kw>
+<var name="${n}">ce2</var>
+<status status="PASS" start="2026-09-16T23:39:01.910381" elapsed="5.696896"/>
+</iter>
+<iter>
+<kw name="Host Ping" owner="LabLib">
+<msg time="2026-09-16T23:39:09.686210" level="INFO">PING 10.3.0.33 (10.3.0.33) 56(84) bytes of data.
+64 bytes from 10.3.0.33: icmp_seq=1 ttl=64 time=0.134 ms
+64 bytes from 10.3.0.33: icmp_seq=2 ttl=64 time=0.136 ms
+64 bytes from 10.3.0.33: icmp_seq=3 ttl=64 time=0.155 ms
+
+--- 10.3.0.33 ping statistics ---
+3 packets transmitted, 3 received, 0% packet loss, time 2077ms
+rtt min/avg/max/mdev = 0.134/0.141/0.155/0.009 ms
+</msg>
+<arg>${MGMT}[${n}]</arg>
+<doc>ICMP ping from the lab host; fails unless at least one reply.</doc>
+<status status="PASS" start="2026-09-16T23:39:07.607437" elapsed="2.078892"/>
+</kw>
+<kw name="Tcp Port Should Be Open" owner="LabLib">
+<arg>${MGMT}[${n}]</arg>
+<arg>22</arg>
+<status status="PASS" start="2026-09-16T23:39:09.686459" elapsed="0.000334"/>
+</kw>
+<kw name="Vyos" owner="common">
+<kw name="Run Vyos Command" owner="LabLib">
+<msg time="2026-09-16T23:39:13.164851" level="INFO" html="true">&lt;pre&gt;10.3.0.33$ show version | match Version
+Version:          VyOS 2026.09.09-0029-rolling&lt;/pre&gt;</msg>
+<msg time="2026-09-16T23:39:13.165005" level="INFO">${out} = Version:          VyOS 2026.09.09-0029-rolling</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<arg>${timeout}</arg>
+<doc>Run an operational-mode command on a VyOS node and return its output.</doc>
+<status status="PASS" start="2026-09-16T23:39:09.687195" elapsed="3.477833"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-16T23:39:13.165089" elapsed="0.000039"/>
+</return>
+<msg time="2026-09-16T23:39:13.165247" level="INFO">${v} = Version:          VyOS 2026.09.09-0029-rolling</msg>
+<var>${v}</var>
+<arg>${n}</arg>
+<arg>show version | match Version</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="PASS" start="2026-09-16T23:39:09.686935" elapsed="3.478338"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${v}</arg>
+<arg>VyOS</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-16T23:39:13.165402" elapsed="0.000311"/>
+</kw>
+<kw name="Vyos" owner="common">
+<kw name="Run Vyos Command" owner="LabLib">
+<msg time="2026-09-16T23:39:13.297378" level="INFO" html="true">&lt;pre&gt;10.3.0.33$ show configuration commands | match host-name
+set system host-name 'ce3'&lt;/pre&gt;</msg>
+<msg time="2026-09-16T23:39:13.297516" level="INFO">${out} = set system host-name 'ce3'</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<arg>${timeout}</arg>
+<doc>Run an operational-mode command on a VyOS node and return its output.</doc>
+<status status="PASS" start="2026-09-16T23:39:13.166103" elapsed="0.131434"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-16T23:39:13.297609" elapsed="0.000060"/>
+</return>
+<msg time="2026-09-16T23:39:13.297799" level="INFO">${h} = set system host-name 'ce3'</msg>
+<var>${h}</var>
+<arg>${n}</arg>
+<arg>show configuration commands | match host-name</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="PASS" start="2026-09-16T23:39:13.165854" elapsed="0.131963"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${h}</arg>
+<arg>host-name '${n}'</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-16T23:39:13.297929" elapsed="0.000299"/>
+</kw>
+<var name="${n}">ce3</var>
+<status status="PASS" start="2026-09-16T23:39:07.607375" elapsed="5.690889"/>
+</iter>
+<iter>
+<kw name="Host Ping" owner="LabLib">
+<msg time="2026-09-16T23:39:15.382218" level="INFO">PING 10.3.0.34 (10.3.0.34) 56(84) bytes of data.
+64 bytes from 10.3.0.34: icmp_seq=1 ttl=64 time=0.123 ms
+64 bytes from 10.3.0.34: icmp_seq=2 ttl=64 time=0.144 ms
+64 bytes from 10.3.0.34: icmp_seq=3 ttl=64 time=0.145 ms
+
+--- 10.3.0.34 ping statistics ---
+3 packets transmitted, 3 received, 0% packet loss, time 2082ms
+rtt min/avg/max/mdev = 0.123/0.137/0.145/0.010 ms
+</msg>
+<arg>${MGMT}[${n}]</arg>
+<doc>ICMP ping from the lab host; fails unless at least one reply.</doc>
+<status status="PASS" start="2026-09-16T23:39:13.298412" elapsed="2.083908"/>
+</kw>
+<kw name="Tcp Port Should Be Open" owner="LabLib">
+<arg>${MGMT}[${n}]</arg>
+<arg>22</arg>
+<status status="PASS" start="2026-09-16T23:39:15.382453" elapsed="0.000384"/>
+</kw>
+<kw name="Vyos" owner="common">
+<kw name="Run Vyos Command" owner="LabLib">
+<msg time="2026-09-16T23:39:18.870906" level="INFO" html="true">&lt;pre&gt;10.3.0.34$ show version | match Version
+Version:          VyOS 2026.09.09-0029-rolling&lt;/pre&gt;</msg>
+<msg time="2026-09-16T23:39:18.871048" level="INFO">${out} = Version:          VyOS 2026.09.09-0029-rolling</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<arg>${timeout}</arg>
+<doc>Run an operational-mode command on a VyOS node and return its output.</doc>
+<status status="PASS" start="2026-09-16T23:39:15.383236" elapsed="3.487835"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-16T23:39:18.871130" elapsed="0.000040"/>
+</return>
+<msg time="2026-09-16T23:39:18.871271" level="INFO">${v} = Version:          VyOS 2026.09.09-0029-rolling</msg>
+<var>${v}</var>
+<arg>${n}</arg>
+<arg>show version | match Version</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="PASS" start="2026-09-16T23:39:15.382999" elapsed="3.488288"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${v}</arg>
+<arg>VyOS</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-16T23:39:18.871410" elapsed="0.000293"/>
+</kw>
+<kw name="Vyos" owner="common">
+<kw name="Run Vyos Command" owner="LabLib">
+<msg time="2026-09-16T23:39:19.003333" level="INFO" html="true">&lt;pre&gt;10.3.0.34$ show configuration commands | match host-name
+set system host-name 'ce4'&lt;/pre&gt;</msg>
+<msg time="2026-09-16T23:39:19.003473" level="INFO">${out} = set system host-name 'ce4'</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<arg>${timeout}</arg>
+<doc>Run an operational-mode command on a VyOS node and return its output.</doc>
+<status status="PASS" start="2026-09-16T23:39:18.872053" elapsed="0.131440"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-16T23:39:19.003550" elapsed="0.000049"/>
+</return>
+<msg time="2026-09-16T23:39:19.003743" level="INFO">${h} = set system host-name 'ce4'</msg>
+<var>${h}</var>
+<arg>${n}</arg>
+<arg>show configuration commands | match host-name</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="PASS" start="2026-09-16T23:39:18.871827" elapsed="0.131940"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${h}</arg>
+<arg>host-name '${n}'</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-16T23:39:19.003884" elapsed="0.000280"/>
+</kw>
+<var name="${n}">ce4</var>
+<status status="PASS" start="2026-09-16T23:39:13.298360" elapsed="5.705829"/>
+</iter>
+<var>${n}</var>
+<value>@{VYOS}</value>
+<status status="PASS" start="2026-09-16T23:38:15.980474" elapsed="63.023750"/>
+</for>
+<status status="PASS" start="2026-09-16T23:38:15.980198" elapsed="63.024137"/>
+</test>
+<test id="s1-t2" name="Every tenant host is reachable over the OOB network and carries its data-centre address" line="17">
+<for flavor="IN">
+<iter>
+<kw name="Host Ping" owner="LabLib">
+<msg time="2026-09-16T23:39:21.079225" level="INFO">PING 10.3.0.41 (10.3.0.41) 56(84) bytes of data.
+64 bytes from 10.3.0.41: icmp_seq=1 ttl=64 time=0.131 ms
+64 bytes from 10.3.0.41: icmp_seq=2 ttl=64 time=0.142 ms
+64 bytes from 10.3.0.41: icmp_seq=3 ttl=64 time=0.143 ms
+
+--- 10.3.0.41 ping statistics ---
+3 packets transmitted, 3 received, 0% packet loss, time 2072ms
+rtt min/avg/max/mdev = 0.131/0.138/0.143/0.005 ms
+</msg>
+<arg>${MGMT}[${h}]</arg>
+<doc>ICMP ping from the lab host; fails unless at least one reply.</doc>
+<status status="PASS" start="2026-09-16T23:39:19.004950" elapsed="2.074383"/>
+</kw>
+<kw name="Tcp Port Should Be Open" owner="LabLib">
+<arg>${MGMT}[${h}]</arg>
+<arg>22</arg>
+<status status="PASS" start="2026-09-16T23:39:21.079474" elapsed="0.000377"/>
+</kw>
+<kw name="Host" owner="common">
+<kw name="Host Command" owner="LabLib">
+<msg time="2026-09-16T23:39:21.190869" level="INFO" html="true">&lt;pre&gt;10.3.0.41$ hostname
+rc=0
+dc1-h1
+&lt;/pre&gt;</msg>
+<msg time="2026-09-16T23:39:21.191063" level="INFO">${out} = dc1-h1
+</msg>
+<var>${out}</var>
+<arg>${MGMT}[${host}]</arg>
+<arg>${command}</arg>
+<doc>Run a shell command on a tenant host; returns the output, fails on non-zero rc.</doc>
+<status status="PASS" start="2026-09-16T23:39:21.080273" elapsed="0.110819"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-16T23:39:21.191180" elapsed="0.000039"/>
+</return>
+<msg time="2026-09-16T23:39:21.191341" level="INFO">${name} = dc1-h1
+</msg>
+<var>${name}</var>
+<arg>${h}</arg>
+<arg>hostname</arg>
+<doc>Run a command on a tenant host by name.</doc>
+<status status="PASS" start="2026-09-16T23:39:21.080005" elapsed="0.111364"/>
+</kw>
+<kw name="Should Be Equal" owner="BuiltIn">
+<arg>${name.strip()}</arg>
+<arg>${h}</arg>
+<doc>Fails if the given objects are unequal.</doc>
+<status status="PASS" start="2026-09-16T23:39:21.191550" elapsed="0.000424"/>
+</kw>
+<kw name="Host" owner="common">
+<kw name="Host Command" owner="LabLib">
+<msg time="2026-09-16T23:39:21.297570" level="INFO" html="true">&lt;pre&gt;10.3.0.41$ ip -4 addr show eth1
+rc=0
+3: eth1: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc pfifo_fast state UP group default qlen 1000
+    inet 172.20.1.2/24 scope global eth1
+       valid_lft forever preferred_lft forever
+&lt;/pre&gt;</msg>
+<msg time="2026-09-16T23:39:21.297776" level="INFO">${out} = 3: eth1: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc pfifo_fast state UP group default qlen 1000
+    inet 172.20.1.2/24 scope global eth1
+       valid_lft forever preferred_lft forever
+</msg>
+<var>${out}</var>
+<arg>${MGMT}[${host}]</arg>
+<arg>${command}</arg>
+<doc>Run a shell command on a tenant host; returns the output, fails on non-zero rc.</doc>
+<status status="PASS" start="2026-09-16T23:39:21.192301" elapsed="0.105500"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-16T23:39:21.297858" elapsed="0.000044"/>
+</return>
+<msg time="2026-09-16T23:39:21.298006" level="INFO">${addr} = 3: eth1: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc pfifo_fast state UP group default qlen 1000
+    inet 172.20.1.2/24 scope global eth1
+       valid_lft forever preferred_lft forever
+</msg>
+<var>${addr}</var>
+<arg>${h}</arg>
+<arg>ip -4 addr show eth1</arg>
+<doc>Run a command on a tenant host by name.</doc>
+<status status="PASS" start="2026-09-16T23:39:21.192099" elapsed="0.105936"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${addr}</arg>
+<arg>${HOST_IP}[${h}]/24</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-16T23:39:21.298183" elapsed="0.000323"/>
+</kw>
+<var name="${h}">dc1-h1</var>
+<status status="PASS" start="2026-09-16T23:39:19.004896" elapsed="2.293642"/>
+</iter>
+<iter>
+<kw name="Host Ping" owner="LabLib">
+<msg time="2026-09-16T23:39:23.382179" level="INFO">PING 10.3.0.51 (10.3.0.51) 56(84) bytes of data.
+64 bytes from 10.3.0.51: icmp_seq=1 ttl=64 time=0.133 ms
+64 bytes from 10.3.0.51: icmp_seq=2 ttl=64 time=0.133 ms
+64 bytes from 10.3.0.51: icmp_seq=3 ttl=64 time=0.133 ms
+
+--- 10.3.0.51 ping statistics ---
+3 packets transmitted, 3 received, 0% packet loss, time 2082ms
+rtt min/avg/max/mdev = 0.133/0.133/0.133/0.000 ms
+</msg>
+<arg>${MGMT}[${h}]</arg>
+<doc>ICMP ping from the lab host; fails unless at least one reply.</doc>
+<status status="PASS" start="2026-09-16T23:39:21.298719" elapsed="2.083553"/>
+</kw>
+<kw name="Tcp Port Should Be Open" owner="LabLib">
+<arg>${MGMT}[${h}]</arg>
+<arg>22</arg>
+<status status="PASS" start="2026-09-16T23:39:23.382398" elapsed="0.000326"/>
+</kw>
+<kw name="Host" owner="common">
+<kw name="Host Command" owner="LabLib">
+<msg time="2026-09-16T23:39:23.489708" level="INFO" html="true">&lt;pre&gt;10.3.0.51$ hostname
+rc=0
+dc1-h2
+&lt;/pre&gt;</msg>
+<msg time="2026-09-16T23:39:23.489874" level="INFO">${out} = dc1-h2
+</msg>
+<var>${out}</var>
+<arg>${MGMT}[${host}]</arg>
+<arg>${command}</arg>
+<doc>Run a shell command on a tenant host; returns the output, fails on non-zero rc.</doc>
+<status status="PASS" start="2026-09-16T23:39:23.383104" elapsed="0.106791"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-16T23:39:23.489963" elapsed="0.000047"/>
+</return>
+<msg time="2026-09-16T23:39:23.490124" level="INFO">${name} = dc1-h2
+</msg>
+<var>${name}</var>
+<arg>${h}</arg>
+<arg>hostname</arg>
+<doc>Run a command on a tenant host by name.</doc>
+<status status="PASS" start="2026-09-16T23:39:23.382872" elapsed="0.107270"/>
+</kw>
+<kw name="Should Be Equal" owner="BuiltIn">
+<arg>${name.strip()}</arg>
+<arg>${h}</arg>
+<doc>Fails if the given objects are unequal.</doc>
+<status status="PASS" start="2026-09-16T23:39:23.490266" elapsed="0.000350"/>
+</kw>
+<kw name="Host" owner="common">
+<kw name="Host Command" owner="LabLib">
+<msg time="2026-09-16T23:39:23.594343" level="INFO" html="true">&lt;pre&gt;10.3.0.51$ ip -4 addr show eth1
+rc=0
+3: eth1: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc pfifo_fast state UP group default qlen 1000
+    inet 172.21.1.2/24 scope global eth1
+       valid_lft forever preferred_lft forever
+&lt;/pre&gt;</msg>
+<msg time="2026-09-16T23:39:23.594503" level="INFO">${out} = 3: eth1: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc pfifo_fast state UP group default qlen 1000
+    inet 172.21.1.2/24 scope global eth1
+       valid_lft forever preferred_lft forever
+</msg>
+<var>${out}</var>
+<arg>${MGMT}[${host}]</arg>
+<arg>${command}</arg>
+<doc>Run a shell command on a tenant host; returns the output, fails on non-zero rc.</doc>
+<status status="PASS" start="2026-09-16T23:39:23.490947" elapsed="0.103580"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-16T23:39:23.594590" elapsed="0.000038"/>
+</return>
+<msg time="2026-09-16T23:39:23.594776" level="INFO">${addr} = 3: eth1: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc pfifo_fast state UP group default qlen 1000
+    inet 172.21.1.2/24 scope global eth1
+       valid_lft forever preferred_lft forever
+</msg>
+<var>${addr}</var>
+<arg>${h}</arg>
+<arg>ip -4 addr show eth1</arg>
+<doc>Run a command on a tenant host by name.</doc>
+<status status="PASS" start="2026-09-16T23:39:23.490743" elapsed="0.104054"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${addr}</arg>
+<arg>${HOST_IP}[${h}]/24</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-16T23:39:23.594918" elapsed="0.000339"/>
+</kw>
+<var name="${h}">dc1-h2</var>
+<status status="PASS" start="2026-09-16T23:39:21.298630" elapsed="2.296666"/>
+</iter>
+<iter>
+<kw name="Host Ping" owner="LabLib">
+<msg time="2026-09-16T23:39:25.623257" level="INFO">PING 10.3.0.42 (10.3.0.42) 56(84) bytes of data.
+64 bytes from 10.3.0.42: icmp_seq=1 ttl=64 time=0.147 ms
+64 bytes from 10.3.0.42: icmp_seq=2 ttl=64 time=0.127 ms
+64 bytes from 10.3.0.42: icmp_seq=3 ttl=64 time=0.147 ms
+
+--- 10.3.0.42 ping statistics ---
+3 packets transmitted, 3 received, 0% packet loss, time 2026ms
+rtt min/avg/max/mdev = 0.127/0.140/0.147/0.009 ms
+</msg>
+<arg>${MGMT}[${h}]</arg>
+<doc>ICMP ping from the lab host; fails unless at least one reply.</doc>
+<status status="PASS" start="2026-09-16T23:39:23.595496" elapsed="2.027872"/>
+</kw>
+<kw name="Tcp Port Should Be Open" owner="LabLib">
+<arg>${MGMT}[${h}]</arg>
+<arg>22</arg>
+<status status="PASS" start="2026-09-16T23:39:25.623511" elapsed="0.000392"/>
+</kw>
+<kw name="Host" owner="common">
+<kw name="Host Command" owner="LabLib">
+<msg time="2026-09-16T23:39:25.734702" level="INFO" html="true">&lt;pre&gt;10.3.0.42$ hostname
+rc=0
+dc2-h1
+&lt;/pre&gt;</msg>
+<msg time="2026-09-16T23:39:25.734892" level="INFO">${out} = dc2-h1
+</msg>
+<var>${out}</var>
+<arg>${MGMT}[${host}]</arg>
+<arg>${command}</arg>
+<doc>Run a shell command on a tenant host; returns the output, fails on non-zero rc.</doc>
+<status status="PASS" start="2026-09-16T23:39:25.624418" elapsed="0.110497"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-16T23:39:25.734977" elapsed="0.000042"/>
+</return>
+<msg time="2026-09-16T23:39:25.735132" level="INFO">${name} = dc2-h1
+</msg>
+<var>${name}</var>
+<arg>${h}</arg>
+<arg>hostname</arg>
+<doc>Run a command on a tenant host by name.</doc>
+<status status="PASS" start="2026-09-16T23:39:25.624111" elapsed="0.111041"/>
+</kw>
+<kw name="Should Be Equal" owner="BuiltIn">
+<arg>${name.strip()}</arg>
+<arg>${h}</arg>
+<doc>Fails if the given objects are unequal.</doc>
+<status status="PASS" start="2026-09-16T23:39:25.735315" elapsed="0.000361"/>
+</kw>
+<kw name="Host" owner="common">
+<kw name="Host Command" owner="LabLib">
+<msg time="2026-09-16T23:39:25.843293" level="INFO" html="true">&lt;pre&gt;10.3.0.42$ ip -4 addr show eth1
+rc=0
+3: eth1: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc pfifo_fast state UP group default qlen 1000
+    inet 172.20.2.2/24 scope global eth1
+       valid_lft forever preferred_lft forever
+&lt;/pre&gt;</msg>
+<msg time="2026-09-16T23:39:25.843457" level="INFO">${out} = 3: eth1: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc pfifo_fast state UP group default qlen 1000
+    inet 172.20.2.2/24 scope global eth1
+       valid_lft forever preferred_lft forever
+</msg>
+<var>${out}</var>
+<arg>${MGMT}[${host}]</arg>
+<arg>${command}</arg>
+<doc>Run a shell command on a tenant host; returns the output, fails on non-zero rc.</doc>
+<status status="PASS" start="2026-09-16T23:39:25.736015" elapsed="0.107468"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-16T23:39:25.843540" elapsed="0.000044"/>
+</return>
+<msg time="2026-09-16T23:39:25.843731" level="INFO">${addr} = 3: eth1: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc pfifo_fast state UP group default qlen 1000
+    inet 172.20.2.2/24 scope global eth1
+       valid_lft forever preferred_lft forever
+</msg>
+<var>${addr}</var>
+<arg>${h}</arg>
+<arg>ip -4 addr show eth1</arg>
+<doc>Run a command on a tenant host by name.</doc>
+<status status="PASS" start="2026-09-16T23:39:25.735827" elapsed="0.107924"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${addr}</arg>
+<arg>${HOST_IP}[${h}]/24</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-16T23:39:25.843871" elapsed="0.000368"/>
+</kw>
+<var name="${h}">dc2-h1</var>
+<status status="PASS" start="2026-09-16T23:39:23.595414" elapsed="2.248867"/>
+</iter>
+<iter>
+<kw name="Host Ping" owner="LabLib">
+<msg time="2026-09-16T23:39:27.926210" level="INFO">PING 10.3.0.52 (10.3.0.52) 56(84) bytes of data.
+64 bytes from 10.3.0.52: icmp_seq=1 ttl=64 time=0.144 ms
+64 bytes from 10.3.0.52: icmp_seq=2 ttl=64 time=0.139 ms
+64 bytes from 10.3.0.52: icmp_seq=3 ttl=64 time=0.127 ms
+
+--- 10.3.0.52 ping statistics ---
+3 packets transmitted, 3 received, 0% packet loss, time 2080ms
+rtt min/avg/max/mdev = 0.127/0.136/0.144/0.007 ms
+</msg>
+<arg>${MGMT}[${h}]</arg>
+<doc>ICMP ping from the lab host; fails unless at least one reply.</doc>
+<status status="PASS" start="2026-09-16T23:39:25.844507" elapsed="2.081808"/>
+</kw>
+<kw name="Tcp Port Should Be Open" owner="LabLib">
+<arg>${MGMT}[${h}]</arg>
+<arg>22</arg>
+<status status="PASS" start="2026-09-16T23:39:27.926447" elapsed="0.000342"/>
+</kw>
+<kw name="Host" owner="common">
+<kw name="Host Command" owner="LabLib">
+<msg time="2026-09-16T23:39:28.038785" level="INFO" html="true">&lt;pre&gt;10.3.0.52$ hostname
+rc=0
+dc2-h2
+&lt;/pre&gt;</msg>
+<msg time="2026-09-16T23:39:28.038955" level="INFO">${out} = dc2-h2
+</msg>
+<var>${out}</var>
+<arg>${MGMT}[${host}]</arg>
+<arg>${command}</arg>
+<doc>Run a shell command on a tenant host; returns the output, fails on non-zero rc.</doc>
+<status status="PASS" start="2026-09-16T23:39:27.927211" elapsed="0.111766"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-16T23:39:28.039038" elapsed="0.000037"/>
+</return>
+<msg time="2026-09-16T23:39:28.039178" level="INFO">${name} = dc2-h2
+</msg>
+<var>${name}</var>
+<arg>${h}</arg>
+<arg>hostname</arg>
+<doc>Run a command on a tenant host by name.</doc>
+<status status="PASS" start="2026-09-16T23:39:27.926964" elapsed="0.112232"/>
+</kw>
+<kw name="Should Be Equal" owner="BuiltIn">
+<arg>${name.strip()}</arg>
+<arg>${h}</arg>
+<doc>Fails if the given objects are unequal.</doc>
+<status status="PASS" start="2026-09-16T23:39:28.039344" elapsed="0.000381"/>
+</kw>
+<kw name="Host" owner="common">
+<kw name="Host Command" owner="LabLib">
+<msg time="2026-09-16T23:39:28.147417" level="INFO" html="true">&lt;pre&gt;10.3.0.52$ ip -4 addr show eth1
+rc=0
+3: eth1: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc pfifo_fast state UP group default qlen 1000
+    inet 172.21.2.2/24 scope global eth1
+       valid_lft forever preferred_lft forever
+&lt;/pre&gt;</msg>
+<msg time="2026-09-16T23:39:28.147577" level="INFO">${out} = 3: eth1: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc pfifo_fast state UP group default qlen 1000
+    inet 172.21.2.2/24 scope global eth1
+       valid_lft forever preferred_lft forever
+</msg>
+<var>${out}</var>
+<arg>${MGMT}[${host}]</arg>
+<arg>${command}</arg>
+<doc>Run a shell command on a tenant host; returns the output, fails on non-zero rc.</doc>
+<status status="PASS" start="2026-09-16T23:39:28.040063" elapsed="0.107535"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-16T23:39:28.147661" elapsed="0.000057"/>
+</return>
+<msg time="2026-09-16T23:39:28.147825" level="INFO">${addr} = 3: eth1: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc pfifo_fast state UP group default qlen 1000
+    inet 172.21.2.2/24 scope global eth1
+       valid_lft forever preferred_lft forever
+</msg>
+<var>${addr}</var>
+<arg>${h}</arg>
+<arg>ip -4 addr show eth1</arg>
+<doc>Run a command on a tenant host by name.</doc>
+<status status="PASS" start="2026-09-16T23:39:28.039856" elapsed="0.107986"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${addr}</arg>
+<arg>${HOST_IP}[${h}]/24</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-16T23:39:28.147973" elapsed="0.000342"/>
+</kw>
+<var name="${h}">dc2-h2</var>
+<status status="PASS" start="2026-09-16T23:39:25.844417" elapsed="2.303925"/>
+</iter>
+<iter>
+<kw name="Host Ping" owner="LabLib">
+<msg time="2026-09-16T23:39:30.230239" level="INFO">PING 10.3.0.43 (10.3.0.43) 56(84) bytes of data.
+64 bytes from 10.3.0.43: icmp_seq=1 ttl=64 time=0.136 ms
+64 bytes from 10.3.0.43: icmp_seq=2 ttl=64 time=0.161 ms
+64 bytes from 10.3.0.43: icmp_seq=3 ttl=64 time=0.135 ms
+
+--- 10.3.0.43 ping statistics ---
+3 packets transmitted, 3 received, 0% packet loss, time 2080ms
+rtt min/avg/max/mdev = 0.135/0.144/0.161/0.012 ms
+</msg>
+<arg>${MGMT}[${h}]</arg>
+<doc>ICMP ping from the lab host; fails unless at least one reply.</doc>
+<status status="PASS" start="2026-09-16T23:39:28.148517" elapsed="2.081825"/>
+</kw>
+<kw name="Tcp Port Should Be Open" owner="LabLib">
+<arg>${MGMT}[${h}]</arg>
+<arg>22</arg>
+<status status="PASS" start="2026-09-16T23:39:30.230489" elapsed="0.000399"/>
+</kw>
+<kw name="Host" owner="common">
+<kw name="Host Command" owner="LabLib">
+<msg time="2026-09-16T23:39:30.338795" level="INFO" html="true">&lt;pre&gt;10.3.0.43$ hostname
+rc=0
+dc3-h1
+&lt;/pre&gt;</msg>
+<msg time="2026-09-16T23:39:30.339000" level="INFO">${out} = dc3-h1
+</msg>
+<var>${out}</var>
+<arg>${MGMT}[${host}]</arg>
+<arg>${command}</arg>
+<doc>Run a shell command on a tenant host; returns the output, fails on non-zero rc.</doc>
+<status status="PASS" start="2026-09-16T23:39:30.231262" elapsed="0.107767"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-16T23:39:30.339104" elapsed="0.000051"/>
+</return>
+<msg time="2026-09-16T23:39:30.339290" level="INFO">${name} = dc3-h1
+</msg>
+<var>${name}</var>
+<arg>${h}</arg>
+<arg>hostname</arg>
+<doc>Run a command on a tenant host by name.</doc>
+<status status="PASS" start="2026-09-16T23:39:30.231028" elapsed="0.108286"/>
+</kw>
+<kw name="Should Be Equal" owner="BuiltIn">
+<arg>${name.strip()}</arg>
+<arg>${h}</arg>
+<doc>Fails if the given objects are unequal.</doc>
+<status status="PASS" start="2026-09-16T23:39:30.339509" elapsed="0.000489"/>
+</kw>
+<kw name="Host" owner="common">
+<kw name="Host Command" owner="LabLib">
+<msg time="2026-09-16T23:39:30.445516" level="INFO" html="true">&lt;pre&gt;10.3.0.43$ ip -4 addr show eth1
+rc=0
+3: eth1: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc pfifo_fast state UP group default qlen 1000
+    inet 172.20.3.2/24 scope global eth1
+       valid_lft forever preferred_lft forever
+&lt;/pre&gt;</msg>
+<msg time="2026-09-16T23:39:30.445710" level="INFO">${out} = 3: eth1: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc pfifo_fast state UP group default qlen 1000
+    inet 172.20.3.2/24 scope global eth1
+       valid_lft forever preferred_lft forever
+</msg>
+<var>${out}</var>
+<arg>${MGMT}[${host}]</arg>
+<arg>${command}</arg>
+<doc>Run a shell command on a tenant host; returns the output, fails on non-zero rc.</doc>
+<status status="PASS" start="2026-09-16T23:39:30.340418" elapsed="0.105342"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-16T23:39:30.445820" elapsed="0.000038"/>
+</return>
+<msg time="2026-09-16T23:39:30.445973" level="INFO">${addr} = 3: eth1: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc pfifo_fast state UP group default qlen 1000
+    inet 172.20.3.2/24 scope global eth1
+       valid_lft forever preferred_lft forever
+</msg>
+<var>${addr}</var>
+<arg>${h}</arg>
+<arg>ip -4 addr show eth1</arg>
+<doc>Run a command on a tenant host by name.</doc>
+<status status="PASS" start="2026-09-16T23:39:30.340151" elapsed="0.105848"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${addr}</arg>
+<arg>${HOST_IP}[${h}]/24</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-16T23:39:30.446138" elapsed="0.000357"/>
+</kw>
+<var name="${h}">dc3-h1</var>
+<status status="PASS" start="2026-09-16T23:39:28.148465" elapsed="2.298059"/>
+</iter>
+<iter>
+<kw name="Host Ping" owner="LabLib">
+<msg time="2026-09-16T23:39:32.534271" level="INFO">PING 10.3.0.53 (10.3.0.53) 56(84) bytes of data.
+64 bytes from 10.3.0.53: icmp_seq=1 ttl=64 time=0.153 ms
+64 bytes from 10.3.0.53: icmp_seq=2 ttl=64 time=0.131 ms
+64 bytes from 10.3.0.53: icmp_seq=3 ttl=64 time=0.157 ms
+
+--- 10.3.0.53 ping statistics ---
+3 packets transmitted, 3 received, 0% packet loss, time 2086ms
+rtt min/avg/max/mdev = 0.131/0.147/0.157/0.011 ms
+</msg>
+<arg>${MGMT}[${h}]</arg>
+<doc>ICMP ping from the lab host; fails unless at least one reply.</doc>
+<status status="PASS" start="2026-09-16T23:39:30.446670" elapsed="2.087705"/>
+</kw>
+<kw name="Tcp Port Should Be Open" owner="LabLib">
+<arg>${MGMT}[${h}]</arg>
+<arg>22</arg>
+<status status="PASS" start="2026-09-16T23:39:32.534507" elapsed="0.000373"/>
+</kw>
+<kw name="Host" owner="common">
+<kw name="Host Command" owner="LabLib">
+<msg time="2026-09-16T23:39:32.643769" level="INFO" html="true">&lt;pre&gt;10.3.0.53$ hostname
+rc=0
+dc3-h2
+&lt;/pre&gt;</msg>
+<msg time="2026-09-16T23:39:32.643941" level="INFO">${out} = dc3-h2
+</msg>
+<var>${out}</var>
+<arg>${MGMT}[${host}]</arg>
+<arg>${command}</arg>
+<doc>Run a shell command on a tenant host; returns the output, fails on non-zero rc.</doc>
+<status status="PASS" start="2026-09-16T23:39:32.535293" elapsed="0.108670"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-16T23:39:32.644025" elapsed="0.000039"/>
+</return>
+<msg time="2026-09-16T23:39:32.644158" level="INFO">${name} = dc3-h2
+</msg>
+<var>${name}</var>
+<arg>${h}</arg>
+<arg>hostname</arg>
+<doc>Run a command on a tenant host by name.</doc>
+<status status="PASS" start="2026-09-16T23:39:32.535022" elapsed="0.109152"/>
+</kw>
+<kw name="Should Be Equal" owner="BuiltIn">
+<arg>${name.strip()}</arg>
+<arg>${h}</arg>
+<doc>Fails if the given objects are unequal.</doc>
+<status status="PASS" start="2026-09-16T23:39:32.644308" elapsed="0.000331"/>
+</kw>
+<kw name="Host" owner="common">
+<kw name="Host Command" owner="LabLib">
+<msg time="2026-09-16T23:39:32.748326" level="INFO" html="true">&lt;pre&gt;10.3.0.53$ ip -4 addr show eth1
+rc=0
+3: eth1: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc pfifo_fast state UP group default qlen 1000
+    inet 172.21.3.2/24 scope global eth1
+       valid_lft forever preferred_lft forever
+&lt;/pre&gt;</msg>
+<msg time="2026-09-16T23:39:32.748516" level="INFO">${out} = 3: eth1: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc pfifo_fast state UP group default qlen 1000
+    inet 172.21.3.2/24 scope global eth1
+       valid_lft forever preferred_lft forever
+</msg>
+<var>${out}</var>
+<arg>${MGMT}[${host}]</arg>
+<arg>${command}</arg>
+<doc>Run a shell command on a tenant host; returns the output, fails on non-zero rc.</doc>
+<status status="PASS" start="2026-09-16T23:39:32.644977" elapsed="0.103563"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-16T23:39:32.748596" elapsed="0.000039"/>
+</return>
+<msg time="2026-09-16T23:39:32.748760" level="INFO">${addr} = 3: eth1: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc pfifo_fast state UP group default qlen 1000
+    inet 172.21.3.2/24 scope global eth1
+       valid_lft forever preferred_lft forever
+</msg>
+<var>${addr}</var>
+<arg>${h}</arg>
+<arg>ip -4 addr show eth1</arg>
+<doc>Run a command on a tenant host by name.</doc>
+<status status="PASS" start="2026-09-16T23:39:32.644765" elapsed="0.104014"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${addr}</arg>
+<arg>${HOST_IP}[${h}]/24</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-16T23:39:32.748917" elapsed="0.000344"/>
+</kw>
+<var name="${h}">dc3-h2</var>
+<status status="PASS" start="2026-09-16T23:39:30.446614" elapsed="2.302676"/>
+</iter>
+<iter>
+<kw name="Host Ping" owner="LabLib">
+<msg time="2026-09-16T23:39:34.839239" level="INFO">PING 10.3.0.44 (10.3.0.44) 56(84) bytes of data.
+64 bytes from 10.3.0.44: icmp_seq=1 ttl=64 time=0.139 ms
+64 bytes from 10.3.0.44: icmp_seq=2 ttl=64 time=0.119 ms
+64 bytes from 10.3.0.44: icmp_seq=3 ttl=64 time=0.139 ms
+
+--- 10.3.0.44 ping statistics ---
+3 packets transmitted, 3 received, 0% packet loss, time 2088ms
+rtt min/avg/max/mdev = 0.119/0.132/0.139/0.009 ms
+</msg>
+<arg>${MGMT}[${h}]</arg>
+<doc>ICMP ping from the lab host; fails unless at least one reply.</doc>
+<status status="PASS" start="2026-09-16T23:39:32.749456" elapsed="2.089880"/>
+</kw>
+<kw name="Tcp Port Should Be Open" owner="LabLib">
+<arg>${MGMT}[${h}]</arg>
+<arg>22</arg>
+<status status="PASS" start="2026-09-16T23:39:34.839468" elapsed="0.000343"/>
+</kw>
+<kw name="Host" owner="common">
+<kw name="Host Command" owner="LabLib">
+<msg time="2026-09-16T23:39:34.951828" level="INFO" html="true">&lt;pre&gt;10.3.0.44$ hostname
+rc=0
+dc4-h1
+&lt;/pre&gt;</msg>
+<msg time="2026-09-16T23:39:34.952030" level="INFO">${out} = dc4-h1
+</msg>
+<var>${out}</var>
+<arg>${MGMT}[${host}]</arg>
+<arg>${command}</arg>
+<doc>Run a shell command on a tenant host; returns the output, fails on non-zero rc.</doc>
+<status status="PASS" start="2026-09-16T23:39:34.840204" elapsed="0.111858"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-16T23:39:34.952151" elapsed="0.000044"/>
+</return>
+<msg time="2026-09-16T23:39:34.952312" level="INFO">${name} = dc4-h1
+</msg>
+<var>${name}</var>
+<arg>${h}</arg>
+<arg>hostname</arg>
+<doc>Run a command on a tenant host by name.</doc>
+<status status="PASS" start="2026-09-16T23:39:34.839950" elapsed="0.112384"/>
+</kw>
+<kw name="Should Be Equal" owner="BuiltIn">
+<arg>${name.strip()}</arg>
+<arg>${h}</arg>
+<doc>Fails if the given objects are unequal.</doc>
+<status status="PASS" start="2026-09-16T23:39:34.952494" elapsed="0.000458"/>
+</kw>
+<kw name="Host" owner="common">
+<kw name="Host Command" owner="LabLib">
+<msg time="2026-09-16T23:39:35.059140" level="INFO" html="true">&lt;pre&gt;10.3.0.44$ ip -4 addr show eth1
+rc=0
+3: eth1: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc pfifo_fast state UP group default qlen 1000
+    inet 172.20.4.2/24 scope global eth1
+       valid_lft forever preferred_lft forever
+&lt;/pre&gt;</msg>
+<msg time="2026-09-16T23:39:35.059317" level="INFO">${out} = 3: eth1: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc pfifo_fast state UP group default qlen 1000
+    inet 172.20.4.2/24 scope global eth1
+       valid_lft forever preferred_lft forever
+</msg>
+<var>${out}</var>
+<arg>${MGMT}[${host}]</arg>
+<arg>${command}</arg>
+<doc>Run a shell command on a tenant host; returns the output, fails on non-zero rc.</doc>
+<status status="PASS" start="2026-09-16T23:39:34.953296" elapsed="0.106044"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-16T23:39:35.059397" elapsed="0.000038"/>
+</return>
+<msg time="2026-09-16T23:39:35.059560" level="INFO">${addr} = 3: eth1: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc pfifo_fast state UP group default qlen 1000
+    inet 172.20.4.2/24 scope global eth1
+       valid_lft forever preferred_lft forever
+</msg>
+<var>${addr}</var>
+<arg>${h}</arg>
+<arg>ip -4 addr show eth1</arg>
+<doc>Run a command on a tenant host by name.</doc>
+<status status="PASS" start="2026-09-16T23:39:34.953090" elapsed="0.106488"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${addr}</arg>
+<arg>${HOST_IP}[${h}]/24</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-16T23:39:35.059740" elapsed="0.000312"/>
+</kw>
+<var name="${h}">dc4-h1</var>
+<status status="PASS" start="2026-09-16T23:39:32.749388" elapsed="2.310692"/>
+</iter>
+<iter>
+<kw name="Host Ping" owner="LabLib">
+<msg time="2026-09-16T23:39:37.142288" level="INFO">PING 10.3.0.54 (10.3.0.54) 56(84) bytes of data.
+64 bytes from 10.3.0.54: icmp_seq=1 ttl=64 time=0.132 ms
+64 bytes from 10.3.0.54: icmp_seq=2 ttl=64 time=0.124 ms
+64 bytes from 10.3.0.54: icmp_seq=3 ttl=64 time=0.142 ms
+
+--- 10.3.0.54 ping statistics ---
+3 packets transmitted, 3 received, 0% packet loss, time 2080ms
+rtt min/avg/max/mdev = 0.124/0.132/0.142/0.007 ms
+</msg>
+<arg>${MGMT}[${h}]</arg>
+<doc>ICMP ping from the lab host; fails unless at least one reply.</doc>
+<status status="PASS" start="2026-09-16T23:39:35.060218" elapsed="2.082189"/>
+</kw>
+<kw name="Tcp Port Should Be Open" owner="LabLib">
+<arg>${MGMT}[${h}]</arg>
+<arg>22</arg>
+<status status="PASS" start="2026-09-16T23:39:37.142566" elapsed="0.000453"/>
+</kw>
+<kw name="Host" owner="common">
+<kw name="Host Command" owner="LabLib">
+<msg time="2026-09-16T23:39:37.252724" level="INFO" html="true">&lt;pre&gt;10.3.0.54$ hostname
+rc=0
+dc4-h2
+&lt;/pre&gt;</msg>
+<msg time="2026-09-16T23:39:37.252938" level="INFO">${out} = dc4-h2
+</msg>
+<var>${out}</var>
+<arg>${MGMT}[${host}]</arg>
+<arg>${command}</arg>
+<doc>Run a shell command on a tenant host; returns the output, fails on non-zero rc.</doc>
+<status status="PASS" start="2026-09-16T23:39:37.143458" elapsed="0.109502"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-16T23:39:37.253016" elapsed="0.000042"/>
+</return>
+<msg time="2026-09-16T23:39:37.253157" level="INFO">${name} = dc4-h2
+</msg>
+<var>${name}</var>
+<arg>${h}</arg>
+<arg>hostname</arg>
+<doc>Run a command on a tenant host by name.</doc>
+<status status="PASS" start="2026-09-16T23:39:37.143203" elapsed="0.109971"/>
+</kw>
+<kw name="Should Be Equal" owner="BuiltIn">
+<arg>${name.strip()}</arg>
+<arg>${h}</arg>
+<doc>Fails if the given objects are unequal.</doc>
+<status status="PASS" start="2026-09-16T23:39:37.253297" elapsed="0.000334"/>
+</kw>
+<kw name="Host" owner="common">
+<kw name="Host Command" owner="LabLib">
+<msg time="2026-09-16T23:39:37.358282" level="INFO" html="true">&lt;pre&gt;10.3.0.54$ ip -4 addr show eth1
+rc=0
+3: eth1: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc pfifo_fast state UP group default qlen 1000
+    inet 172.21.4.2/24 scope global eth1
+       valid_lft forever preferred_lft forever
+&lt;/pre&gt;</msg>
+<msg time="2026-09-16T23:39:37.358443" level="INFO">${out} = 3: eth1: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc pfifo_fast state UP group default qlen 1000
+    inet 172.21.4.2/24 scope global eth1
+       valid_lft forever preferred_lft forever
+</msg>
+<var>${out}</var>
+<arg>${MGMT}[${host}]</arg>
+<arg>${command}</arg>
+<doc>Run a shell command on a tenant host; returns the output, fails on non-zero rc.</doc>
+<status status="PASS" start="2026-09-16T23:39:37.253951" elapsed="0.104516"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-16T23:39:37.358526" elapsed="0.000038"/>
+</return>
+<msg time="2026-09-16T23:39:37.358675" level="INFO">${addr} = 3: eth1: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc pfifo_fast state UP group default qlen 1000
+    inet 172.21.4.2/24 scope global eth1
+       valid_lft forever preferred_lft forever
+</msg>
+<var>${addr}</var>
+<arg>${h}</arg>
+<arg>ip -4 addr show eth1</arg>
+<doc>Run a command on a tenant host by name.</doc>
+<status status="PASS" start="2026-09-16T23:39:37.253760" elapsed="0.104963"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${addr}</arg>
+<arg>${HOST_IP}[${h}]/24</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-16T23:39:37.358870" elapsed="0.000365"/>
+</kw>
+<var name="${h}">dc4-h2</var>
+<status status="PASS" start="2026-09-16T23:39:35.060162" elapsed="2.299102"/>
+</iter>
+<var>${h}</var>
+<value>@{HOSTS}</value>
+<status status="PASS" start="2026-09-16T23:39:19.004790" elapsed="18.354501"/>
+</for>
+<status status="PASS" start="2026-09-16T23:39:19.004500" elapsed="18.354879"/>
+</test>
+<test id="s1-t3" name="The core links run jumbo frames and the day-0 configuration is saved" line="27">
+<for flavor="IN">
+<iter>
+<kw name="Vyos" owner="common">
+<kw name="Run Vyos Command" owner="LabLib">
+<msg time="2026-09-16T23:39:37.516708" level="INFO" html="true">&lt;pre&gt;10.3.0.11$ show configuration commands | match mtu
+set interfaces ethernet eth1 mtu '9000'
+set interfaces ethernet eth2 mtu '9000'&lt;/pre&gt;</msg>
+<msg time="2026-09-16T23:39:37.516875" level="INFO">${out} = set interfaces ethernet eth1 mtu '9000'
+set interfaces ethernet eth2 mtu '9000'</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<arg>${timeout}</arg>
+<doc>Run an operational-mode command on a VyOS node and return its output.</doc>
+<status status="PASS" start="2026-09-16T23:39:37.360118" elapsed="0.156778"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-16T23:39:37.516956" elapsed="0.000039"/>
+</return>
+<msg time="2026-09-16T23:39:37.517102" level="INFO">${mtu} = set interfaces ethernet eth1 mtu '9000'
+set interfaces ethernet eth2 mtu '9000'</msg>
+<var>${mtu}</var>
+<arg>${n}</arg>
+<arg>show configuration commands | match mtu</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="PASS" start="2026-09-16T23:39:37.359902" elapsed="0.157221"/>
+</kw>
+<kw name="Get Count" owner="BuiltIn">
+<msg time="2026-09-16T23:39:37.517583" level="INFO">Item found from container 2 times.</msg>
+<msg time="2026-09-16T23:39:37.517639" level="INFO">${count} = 2</msg>
+<var>${count}</var>
+<arg>${mtu}</arg>
+<arg>mtu '9000'</arg>
+<doc>Returns and logs how many times the `item` is found from the `container`.</doc>
+<status status="PASS" start="2026-09-16T23:39:37.517246" elapsed="0.000408"/>
+</kw>
+<kw name="Get Length" owner="BuiltIn">
+<msg time="2026-09-16T23:39:37.518113" level="INFO">Length is 2.</msg>
+<msg time="2026-09-16T23:39:37.518164" level="INFO">${expected} = 2</msg>
+<var>${expected}</var>
+<arg>${ISIS_NEIGHBORS}[${n}]</arg>
+<doc>Returns and logs the length of the given item as an integer.</doc>
+<status status="PASS" start="2026-09-16T23:39:37.517743" elapsed="0.000443"/>
+</kw>
+<kw name="Should Be Equal As Integers" owner="BuiltIn">
+<arg>${count}</arg>
+<arg>${expected}</arg>
+<arg>msg=${n}: every core link must have mtu 9000</arg>
+<doc>Fails if objects are unequal after converting them to integers.</doc>
+<status status="PASS" start="2026-09-16T23:39:37.518285" elapsed="0.000265"/>
+</kw>
+<kw name="Shell" owner="common">
+<kw name="Vyos Shell" owner="LabLib">
+<msg time="2026-09-16T23:39:38.232840" level="INFO" html="true">&lt;pre&gt;10.3.0.11# grep -c host-name /config/config.boot
+rc=0
+1
+&lt;/pre&gt;</msg>
+<msg time="2026-09-16T23:39:38.233025" level="INFO">${out} = 1
+</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<doc>Run a Linux shell command on a VyOS node (e.g. `sudo ip -6 route`) and return stdout+stderr; fails on non-zero rc.</doc>
+<status status="PASS" start="2026-09-16T23:39:37.518864" elapsed="0.714184"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-16T23:39:38.233120" elapsed="0.000044"/>
+</return>
+<msg time="2026-09-16T23:39:38.233265" level="INFO">${saved} = 1
+</msg>
+<var>${saved}</var>
+<arg>${n}</arg>
+<arg>grep -c host-name /config/config.boot</arg>
+<doc>Run a Linux shell command on a VyOS node by name (sudo allowed).</doc>
+<status status="PASS" start="2026-09-16T23:39:37.518661" elapsed="0.714621"/>
+</kw>
+<kw name="Should Not Be Equal" owner="BuiltIn">
+<arg>${saved.strip()}</arg>
+<arg>0</arg>
+<arg>msg=${n}: /config/config.boot has no host-name (configuration never saved)</arg>
+<doc>Fails if the given objects are equal.</doc>
+<status status="PASS" start="2026-09-16T23:39:38.233419" elapsed="0.000509"/>
+</kw>
+<var name="${n}">pe1</var>
+<status status="PASS" start="2026-09-16T23:39:37.359810" elapsed="0.874162"/>
+</iter>
+<iter>
+<kw name="Vyos" owner="common">
+<kw name="Run Vyos Command" owner="LabLib">
+<msg time="2026-09-16T23:39:38.390881" level="INFO" html="true">&lt;pre&gt;10.3.0.12$ show configuration commands | match mtu
+set interfaces ethernet eth1 mtu '9000'
+set interfaces ethernet eth2 mtu '9000'&lt;/pre&gt;</msg>
+<msg time="2026-09-16T23:39:38.391019" level="INFO">${out} = set interfaces ethernet eth1 mtu '9000'
+set interfaces ethernet eth2 mtu '9000'</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<arg>${timeout}</arg>
+<doc>Run an operational-mode command on a VyOS node and return its output.</doc>
+<status status="PASS" start="2026-09-16T23:39:38.234484" elapsed="0.156555"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-16T23:39:38.391105" elapsed="0.000042"/>
+</return>
+<msg time="2026-09-16T23:39:38.391262" level="INFO">${mtu} = set interfaces ethernet eth1 mtu '9000'
+set interfaces ethernet eth2 mtu '9000'</msg>
+<var>${mtu}</var>
+<arg>${n}</arg>
+<arg>show configuration commands | match mtu</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="PASS" start="2026-09-16T23:39:38.234211" elapsed="0.157068"/>
+</kw>
+<kw name="Get Count" owner="BuiltIn">
+<msg time="2026-09-16T23:39:38.391663" level="INFO">Item found from container 2 times.</msg>
+<msg time="2026-09-16T23:39:38.391734" level="INFO">${count} = 2</msg>
+<var>${count}</var>
+<arg>${mtu}</arg>
+<arg>mtu '9000'</arg>
+<doc>Returns and logs how many times the `item` is found from the `container`.</doc>
+<status status="PASS" start="2026-09-16T23:39:38.391390" elapsed="0.000360"/>
+</kw>
+<kw name="Get Length" owner="BuiltIn">
+<msg time="2026-09-16T23:39:38.391996" level="INFO">Length is 2.</msg>
+<msg time="2026-09-16T23:39:38.392043" level="INFO">${expected} = 2</msg>
+<var>${expected}</var>
+<arg>${ISIS_NEIGHBORS}[${n}]</arg>
+<doc>Returns and logs the length of the given item as an integer.</doc>
+<status status="PASS" start="2026-09-16T23:39:38.391823" elapsed="0.000236"/>
+</kw>
+<kw name="Should Be Equal As Integers" owner="BuiltIn">
+<arg>${count}</arg>
+<arg>${expected}</arg>
+<arg>msg=${n}: every core link must have mtu 9000</arg>
+<doc>Fails if objects are unequal after converting them to integers.</doc>
+<status status="PASS" start="2026-09-16T23:39:38.392126" elapsed="0.000250"/>
+</kw>
+<kw name="Shell" owner="common">
+<kw name="Vyos Shell" owner="LabLib">
+<msg time="2026-09-16T23:39:39.112766" level="INFO" html="true">&lt;pre&gt;10.3.0.12# grep -c host-name /config/config.boot
+rc=0
+1
+&lt;/pre&gt;</msg>
+<msg time="2026-09-16T23:39:39.112942" level="INFO">${out} = 1
+</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<doc>Run a Linux shell command on a VyOS node (e.g. `sudo ip -6 route`) and return stdout+stderr; fails on non-zero rc.</doc>
+<status status="PASS" start="2026-09-16T23:39:38.392670" elapsed="0.720294"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-16T23:39:39.113023" elapsed="0.000041"/>
+</return>
+<msg time="2026-09-16T23:39:39.113180" level="INFO">${saved} = 1
+</msg>
+<var>${saved}</var>
+<arg>${n}</arg>
+<arg>grep -c host-name /config/config.boot</arg>
+<doc>Run a Linux shell command on a VyOS node by name (sudo allowed).</doc>
+<status status="PASS" start="2026-09-16T23:39:38.392489" elapsed="0.720708"/>
+</kw>
+<kw name="Should Not Be Equal" owner="BuiltIn">
+<arg>${saved.strip()}</arg>
+<arg>0</arg>
+<arg>msg=${n}: /config/config.boot has no host-name (configuration never saved)</arg>
+<doc>Fails if the given objects are equal.</doc>
+<status status="PASS" start="2026-09-16T23:39:39.113305" elapsed="0.000425"/>
+</kw>
+<var name="${n}">pe2</var>
+<status status="PASS" start="2026-09-16T23:39:38.234080" elapsed="0.879681"/>
+</iter>
+<iter>
+<kw name="Vyos" owner="common">
+<kw name="Run Vyos Command" owner="LabLib">
+<msg time="2026-09-16T23:39:39.270651" level="INFO" html="true">&lt;pre&gt;10.3.0.13$ show configuration commands | match mtu
+set interfaces ethernet eth1 mtu '9000'
+set interfaces ethernet eth2 mtu '9000'&lt;/pre&gt;</msg>
+<msg time="2026-09-16T23:39:39.270820" level="INFO">${out} = set interfaces ethernet eth1 mtu '9000'
+set interfaces ethernet eth2 mtu '9000'</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<arg>${timeout}</arg>
+<doc>Run an operational-mode command on a VyOS node and return its output.</doc>
+<status status="PASS" start="2026-09-16T23:39:39.114197" elapsed="0.156644"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-16T23:39:39.270918" elapsed="0.000043"/>
+</return>
+<msg time="2026-09-16T23:39:39.271096" level="INFO">${mtu} = set interfaces ethernet eth1 mtu '9000'
+set interfaces ethernet eth2 mtu '9000'</msg>
+<var>${mtu}</var>
+<arg>${n}</arg>
+<arg>show configuration commands | match mtu</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="PASS" start="2026-09-16T23:39:39.113966" elapsed="0.157152"/>
+</kw>
+<kw name="Get Count" owner="BuiltIn">
+<msg time="2026-09-16T23:39:39.271510" level="INFO">Item found from container 2 times.</msg>
+<msg time="2026-09-16T23:39:39.271566" level="INFO">${count} = 2</msg>
+<var>${count}</var>
+<arg>${mtu}</arg>
+<arg>mtu '9000'</arg>
+<doc>Returns and logs how many times the `item` is found from the `container`.</doc>
+<status status="PASS" start="2026-09-16T23:39:39.271241" elapsed="0.000348"/>
+</kw>
+<kw name="Get Length" owner="BuiltIn">
+<msg time="2026-09-16T23:39:39.271905" level="INFO">Length is 2.</msg>
+<msg time="2026-09-16T23:39:39.271968" level="INFO">${expected} = 2</msg>
+<var>${expected}</var>
+<arg>${ISIS_NEIGHBORS}[${n}]</arg>
+<doc>Returns and logs the length of the given item as an integer.</doc>
+<status status="PASS" start="2026-09-16T23:39:39.271700" elapsed="0.000291"/>
+</kw>
+<kw name="Should Be Equal As Integers" owner="BuiltIn">
+<arg>${count}</arg>
+<arg>${expected}</arg>
+<arg>msg=${n}: every core link must have mtu 9000</arg>
+<doc>Fails if objects are unequal after converting them to integers.</doc>
+<status status="PASS" start="2026-09-16T23:39:39.272095" elapsed="0.000242"/>
+</kw>
+<kw name="Shell" owner="common">
+<kw name="Vyos Shell" owner="LabLib">
+<msg time="2026-09-16T23:39:39.989761" level="INFO" html="true">&lt;pre&gt;10.3.0.13# grep -c host-name /config/config.boot
+rc=0
+1
+&lt;/pre&gt;</msg>
+<msg time="2026-09-16T23:39:39.989924" level="INFO">${out} = 1
+</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<doc>Run a Linux shell command on a VyOS node (e.g. `sudo ip -6 route`) and return stdout+stderr; fails on non-zero rc.</doc>
+<status status="PASS" start="2026-09-16T23:39:39.272678" elapsed="0.717267"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-16T23:39:39.990001" elapsed="0.000037"/>
+</return>
+<msg time="2026-09-16T23:39:39.990144" level="INFO">${saved} = 1
+</msg>
+<var>${saved}</var>
+<arg>${n}</arg>
+<arg>grep -c host-name /config/config.boot</arg>
+<doc>Run a Linux shell command on a VyOS node by name (sudo allowed).</doc>
+<status status="PASS" start="2026-09-16T23:39:39.272454" elapsed="0.717706"/>
+</kw>
+<kw name="Should Not Be Equal" owner="BuiltIn">
+<arg>${saved.strip()}</arg>
+<arg>0</arg>
+<arg>msg=${n}: /config/config.boot has no host-name (configuration never saved)</arg>
+<doc>Fails if the given objects are equal.</doc>
+<status status="PASS" start="2026-09-16T23:39:39.990269" elapsed="0.000372"/>
+</kw>
+<var name="${n}">pe3</var>
+<status status="PASS" start="2026-09-16T23:39:39.113861" elapsed="0.876810"/>
+</iter>
+<iter>
+<kw name="Vyos" owner="common">
+<kw name="Run Vyos Command" owner="LabLib">
+<msg time="2026-09-16T23:39:40.147529" level="INFO" html="true">&lt;pre&gt;10.3.0.14$ show configuration commands | match mtu
+set interfaces ethernet eth1 mtu '9000'
+set interfaces ethernet eth2 mtu '9000'&lt;/pre&gt;</msg>
+<msg time="2026-09-16T23:39:40.147675" level="INFO">${out} = set interfaces ethernet eth1 mtu '9000'
+set interfaces ethernet eth2 mtu '9000'</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<arg>${timeout}</arg>
+<doc>Run an operational-mode command on a VyOS node and return its output.</doc>
+<status status="PASS" start="2026-09-16T23:39:39.991070" elapsed="0.156638"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-16T23:39:40.147787" elapsed="0.000039"/>
+</return>
+<msg time="2026-09-16T23:39:40.147929" level="INFO">${mtu} = set interfaces ethernet eth1 mtu '9000'
+set interfaces ethernet eth2 mtu '9000'</msg>
+<var>${mtu}</var>
+<arg>${n}</arg>
+<arg>show configuration commands | match mtu</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="PASS" start="2026-09-16T23:39:39.990865" elapsed="0.157081"/>
+</kw>
+<kw name="Get Count" owner="BuiltIn">
+<msg time="2026-09-16T23:39:40.148374" level="INFO">Item found from container 2 times.</msg>
+<msg time="2026-09-16T23:39:40.148428" level="INFO">${count} = 2</msg>
+<var>${count}</var>
+<arg>${mtu}</arg>
+<arg>mtu '9000'</arg>
+<doc>Returns and logs how many times the `item` is found from the `container`.</doc>
+<status status="PASS" start="2026-09-16T23:39:40.148061" elapsed="0.000384"/>
+</kw>
+<kw name="Get Length" owner="BuiltIn">
+<msg time="2026-09-16T23:39:40.148704" level="INFO">Length is 2.</msg>
+<msg time="2026-09-16T23:39:40.148772" level="INFO">${expected} = 2</msg>
+<var>${expected}</var>
+<arg>${ISIS_NEIGHBORS}[${n}]</arg>
+<doc>Returns and logs the length of the given item as an integer.</doc>
+<status status="PASS" start="2026-09-16T23:39:40.148522" elapsed="0.000271"/>
+</kw>
+<kw name="Should Be Equal As Integers" owner="BuiltIn">
+<arg>${count}</arg>
+<arg>${expected}</arg>
+<arg>msg=${n}: every core link must have mtu 9000</arg>
+<doc>Fails if objects are unequal after converting them to integers.</doc>
+<status status="PASS" start="2026-09-16T23:39:40.148866" elapsed="0.000243"/>
+</kw>
+<kw name="Shell" owner="common">
+<kw name="Vyos Shell" owner="LabLib">
+<msg time="2026-09-16T23:39:40.872712" level="INFO" html="true">&lt;pre&gt;10.3.0.14# grep -c host-name /config/config.boot
+rc=0
+1
+&lt;/pre&gt;</msg>
+<msg time="2026-09-16T23:39:40.872892" level="INFO">${out} = 1
+</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<doc>Run a Linux shell command on a VyOS node (e.g. `sudo ip -6 route`) and return stdout+stderr; fails on non-zero rc.</doc>
+<status status="PASS" start="2026-09-16T23:39:40.149434" elapsed="0.723481"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-16T23:39:40.872980" elapsed="0.000060"/>
+</return>
+<msg time="2026-09-16T23:39:40.873162" level="INFO">${saved} = 1
+</msg>
+<var>${saved}</var>
+<arg>${n}</arg>
+<arg>grep -c host-name /config/config.boot</arg>
+<doc>Run a Linux shell command on a VyOS node by name (sudo allowed).</doc>
+<status status="PASS" start="2026-09-16T23:39:40.149245" elapsed="0.723934"/>
+</kw>
+<kw name="Should Not Be Equal" owner="BuiltIn">
+<arg>${saved.strip()}</arg>
+<arg>0</arg>
+<arg>msg=${n}: /config/config.boot has no host-name (configuration never saved)</arg>
+<doc>Fails if the given objects are equal.</doc>
+<status status="PASS" start="2026-09-16T23:39:40.873292" elapsed="0.000411"/>
+</kw>
+<var name="${n}">pe4</var>
+<status status="PASS" start="2026-09-16T23:39:39.990772" elapsed="0.882971"/>
+</iter>
+<iter>
+<kw name="Vyos" owner="common">
+<kw name="Run Vyos Command" owner="LabLib">
+<msg time="2026-09-16T23:39:41.005360" level="INFO" html="true">&lt;pre&gt;10.3.0.21$ show configuration commands | match mtu
+set interfaces ethernet eth1 mtu '9000'
+set interfaces ethernet eth2 mtu '9000'
+set interfaces ethernet eth3 mtu '9000'
+set interfaces ethernet eth4 mtu '9000'&lt;/pre&gt;</msg>
+<msg time="2026-09-16T23:39:41.005509" level="INFO">${out} = set interfaces ethernet eth1 mtu '9000'
+set interfaces ethernet eth2 mtu '9000'
+set interfaces ethernet eth3 mtu '9000'
+set interfaces ethernet eth4 mtu '9000'</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<arg>${timeout}</arg>
+<doc>Run an operational-mode command on a VyOS node and return its output.</doc>
+<status status="PASS" start="2026-09-16T23:39:40.874194" elapsed="0.131335"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-16T23:39:41.005589" elapsed="0.000035"/>
+</return>
+<msg time="2026-09-16T23:39:41.005733" level="INFO">${mtu} = set interfaces ethernet eth1 mtu '9000'
+set interfaces ethernet eth2 mtu '9000'
+set interfaces ethernet eth3 mtu '9000'
+set interfaces ethernet eth4 mtu '9000'</msg>
+<var>${mtu}</var>
+<arg>${n}</arg>
+<arg>show configuration commands | match mtu</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="PASS" start="2026-09-16T23:39:40.873941" elapsed="0.131810"/>
+</kw>
+<kw name="Get Count" owner="BuiltIn">
+<msg time="2026-09-16T23:39:41.006126" level="INFO">Item found from container 4 times.</msg>
+<msg time="2026-09-16T23:39:41.006184" level="INFO">${count} = 4</msg>
+<var>${count}</var>
+<arg>${mtu}</arg>
+<arg>mtu '9000'</arg>
+<doc>Returns and logs how many times the `item` is found from the `container`.</doc>
+<status status="PASS" start="2026-09-16T23:39:41.005869" elapsed="0.000331"/>
+</kw>
+<kw name="Get Length" owner="BuiltIn">
+<msg time="2026-09-16T23:39:41.006445" level="INFO">Length is 4.</msg>
+<msg time="2026-09-16T23:39:41.006499" level="INFO">${expected} = 4</msg>
+<var>${expected}</var>
+<arg>${ISIS_NEIGHBORS}[${n}]</arg>
+<doc>Returns and logs the length of the given item as an integer.</doc>
+<status status="PASS" start="2026-09-16T23:39:41.006273" elapsed="0.000241"/>
+</kw>
+<kw name="Should Be Equal As Integers" owner="BuiltIn">
+<arg>${count}</arg>
+<arg>${expected}</arg>
+<arg>msg=${n}: every core link must have mtu 9000</arg>
+<doc>Fails if objects are unequal after converting them to integers.</doc>
+<status status="PASS" start="2026-09-16T23:39:41.006583" elapsed="0.000303"/>
+</kw>
+<kw name="Shell" owner="common">
+<kw name="Vyos Shell" owner="LabLib">
+<msg time="2026-09-16T23:39:41.720504" level="INFO" html="true">&lt;pre&gt;10.3.0.21# grep -c host-name /config/config.boot
+rc=0
+1
+&lt;/pre&gt;</msg>
+<msg time="2026-09-16T23:39:41.720670" level="INFO">${out} = 1
+</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<doc>Run a Linux shell command on a VyOS node (e.g. `sudo ip -6 route`) and return stdout+stderr; fails on non-zero rc.</doc>
+<status status="PASS" start="2026-09-16T23:39:41.007244" elapsed="0.713467"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-16T23:39:41.720786" elapsed="0.000038"/>
+</return>
+<msg time="2026-09-16T23:39:41.720955" level="INFO">${saved} = 1
+</msg>
+<var>${saved}</var>
+<arg>${n}</arg>
+<arg>grep -c host-name /config/config.boot</arg>
+<doc>Run a Linux shell command on a VyOS node by name (sudo allowed).</doc>
+<status status="PASS" start="2026-09-16T23:39:41.007018" elapsed="0.713957"/>
+</kw>
+<kw name="Should Not Be Equal" owner="BuiltIn">
+<arg>${saved.strip()}</arg>
+<arg>0</arg>
+<arg>msg=${n}: /config/config.boot has no host-name (configuration never saved)</arg>
+<doc>Fails if the given objects are equal.</doc>
+<status status="PASS" start="2026-09-16T23:39:41.721094" elapsed="0.000407"/>
+</kw>
+<var name="${n}">p1</var>
+<status status="PASS" start="2026-09-16T23:39:40.873844" elapsed="0.847688"/>
+</iter>
+<iter>
+<kw name="Vyos" owner="common">
+<kw name="Run Vyos Command" owner="LabLib">
+<msg time="2026-09-16T23:39:41.853380" level="INFO" html="true">&lt;pre&gt;10.3.0.22$ show configuration commands | match mtu
+set interfaces ethernet eth1 mtu '9000'
+set interfaces ethernet eth2 mtu '9000'
+set interfaces ethernet eth3 mtu '9000'
+set interfaces ethernet eth4 mtu '9000'
+set interfaces ethernet eth5 mtu '9000'
+set interfaces ethernet eth6 mtu '9000'&lt;/pre&gt;</msg>
+<msg time="2026-09-16T23:39:41.853524" level="INFO">${out} = set interfaces ethernet eth1 mtu '9000'
+set interfaces ethernet eth2 mtu '9000'
+set interfaces ethernet eth3 mtu '9000'
+set interfaces ethernet eth4 mtu '9000'
+set interfaces ethernet eth5 mtu '9000'
+...</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<arg>${timeout}</arg>
+<doc>Run an operational-mode command on a VyOS node and return its output.</doc>
+<status status="PASS" start="2026-09-16T23:39:41.722013" elapsed="0.131556"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-16T23:39:41.853629" elapsed="0.000040"/>
+</return>
+<msg time="2026-09-16T23:39:41.853828" level="INFO">${mtu} = set interfaces ethernet eth1 mtu '9000'
+set interfaces ethernet eth2 mtu '9000'
+set interfaces ethernet eth3 mtu '9000'
+set interfaces ethernet eth4 mtu '9000'
+set interfaces ethernet eth5 mtu '9000'
+...</msg>
+<var>${mtu}</var>
+<arg>${n}</arg>
+<arg>show configuration commands | match mtu</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="PASS" start="2026-09-16T23:39:41.721751" elapsed="0.132098"/>
+</kw>
+<kw name="Get Count" owner="BuiltIn">
+<msg time="2026-09-16T23:39:41.854306" level="INFO">Item found from container 6 times.</msg>
+<msg time="2026-09-16T23:39:41.854367" level="INFO">${count} = 6</msg>
+<var>${count}</var>
+<arg>${mtu}</arg>
+<arg>mtu '9000'</arg>
+<doc>Returns and logs how many times the `item` is found from the `container`.</doc>
+<status status="PASS" start="2026-09-16T23:39:41.853995" elapsed="0.000388"/>
+</kw>
+<kw name="Get Length" owner="BuiltIn">
+<msg time="2026-09-16T23:39:41.854656" level="INFO">Length is 6.</msg>
+<msg time="2026-09-16T23:39:41.854722" level="INFO">${expected} = 6</msg>
+<var>${expected}</var>
+<arg>${ISIS_NEIGHBORS}[${n}]</arg>
+<doc>Returns and logs the length of the given item as an integer.</doc>
+<status status="PASS" start="2026-09-16T23:39:41.854474" elapsed="0.000266"/>
+</kw>
+<kw name="Should Be Equal As Integers" owner="BuiltIn">
+<arg>${count}</arg>
+<arg>${expected}</arg>
+<arg>msg=${n}: every core link must have mtu 9000</arg>
+<doc>Fails if objects are unequal after converting them to integers.</doc>
+<status status="PASS" start="2026-09-16T23:39:41.854844" elapsed="0.000284"/>
+</kw>
+<kw name="Shell" owner="common">
+<kw name="Vyos Shell" owner="LabLib">
+<msg time="2026-09-16T23:39:42.563446" level="INFO" html="true">&lt;pre&gt;10.3.0.22# grep -c host-name /config/config.boot
+rc=0
+1
+&lt;/pre&gt;</msg>
+<msg time="2026-09-16T23:39:42.563601" level="INFO">${out} = 1
+</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<doc>Run a Linux shell command on a VyOS node (e.g. `sudo ip -6 route`) and return stdout+stderr; fails on non-zero rc.</doc>
+<status status="PASS" start="2026-09-16T23:39:41.855440" elapsed="0.708182"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-16T23:39:42.563679" elapsed="0.000052"/>
+</return>
+<msg time="2026-09-16T23:39:42.563832" level="INFO">${saved} = 1
+</msg>
+<var>${saved}</var>
+<arg>${n}</arg>
+<arg>grep -c host-name /config/config.boot</arg>
+<doc>Run a Linux shell command on a VyOS node by name (sudo allowed).</doc>
+<status status="PASS" start="2026-09-16T23:39:41.855246" elapsed="0.708603"/>
+</kw>
+<kw name="Should Not Be Equal" owner="BuiltIn">
+<arg>${saved.strip()}</arg>
+<arg>0</arg>
+<arg>msg=${n}: /config/config.boot has no host-name (configuration never saved)</arg>
+<doc>Fails if the given objects are equal.</doc>
+<status status="PASS" start="2026-09-16T23:39:42.563963" elapsed="0.000385"/>
+</kw>
+<var name="${n}">p2</var>
+<status status="PASS" start="2026-09-16T23:39:41.721622" elapsed="0.842756"/>
+</iter>
+<iter>
+<kw name="Vyos" owner="common">
+<kw name="Run Vyos Command" owner="LabLib">
+<msg time="2026-09-16T23:39:42.696077" level="INFO" html="true">&lt;pre&gt;10.3.0.23$ show configuration commands | match mtu
+set interfaces ethernet eth1 mtu '9000'
+set interfaces ethernet eth2 mtu '9000'
+set interfaces ethernet eth3 mtu '9000'
+set interfaces ethernet eth4 mtu '9000'&lt;/pre&gt;</msg>
+<msg time="2026-09-16T23:39:42.696226" level="INFO">${out} = set interfaces ethernet eth1 mtu '9000'
+set interfaces ethernet eth2 mtu '9000'
+set interfaces ethernet eth3 mtu '9000'
+set interfaces ethernet eth4 mtu '9000'</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<arg>${timeout}</arg>
+<doc>Run an operational-mode command on a VyOS node and return its output.</doc>
+<status status="PASS" start="2026-09-16T23:39:42.564777" elapsed="0.131472"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-16T23:39:42.696308" elapsed="0.000040"/>
+</return>
+<msg time="2026-09-16T23:39:42.696457" level="INFO">${mtu} = set interfaces ethernet eth1 mtu '9000'
+set interfaces ethernet eth2 mtu '9000'
+set interfaces ethernet eth3 mtu '9000'
+set interfaces ethernet eth4 mtu '9000'</msg>
+<var>${mtu}</var>
+<arg>${n}</arg>
+<arg>show configuration commands | match mtu</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="PASS" start="2026-09-16T23:39:42.564562" elapsed="0.131914"/>
+</kw>
+<kw name="Get Count" owner="BuiltIn">
+<msg time="2026-09-16T23:39:42.696940" level="INFO">Item found from container 4 times.</msg>
+<msg time="2026-09-16T23:39:42.697005" level="INFO">${count} = 4</msg>
+<var>${count}</var>
+<arg>${mtu}</arg>
+<arg>mtu '9000'</arg>
+<doc>Returns and logs how many times the `item` is found from the `container`.</doc>
+<status status="PASS" start="2026-09-16T23:39:42.696593" elapsed="0.000429"/>
+</kw>
+<kw name="Get Length" owner="BuiltIn">
+<msg time="2026-09-16T23:39:42.697331" level="INFO">Length is 4.</msg>
+<msg time="2026-09-16T23:39:42.697384" level="INFO">${expected} = 4</msg>
+<var>${expected}</var>
+<arg>${ISIS_NEIGHBORS}[${n}]</arg>
+<doc>Returns and logs the length of the given item as an integer.</doc>
+<status status="PASS" start="2026-09-16T23:39:42.697125" elapsed="0.000274"/>
+</kw>
+<kw name="Should Be Equal As Integers" owner="BuiltIn">
+<arg>${count}</arg>
+<arg>${expected}</arg>
+<arg>msg=${n}: every core link must have mtu 9000</arg>
+<doc>Fails if objects are unequal after converting them to integers.</doc>
+<status status="PASS" start="2026-09-16T23:39:42.697481" elapsed="0.000273"/>
+</kw>
+<kw name="Shell" owner="common">
+<kw name="Vyos Shell" owner="LabLib">
+<msg time="2026-09-16T23:39:43.410539" level="INFO" html="true">&lt;pre&gt;10.3.0.23# grep -c host-name /config/config.boot
+rc=0
+1
+&lt;/pre&gt;</msg>
+<msg time="2026-09-16T23:39:43.410718" level="INFO">${out} = 1
+</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<doc>Run a Linux shell command on a VyOS node (e.g. `sudo ip -6 route`) and return stdout+stderr; fails on non-zero rc.</doc>
+<status status="PASS" start="2026-09-16T23:39:42.698095" elapsed="0.712651"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-16T23:39:43.410808" elapsed="0.000040"/>
+</return>
+<msg time="2026-09-16T23:39:43.410947" level="INFO">${saved} = 1
+</msg>
+<var>${saved}</var>
+<arg>${n}</arg>
+<arg>grep -c host-name /config/config.boot</arg>
+<doc>Run a Linux shell command on a VyOS node by name (sudo allowed).</doc>
+<status status="PASS" start="2026-09-16T23:39:42.697876" elapsed="0.713088"/>
+</kw>
+<kw name="Should Not Be Equal" owner="BuiltIn">
+<arg>${saved.strip()}</arg>
+<arg>0</arg>
+<arg>msg=${n}: /config/config.boot has no host-name (configuration never saved)</arg>
+<doc>Fails if the given objects are equal.</doc>
+<status status="PASS" start="2026-09-16T23:39:43.411074" elapsed="0.000403"/>
+</kw>
+<var name="${n}">p3</var>
+<status status="PASS" start="2026-09-16T23:39:42.564465" elapsed="0.847042"/>
+</iter>
+<var>${n}</var>
+<value>@{CORE}</value>
+<status status="PASS" start="2026-09-16T23:39:37.359705" elapsed="6.051827"/>
+</for>
+<status status="PASS" start="2026-09-16T23:39:37.359519" elapsed="6.052085"/>
+</test>
+<kw name="Suite Teardown Close Connections" owner="common" type="TEARDOWN">
+<kw name="Close All Connections" owner="LabLib">
+<status status="PASS" start="2026-09-16T23:39:43.412124" elapsed="24.207080"/>
+</kw>
+<status status="PASS" start="2026-09-16T23:39:43.412007" elapsed="24.207290"/>
+</kw>
+<doc>Every node answers on its out-of-band address and identifies itself.</doc>
+<status status="PASS" start="2026-09-16T23:38:13.728417" elapsed="113.890913"/>
+</suite>
+<statistics>
+<total>
+<stat pass="3" fail="0" skip="0">All Tests</stat>
+</total>
+<tag>
+</tag>
+<suite>
+<stat name="srv6 core lab" id="s1" pass="3" fail="0" skip="0">srv6 core lab</stat>
+</suite>
+</statistics>
+<errors>
+</errors>
+</robot>

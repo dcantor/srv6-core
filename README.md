@@ -180,6 +180,9 @@ run time (they can change after a reconfiguration), which is why the tests only 
 
 ## The tenant provisioning portal
 `./lab.sh webapp` (or the systemd user unit `srv6-webapp`) serves **http://192.168.50.231:8091** — Swagger at `/docs`.
+The run engine (steps, streamed log, resume, Robot reports) comes from the shared
+[lab-portal](https://github.com/dcantor/lab-portal) package, which also serves the **lab hub** at
+**http://192.168.50.231:8088**: every lab on the host with its VMs, portal health, last tests and links.
 
 | View | What it does |
 |---|---|
