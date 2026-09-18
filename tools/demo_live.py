@@ -79,7 +79,7 @@ if "1" in ACTS:
         [("isis", "pe1", "show isis neighbor", lambda: vyos("pe1", "show isis neighbor"), "two adjacencies: pe1 is dual-homed to p1 and p2"),
          ("locators", "pe1", "show ipv6 route isis | grep fd00:c:", lambda: vyos("pe1", "show ipv6 route isis | grep fd00:c:"), "every other locator is an ordinary IS-IS route; metric 10 = one hop (p1, p2), 20 = two hops"),
          ("sids", "p2", "ip -6 route show | grep seg6local", lambda: shell("p2", "ip -6 route show | grep seg6local"), "the ENTIRE SRv6 data plane of a P router: uN (End, shift-and-forward) for its /48, one uA (End.X) per link — no VRF, no BGP"),
-         ("sids", "pe1", "ip -6 route show | grep seg6local", lambda: shell("pe1", "ip -6 route show | grep seg6local"), "a PE adds one End.DT4 per tenant VRF — the address remote PEs will send tenant traffic to")])
+         ("sids", "pe1", "ip -6 route show | grep seg6local", lambda: shell("pe1", "ip -6 route show | grep seg6local"), "a PE adds one End.DT46 per tenant VRF — the address remote PEs send both IPv4 and IPv6 tenant traffic to")])
 
 if "2" in ACTS:
     act(2, "The overlay: the BGP VPN you already know, with a SID where the label was",
@@ -91,7 +91,7 @@ if "2" in ACTS:
 if "3" in ACTS:
     src, dst = h1["dc1"], h1["dc3"]
     act(3, "Packet walk: dc1-h1 -> dc3-h1, captured on the P router in the middle",
-        "Whiteboard: host -> CE (IPv4) -> PE encapsulates (outer IPv6 src = loopback, dst = pe3's End.DT4 SID) -> p2 just routes IPv6 -> pe3 decapsulates into VRF tenant-a -> CE -> host.",
+        "Whiteboard: host -> CE (IPv4) -> PE encapsulates (outer IPv6 src = loopback, dst = pe3's End.DT46 SID) -> p2 just routes IPv6 -> pe3 decapsulates into VRF tenant-a -> CE -> host.",
         [("ping", src["name"], f"ping -c 3 {lan(dst)}", lambda: shell(src["name"], f"ping -c 3 {lan(dst)}"), "~2 ms across the core"),
          ("capture", "p2", f"tcpdump -ni eth5 -c 3 -vv 'ip6 and dst net fd00:c:3::/48'  (while the host pings)", lambda: capture(src, dst), "IP6 fd00:a::1 > fd00:c:3:e000:: with RT6 type 4 (the SRH), segleft 0, and the inner ICMP 172.20.1.2 > 172.20.3.2; hop limit 62 = two hops"),
          ("traceroute", src["name"], f"traceroute -n -w 1 -q 1 {lan(dst)}", lambda: shell(src["name"], f"traceroute -n -w 1 -q 1 {lan(dst)}"), "the tenant sees one opaque hop for the whole core: the inner TTL is not touched inside"),

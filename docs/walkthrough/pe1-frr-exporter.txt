@@ -1,6 +1,6 @@
 frr_bfd_peer_state{local="fe80::5054:ff:fec6:101",peer="fe80::5054:ff:fec6:503"} 1
 frr_bfd_peer_state{local="fe80::5054:ff:fec6:102",peer="fe80::5054:ff:fec6:603"} 1
 frr_bgp_peer_state{afi="ipv4",local_as="65000",peer="172.16.1.2",peer_as="65001",safi="unicast",vrf="tenant-a"} 1
-frr_bgp_peer_state{afi="ipv4",local_as="65000",peer="172.17.1.2",peer_as="65001",safi="unicast",vrf="tenant-b"} 1
+frr_bgp_peer_state{afi="ipv4",local_as="65000",peer="172.18.1.2",peer_as="65001",safi="unicast",vrf="tenant-b"} 1
 frr_bgp_peer_state{afi="ipv4",local_as="65000",peer="fd00:a::11",peer_as="65000",safi="vpn",vrf="default"} 1
 frr_bgp_peer_state{afi="ipv4",local_as="65000",peer="fd00:a::13",peer_as="65000",safi="vpn",vrf="default"} 1

@@ -1,5 +1,5 @@
-lab_tenant_site_bgp_up{lab="srv6-core",tenant="tenant-a",dc="dc1",pe="pe1",ce="ce1"} 1
-lab_tenant_site_bgp_up{lab="srv6-core",tenant="tenant-b",dc="dc1",pe="pe1",ce="ce1"} 1
+lab_tenant_site_bgp_up{lab="srv6-core",tenant="tenant-a",dc="dc1",pe="pe1",ce="ce1",external=""} 1
+lab_tenant_site_bgp_up{lab="srv6-core",tenant="tenant-b",dc="dc1",pe="pe1",ce="ce1",external=""} 1
 lab_tenant_health{lab="srv6-core",tenant="tenant-a",sites="4"} 2
 lab_tenant_health{lab="srv6-core",tenant="tenant-b",sites="4"} 2
 lab_isis_adjacencies_up{lab="srv6-core",node="pe1",role="pe"} 2

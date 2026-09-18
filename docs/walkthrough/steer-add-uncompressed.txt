@@ -1,2 +1,2 @@
 pe1: tenant-b 172.21.3.0/24 -> p1 -> p3 -> pe3  segments fd00:c:11:: / fd00:c:13:: / fd00:c:3:e001::  (out eth1)
-172.21.3.0/24 nhid 161  encap seg6 mode encap segs 3 [ fd00:c:11:: fd00:c:13:: fd00:c:3:e001:: ] dev eth1 proto static metric 20
+172.21.3.0/24 nhid 1006  encap seg6 mode encap segs 3 [ fd00:c:11:: fd00:c:13:: fd00:c:3:e001:: ] dev eth1 proto static metric 20

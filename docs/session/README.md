@@ -40,7 +40,7 @@ IS-IS L2". Write `fd00:c::/32` next to the core and one `/48` per node: `fd00:c:
 Say:
 - "A locator is just a prefix the node advertises in IS-IS. Nothing new on the wire."
 - "Every address inside it is an instruction the *owner* executes. Three instructions matter today." Write them as a table:
-  `End` (uN) = "shift and forward", `End.X` (uA) = "out this link", `End.DT4` = "decapsulate into this VRF".
+  `End` (uN) = "shift and forward", `End.X` (uA) = "out this link", `End.DT46` = "decapsulate into this VRF — IPv4 or IPv6".
 - "uSID: 32-bit block, 16-bit node, 16-bit function. Keep that in mind for whiteboard 3."
 - The one non-textbook point: "Linux scopes the outer lookup to the ingress VRF — we leak the locators into each tenant
   table. Ask me about it after; it is the kind of thing you only learn by building it."

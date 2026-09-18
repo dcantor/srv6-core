@@ -1,0 +1,2 @@
+
+  Invalid command: show segment-routing srv6 locator [main]

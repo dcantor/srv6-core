@@ -1,5 +1,5 @@
-fd00:c:1:e000:: nhid 41  encap seg6local action End.DT4 vrftable tenant-b dev tenant-b proto bgp metric 20 pref medium
-fd00:c:1:e001:: nhid 37  encap seg6local action End.DT4 vrftable tenant-a dev tenant-a proto bgp metric 20 pref medium
-fd00:c:1:e002::/64 nhid 43  encap seg6local action End.X nh6 fe80::5054:ff:fec6:503 oif eth1 flavors next-csid lblen 32 nflen 16 dev eth1 proto isis metric 20 pref medium
-fd00:c:1:e003::/64 nhid 60  encap seg6local action End.X nh6 fe80::5054:ff:fec6:603 oif eth2 flavors next-csid lblen 32 nflen 16 dev eth2 proto isis metric 20 pref medium
-fd00:c:1::/48 nhid 40  encap seg6local action End flavors next-csid lblen 32 nflen 16 dev dum0 proto isis metric 20 pref medium
+fd00:c:1:e000:: nhid 537  encap seg6local action End.DT46 vrftable tenant-a dev tenant-a proto bgp metric 20 pref medium
+fd00:c:1:e001:: nhid 538  encap seg6local action End.DT46 vrftable tenant-b dev tenant-b proto bgp metric 20 pref medium
+fd00:c:1:e002::/64 nhid 47  encap seg6local action End.X nh6 fe80::5054:ff:fec6:603 oif eth2 flavors next-csid lblen 32 nflen 16 dev eth2 proto isis metric 20 pref medium
+fd00:c:1:e003::/64 nhid 48  encap seg6local action End.X nh6 fe80::5054:ff:fec6:503 oif eth1 flavors next-csid lblen 32 nflen 16 dev eth1 proto isis metric 20 pref medium
+fd00:c:1::/48 nhid 41  encap seg6local action End flavors next-csid lblen 32 nflen 16 dev dum0 proto isis metric 20 pref medium

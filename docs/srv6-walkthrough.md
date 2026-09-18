@@ -1,6 +1,6 @@
 # SRv6 L3VPN, shown on real boxes
 
-*A walkthrough of the `srv6-core` lab: how an IPv6 segment-routing core carries BGP VPNs, traced packet by packet on
+*A walkthrough of the `srv6-core` lab: how an IPv6 segment-routing core carries dual-stack BGP VPNs, traced packet by packet on
 VyOS routers you can boot yourself. Every command output below was captured from the running lab
 (`docs/walkthrough_capture.py`); nothing is retyped.*
 
@@ -10,8 +10,8 @@ VyOS routers you can boot yourself. Every command output below was captured from
 
 Segment Routing over IPv6 puts the forwarding instructions **inside the IPv6 destination address**. A router advertises a
 prefix — its *locator* — and every address under it is a *SID*: "an instruction I will execute if a packet arrives
-addressed to me". `End` means "forward me on", `End.X` means "send me out this link", `End.DT4` means "strip the IPv6
-header and look the inner IPv4 packet up in this VRF". A packet that must visit several routers carries the list in a
+addressed to me". `End` means "forward me on", `End.X` means "send me out this link", `End.DT46` means "strip the IPv6
+header and look the inner packet — IPv4 or IPv6 — up in this VRF". A packet that must visit several routers carries the list in a
 *Segment Routing Header* (SRH); a packet that needs only one instruction carries none — the SID *is* the destination.
 There is no MPLS, no LDP, no RSVP, no tunnel state in the core: the P routers just route IPv6.
 
@@ -27,13 +27,14 @@ multi-hop explicit path fits in the destination address alone. The lab shows bot
 | Core | 3 P routers in a triangle (p1, p2, p3), 4 PEs, one per data centre; IPv6-only links, MTU 9000 | VyOS rolling (FRR 10.6, Linux 6.18) |
 | Underlay | IS-IS level-2 carrying loopbacks **and SRv6 locators** | `protocols isis … segment-routing srv6 locator main` |
 | SRv6 | block `fd00:c::/32`, /48 locator per node, uSID `usid-f3216` (32-bit block, 16-bit node, 16-bit function) | `protocols segment-routing srv6 locator main` |
-| Overlay | BGP VPNv4 between PE loopbacks, route reflectors on p1 **and** p3, SIDs carried in the BGP Prefix-SID attribute | `address-family ipv4-vpn`, `sid vpn export auto` |
-| Tenants | `tenant-a` (VRF table 100, RT 65000:100) and `tenant-b` (200, 65000:200), each with one CE-attached LAN per DC | VRF per tenant on PEs and CEs |
+| Overlay | BGP VPNv4 **and VPNv6** between PE loopbacks, route reflectors on p1 **and** p3, SIDs carried in the BGP Prefix-SID attribute | `address-family ipv4-vpn` / `ipv6-vpn`, `sid vpn per-vrf export auto` |
+| Tenants | `tenant-a` (VRF table 100, RT 65000:100) and `tenant-b` (200, 65000:200), each with one CE-attached dual-stack LAN per DC | VRF per tenant on PEs and CEs; one eBGP session per address family |
 | Sites | CE per DC (VyOS, eBGP to its PE inside the VRF), two Alpine Linux hosts per DC (h1 in tenant-a, h2 in tenant-b) | |
 | Resilience | BFD on every core adjacency (300 ms × 3) | `protocols bfd` |
 
 Addresses to keep in mind: PE loopbacks `fd00:a::1-4`, P loopbacks `fd00:a::11-13`; locators `fd00:c:<n>::/48` with the
-same *n*; tenant-a LANs `172.20.<dc>.0/24`, tenant-b LANs `172.21.<dc>.0/24`; hosts are `.2`, CEs `.1`.
+same *n*; tenant-a LANs `172.20.<dc>.0/24`, tenant-b LANs `172.21.<dc>.0/24`; hosts are `.2`, CEs `.1`. Every tenant prefix
+has an IPv6 twin by rule — `172.X.Y.0` ↔ `fd00:X:Y::/64` — so dc3's tenant-a LAN is also `fd00:20:3::/64`, host `::2`.
 
 ## 3. The underlay: IS-IS carries the locators
 
@@ -96,9 +97,10 @@ vyos@pe1:~$ ip -6 route show | grep seg6local
 {{pe1-seg6local}}
 ```
 
-`fd00:c:1:e001:: … End.DT4 vrftable tenant-a` is the **uDT4** SID: "decapsulate, then route the IPv4 packet inside in
-VRF tenant-a". That address is what the remote PEs will put on packets for dc1's tenant-a LAN. The function value
-(`e001`) is allocated by FRR at run time, which is why the tests and tools read it back rather than assume it.
+`fd00:c:1:e000:: … End.DT46 vrftable tenant-a` is the **uDT46** SID: "decapsulate, then route the packet inside —
+IPv4 or IPv6 — in VRF tenant-a". One SID per VRF serves both families; it is what the remote PEs will put on packets
+for dc1's tenant-a LANs. The function value (`e000`) is allocated by FRR at run time, which is why the tests and tools
+read it back rather than assume it.
 
 BFD watches each adjacency so a silent link failure is detected in under a second:
 
@@ -117,11 +119,17 @@ vyos@pe1:~$ show bgp ipv4 vpn summary
 {{pe1-bgp-vpn-summary}}
 ```
 
-Inside VRF tenant-a the PE runs plain eBGP with the CE, which advertises the site LAN:
+Inside VRF tenant-a the PE runs plain eBGP with the CE — one session per address family — and the CE advertises its
+LANs:
 
 ```
 vyos@pe1:~$ show ip bgp vrf tenant-a summary
 {{pe1-bgp-vrf-summary}}
+```
+
+```
+vyos@pe1:~$ show bgp vrf tenant-a ipv6 summary
+{{pe1-bgp-vrf6-summary}}
 ```
 
 The reflector sees every site of every tenant, distinguished by route distinguisher (`65000:1xx` = tenant-a, `65000:2xx`
@@ -149,6 +157,14 @@ Three things to read off this:
 3. **`Originator: 10.255.0.3, Cluster list: 10.255.0.11`** / `10.255.0.13` — two copies, one via each reflector, so
    losing p1 loses nothing (test suite 06 proves it).
 
+The same site's IPv6 LAN arrives as a VPNv6 route — with the **same** SID and the same transposed label, because the SID
+is allocated per VRF (`sid vpn per-vrf export auto`), not per address family:
+
+```
+vyos@pe1:~$ show bgp ipv6 vpn fd00:20:3::/64
+{{pe1-bgp-vpn6-prefix}}
+```
+
 BGP hands the route to zebra, which resolves the SID's locator through IS-IS and installs an **encapsulating** route in
 the tenant VRF. Compare with the label-based world: there is no label table, the VPN route simply says "wrap in IPv6 to
 this address":
@@ -161,6 +177,13 @@ vyos@pe1:~$ ip route show vrf tenant-a
 `172.20.3.0/24 … encap seg6 mode encap segs 1 [ fd00:c:3:e000:: ] via fe80::… dev eth2` — one segment, out eth2 towards
 p2 (the shortest path to pe3). `172.20.2.0/24` has **two** next hops because pe2 is equidistant via p1 and p2: ECMP for
 free, from the IGP.
+
+The IPv6 side of the VRF looks the same — the locator leaks (static), then one encapsulating route per remote IPv6 LAN:
+
+```
+vyos@pe1:~$ ip -6 route show vrf tenant-a
+{{pe1-route6-vrf}}
+```
 
 The CE does not know any of this happened. It sees the remote LANs as ordinary eBGP routes from its PE:
 
@@ -195,7 +218,7 @@ Step by step:
 
 1. **ce1** routes `172.20.3.0/24` to pe1 over the VRF's eBGP session (plain IPv4).
 2. **pe1** looks the destination up in VRF tenant-a and hits the `encap seg6` route: it pushes an outer IPv6 header,
-   source = its loopback `fd00:a::1`, destination = pe3's uDT4 SID `fd00:c:3:e000::`. With a single segment the Linux
+   source = its loopback `fd00:a::1`, destination = pe3's uDT46 SID `fd00:c:3:e000::`. With a single segment the Linux
    implementation adds an SRH with that one entry (segments-left 0) — functionally the destination address is the whole
    instruction. Outer lookup: `fd00:c:3::/48` via IS-IS → eth2 → p2.
 3. **p2** receives an IPv6 packet for `fd00:c:3:e000::`. It is not in p2's locator, so p2 does what any IPv6 router does:
@@ -211,9 +234,24 @@ vyos@p2:~$ sudo tcpdump -ni eth5 -vv 'ip6 and dst net fd00:c:3::/48'
    `172.20.1.2` to `172.20.3.2`. Outer hop limit 62 (64 − pe1 − p2); inner TTL 63 (only ce1 decremented it — the core
    is invisible to the tenant's traceroute, see below).
 
-4. **pe3** owns `fd00:c:3:e000::` — its `seg6local … End.DT4 vrftable tenant-a` route. The kernel removes the IPv6
+4. **pe3** owns `fd00:c:3:e000::` — its `seg6local … End.DT46 vrftable tenant-a` route. The kernel removes the IPv6
    header, and routes the IPv4 packet in VRF tenant-a → `172.20.3.0/24` connected via ce3.
-5. **ce3 → dc3-h1**, and the reply does the same in reverse with pe1's uDT4 SID `fd00:c:1:e001::` as destination.
+5. **ce3 → dc3-h1**, and the reply does the same in reverse with pe1's uDT46 SID `fd00:c:1:e000::` as destination.
+
+The IPv6 tenant does exactly the same, to exactly the same SID — the only difference is what sits inside the outer header:
+
+```
+lab@dc1-h1:~$ ping -6 -c 3 fd00:20:3::2
+{{dc1-h1-ping6-dc3-h1}}
+```
+
+```
+vyos@p2:~$ sudo tcpdump -ni eth5 -vv 'ip6 and dst net fd00:c:3::/48 and ip6 proto 43'
+{{p2-tcpdump-srv6-v6}}
+```
+
+IPv6 inside IPv6: `fd00:a::1 > fd00:c:3:e000::` carrying `fd00:20:1::2 > fd00:20:3::2`. That is what End.DT46 buys —
+dual-stack tenants with one SID, one route per prefix and no second data plane.
 
 The tenant sees exactly one "missing" hop for the whole core (`*` at hop 2 is pe1's VRF, which has no address on the
 core path; the SRv6 hops do not decrement the inner TTL at all):
@@ -240,7 +278,7 @@ remaining 96 bits of one address:
 ```
  fd00:c : 11 : 13 : 3 : e001 :: 
  ──────   ──   ──   ─   ────
- block    p1   p3   pe3  uDT4(tenant-b on pe3)
+ block    p1   p3   pe3  uDT46(tenant-b on pe3)
 ```
 
 Each node whose ID is in the *first* slot after the block owns the packet: its uN SID (`End flavors next-csid`,
@@ -263,7 +301,7 @@ vyos@p1:~$ sudo tcpdump -ni eth2 -vv 'ip6 and dst net fd00:c::/32'
 {{p1-tcpdump-steered}}
 ```
 
-On p3's link towards pe3, p3 has shifted its own `:13:` out and the address is down to pe3's uDT4 SID
+On p3's link towards pe3, p3 has shifted its own `:13:` out and the address is down to pe3's uDT46 SID
 `fd00:c:3:e001::`, exactly what a non-steered packet would carry:
 
 ```
@@ -340,7 +378,8 @@ $ curl -s http://127.0.0.1:8091/metrics | grep -E '^lab_(tenant_health|isis_adja
    SRv6 behaviour is a `seg6local` route on the node that owns the address. If you can read `ip -6 route`, you can debug
    the core.
 2. **The VPN is the same BGP VPN you already know**, with a SID where the label used to be. RD, RT, reflectors, import
-   and export policy all carry over unchanged; only the transport moved from labels to addresses.
+   and export policy all carry over unchanged; only the transport moved from labels to addresses — and with End.DT46,
+   IPv4 and IPv6 tenants share one SID and one route table.
 3. **uSID makes traffic engineering cheap.** A four-hop explicit path costs zero extra bytes on the wire and no state in
    the core — the path is the destination address, rewritten as it goes.
 

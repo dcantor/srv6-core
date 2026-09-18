@@ -1,0 +1,10 @@
+fd00:c:2::/48 nhid 73 proto static metric 20 pref medium
+fd00:c:13::/48 nhid 73 proto static metric 20 pref medium
+fd00:c::/32 nhid 73 proto static metric 20 pref medium
+fd00:16:1::/64 dev eth3 proto kernel metric 256 pref medium
+fd00:16:2::/64 nhid 119 proto bgp metric 20 pref medium
+fd00:16:3::/64 nhid 105 proto bgp metric 20 pref medium
+fd00:16:4::/64 nhid 85 proto bgp metric 20 pref medium
+fd00:20:2::/64 nhid 119 proto bgp metric 20 pref medium
+fd00:20:3::/64 nhid 105 proto bgp metric 20 pref medium
+fd00:20:4::/64 nhid 85 proto bgp metric 20 pref medium

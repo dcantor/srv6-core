@@ -44,6 +44,11 @@ save("pe1-route-vrf", sh("pe1", "ip route show vrf tenant-a"))
 save("pe1-route-vrf-b", sh("pe1", "ip route show vrf tenant-b"))
 save("pe1-vtysh-vrf-route", op("pe1", f"show ip route vrf tenant-a {HOST['dc3-h1']['ports'][0]['prefix']}"))
 save("pe3-seg6local", sh("pe3", "ip -6 route show | grep 'End.DT4'"))
+# dual-stack: the IPv6 side of the same VPN
+save("pe1-bgp-vrf6-summary", op("pe1", "show bgp vrf tenant-a ipv6 summary"))
+save("pe1-bgp-vpn6-prefix", op("pe1", f"show bgp ipv6 vpn {HOST['dc3-h1']['ports'][0]['prefix6']}"))
+save("pe1-route6-vrf", sh("pe1", "ip -6 route show vrf tenant-a | grep -v 'fe80\\|ff00\\|anycast\\|::1 dev'"))
+save("dc1-h1-ping6-dc3-h1", hc("dc1-h1", f"ping -6 -c 3 {HOST['dc3-h1']['ports'][0]['ip6'].split('/')[0]}"))
 save("ce1-bgp", op("ce1", "show ip bgp vrf tenant-a"))
 save("ce1-route", op("ce1", "show ip route vrf tenant-a bgp"))
 save("p2-route-vrf", sh("p2", "ip route show vrf tenant-a 2>&1 | head -2; ip vrf show"))
@@ -56,6 +61,8 @@ save("dc1-h1-traceroute", hc("dc1-h1", f"traceroute -n -w 1 -q 1 {lan('dc3-h1')}
 # packet walk: capture on p2 while dc1-h1 pings dc3-h1
 h = bg("p2", "sudo timeout 8 tcpdump -ni eth5 -c 4 -vv 'ip6 and dst net fd00:c:3::/48' 2>/dev/null")
 time.sleep(2); hc("dc1-h1", f"ping -c 4 -i 0.5 {lan('dc3-h1')} >/dev/null"); save("p2-tcpdump-srv6", L.finish_background(h))
+h = bg("p2", "sudo timeout 10 tcpdump -ni eth5 -c 2 -vv 'ip6 and dst net fd00:c:3::/48 and ip6 proto 43' 2>/dev/null")
+time.sleep(2); hc("dc1-h1", f"ping -6 -c 4 -i 0.5 {HOST['dc3-h1']['ports'][0]['ip6'].split('/')[0]} >/dev/null"); save("p2-tcpdump-srv6-v6", L.finish_background(h))
 h = bg("pe1", "sudo timeout 8 tcpdump -ni eth3 -c 2 'icmp' 2>/dev/null")
 time.sleep(2); hc("dc1-h1", f"ping -c 2 -i 0.5 {lan('dc3-h1')} >/dev/null"); save("pe1-tcpdump-inner", L.finish_background(h))
 # steering

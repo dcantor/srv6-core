@@ -1,9 +1,9 @@
-BGP routing table entry for 65000:103:172.20.3.0/24, version 51
+BGP routing table entry for 65000:103:fd00:20:3::/64, version 10
 not allocated
 Paths: (2 available, best #1)
   Not advertised to any peer
   65003
-    0.0.0.0 (metric 20) from fd00:a::11 (10.255.0.3)
+    fd00:a::3 (metric 20) from fd00:a::11 (10.255.0.3)
       Origin IGP, metric 0, localpref 100, valid, internal, multipath, best (Neighbor IP)
       Extended Community: RT:65000:100
       Originator: 10.255.0.3, Cluster list: 10.255.0.11 
@@ -11,10 +11,10 @@ Paths: (2 available, best #1)
       Remote SID: fd00:c:3::, sid structure=[32 16 16 0 16 48]
       Last update: Fri Sep 18 21:35:05 2026
   65003
-    0.0.0.0 (metric 20) from fd00:a::13 (10.255.0.3)
+    fd00:a::3 (metric 20) from fd00:a::13 (10.255.0.3)
       Origin IGP, metric 0, localpref 100, valid, internal, multipath
       Extended Community: RT:65000:100
       Originator: 10.255.0.3, Cluster list: 10.255.0.13 
       Remote labels: 917504
       Remote SID: fd00:c:3::, sid structure=[32 16 16 0 16 48]
-      Last update: Fri Sep 18 20:10:40 2026
+      Last update: Fri Sep 18 20:12:04 2026

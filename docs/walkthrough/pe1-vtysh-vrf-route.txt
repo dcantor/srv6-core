@@ -1,6 +1,6 @@
 Routing entry for 172.20.3.0/24
   Known via "bgp", distance 200, metric 0, vrf tenant-a, best
-  Last update 00:26:49 ago
+  Last update 01:12:26 ago
   Flags: Recursion iBGP Selected 
   Status: Installed 
     fd00:a::3(vrf default) (recursive), label 917504, weight 1
