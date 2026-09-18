@@ -1,0 +1,5 @@
+Session count: 2
+SessionId  LocalAddress                             PeerAddress                             Status          Profile             
+=========  ============                             ===========                             ======          =======             
+2112531093 fe80::5054:ff:fec6:102                   fe80::5054:ff:fec6:603                  up              -                   
+1801289531 fe80::5054:ff:fec6:101                   fe80::5054:ff:fec6:503                  up              -

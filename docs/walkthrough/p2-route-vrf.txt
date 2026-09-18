@@ -1,0 +1,5 @@
+Error: argument "tenant-a" is wrong: Invalid VRF
+
+Name              Table
+-----------------------
+No VRF has been configured

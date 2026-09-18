@@ -1,0 +1,2 @@
+    inet6 fd00:c:1::1/128 scope global 
+    inet6 fe80::b039:34ff:fedb:1ebf/64 scope link

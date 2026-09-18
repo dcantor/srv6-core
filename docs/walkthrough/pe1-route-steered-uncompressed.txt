@@ -1,0 +1,1 @@
+172.21.3.0/24 nhid 161  encap seg6 mode encap segs 3 [ fd00:c:11:: fd00:c:13:: fd00:c:3:e001:: ] dev eth1 proto static metric 20

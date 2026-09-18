@@ -1,0 +1,2 @@
+pe1: tenant-b 172.21.3.0/24 -> p1 -> p3 -> pe3  segments fd00:c:11:13:3:e001::  (out eth1)  [uSID: one compressed segment]
+172.21.3.0/24 nhid 119  encap seg6 mode encap segs 1 [ fd00:c:11:13:3:e001:: ] dev eth1 proto static metric 20

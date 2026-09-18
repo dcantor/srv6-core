@@ -1,0 +1,13 @@
+127.0.0.0/8 dev tenant-a proto kernel scope link src 127.0.0.1 
+172.16.1.0/30 dev eth3 proto kernel scope link src 172.16.1.1 
+172.16.2.0/30 nhid 82 proto bgp metric 20 
+	nexthop  encap seg6 mode encap segs 1 [ fd00:c:2:e001:: ] via inet6 fe80::5054:ff:fec6:503 dev eth1 weight 1 
+	nexthop  encap seg6 mode encap segs 1 [ fd00:c:2:e001:: ] via inet6 fe80::5054:ff:fec6:603 dev eth2 weight 1 
+172.16.3.0/30 nhid 96  encap seg6 mode encap segs 1 [ fd00:c:3:e000:: ] via inet6 fe80::5054:ff:fec6:603 dev eth2 proto bgp metric 20 
+172.16.4.0/30 nhid 107  encap seg6 mode encap segs 1 [ fd00:c:4:e001:: ] via inet6 fe80::5054:ff:fec6:603 dev eth2 proto bgp metric 20 
+172.20.1.0/24 nhid 63 via 172.16.1.2 dev eth3 proto bgp metric 20 
+172.20.2.0/24 nhid 82 proto bgp metric 20 
+	nexthop  encap seg6 mode encap segs 1 [ fd00:c:2:e001:: ] via inet6 fe80::5054:ff:fec6:503 dev eth1 weight 1 
+	nexthop  encap seg6 mode encap segs 1 [ fd00:c:2:e001:: ] via inet6 fe80::5054:ff:fec6:603 dev eth2 weight 1 
+172.20.3.0/24 nhid 96  encap seg6 mode encap segs 1 [ fd00:c:3:e000:: ] via inet6 fe80::5054:ff:fec6:603 dev eth2 proto bgp metric 20 
+172.20.4.0/24 nhid 107  encap seg6 mode encap segs 1 [ fd00:c:4:e001:: ] via inet6 fe80::5054:ff:fec6:603 dev eth2 proto bgp metric 20

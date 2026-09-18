@@ -1,0 +1,7 @@
+fd00:c:12:e000::/64 nhid 31  encap seg6local action End.X nh6 fe80::5054:ff:fec6:501 oif eth1 flavors next-csid lblen 32 nflen 16 dev eth1 proto isis metric 20 pref medium
+fd00:c:12:e001::/64 nhid 32  encap seg6local action End.X nh6 fe80::5054:ff:fec6:102 oif eth3 flavors next-csid lblen 32 nflen 16 dev eth3 proto isis metric 20 pref medium
+fd00:c:12:e002::/64 nhid 33  encap seg6local action End.X nh6 fe80::5054:ff:fec6:202 oif eth4 flavors next-csid lblen 32 nflen 16 dev eth4 proto isis metric 20 pref medium
+fd00:c:12:e003::/64 nhid 34  encap seg6local action End.X nh6 fe80::5054:ff:fec6:301 oif eth5 flavors next-csid lblen 32 nflen 16 dev eth5 proto isis metric 20 pref medium
+fd00:c:12:e004::/64 nhid 41  encap seg6local action End.X nh6 fe80::5054:ff:fec6:702 oif eth2 flavors next-csid lblen 32 nflen 16 dev eth2 proto isis metric 20 pref medium
+fd00:c:12:e005::/64 nhid 43  encap seg6local action End.X nh6 fe80::5054:ff:fec6:401 oif eth6 flavors next-csid lblen 32 nflen 16 dev eth6 proto isis metric 20 pref medium
+fd00:c:12::/48 nhid 25  encap seg6local action End flavors next-csid lblen 32 nflen 16 dev dum0 proto isis metric 20 pref medium

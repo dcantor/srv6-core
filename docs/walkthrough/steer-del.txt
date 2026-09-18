@@ -1,0 +1,2 @@
+pe1: tenant-b 172.21.3.0/24 back on the IGP shortest path
+172.21.3.0/24 nhid 99  encap seg6 mode encap segs 1 [ fd00:c:3:e001:: ] via inet6 fe80::5054:ff:fec6:603 dev eth2 proto bgp metric 20

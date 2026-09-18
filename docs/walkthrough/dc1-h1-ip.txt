@@ -1,0 +1,7 @@
+lo               UNKNOWN        127.0.0.1/8 ::1/128 
+eth0             UP             10.3.0.41/24 fe80::5054:ff:fec6:c00/64 
+eth1             UP             172.20.1.2/24 fe80::5054:ff:fec6:c01/64 
+default via 172.20.1.1 dev eth1 
+10.0.0.0/8 via 10.3.0.1 dev eth0 
+10.3.0.0/24 dev eth0 proto kernel scope link src 10.3.0.41 
+172.20.1.0/24 dev eth1 proto kernel scope link src 172.20.1.2

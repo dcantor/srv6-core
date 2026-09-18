@@ -291,6 +291,12 @@ Every run lands in `results/<timestamp>/` — `report.html`, `log.html`, `output
 routing tables of every node (RIB per VRF, kernel SRv6 routes, BGP VPNv4, IS-IS SRv6, BFD). **The results are committed
 to the repository** with each change, so the history shows what passed on which version of the lab.
 
+## Walkthrough
+[docs/srv6-walkthrough.md](docs/srv6-walkthrough.md) ([PDF](docs/srv6-walkthrough.pdf)) — *SRv6 L3VPN, shown on real boxes*: the
+underlay, the SIDs in the kernel, the BGP Prefix-SID attribute, a packet walk with captures on the P router, uSID
+shift-and-forward seen hop by hop on a steered path, and how the lab is operated. Every output is captured from the
+live lab by `docs/walkthrough_capture.py`; `docs/build_walkthrough.py` renders the HTML / PDF.
+
 ## Demo
 `docs/demo/srv6-demo.mp4` / `.gif` (≈3.5 min): status, IS-IS + SRv6 nodes, the SIDs on a PE, VPNv4 at the reflector and
 the VRF routes, the 8×8 tenant ping matrix, explicit-path steering with the SRH seen on p1, the p1 reflector being shut

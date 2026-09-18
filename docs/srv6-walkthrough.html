@@ -1,0 +1,473 @@
+<!DOCTYPE html><html><head><meta charset='utf-8'><title>SRv6 L3VPN, shown on real boxes</title><style>
+body { font: 11pt/1.5 -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; color: #1a1a1a; max-width: 900px; margin: 30px auto; padding: 0 20px }
+h1 { font-size: 26pt; margin-bottom: 4px } h2 { font-size: 16pt; margin-top: 34px; border-bottom: 2px solid #1f5fa8; padding-bottom: 3px; color: #1f5fa8 }
+h3 { font-size: 12.5pt; margin-top: 22px } p > em:first-child { color: #555 }
+pre { background: #f4f6f8; border: 1px solid #dfe3e8; border-radius: 4px; padding: 8px 10px; font: 7.6pt/1.35 "JetBrains Mono", Menlo, Consolas, monospace; overflow-x: auto; white-space: pre-wrap; word-break: break-all; page-break-inside: avoid }
+code { font: 9.5pt "JetBrains Mono", Menlo, Consolas, monospace; background: #f4f6f8; padding: 0 3px; border-radius: 3px } pre code { background: none; padding: 0; font-size: inherit }
+table { border-collapse: collapse; font-size: 9.5pt; margin: 10px 0 } th, td { border: 1px solid #d0d5db; padding: 4px 8px; text-align: left; vertical-align: top } th { background: #eef2f6 }
+img { max-width: 100%; border: 1px solid #dfe3e8 } hr { border: 0; border-top: 1px solid #dfe3e8; margin: 28px 0 }
+ol li, ul li { margin: 3px 0 } @page { size: A4; margin: 16mm 14mm }
+@media print { h2 { page-break-after: avoid } }
+</style></head><body><h1>SRv6 L3VPN, shown on real boxes</h1>
+<p><em>A walkthrough of the <code>srv6-core</code> lab: how an IPv6 segment-routing core carries BGP VPNs, traced packet by packet on
+VyOS routers you can boot yourself. Every command output below was captured from the running lab
+(<code>docs/walkthrough_capture.py</code>); nothing is retyped.</em></p>
+<hr />
+<h2>1. What SRv6 is, in one paragraph</h2>
+<p>Segment Routing over IPv6 puts the forwarding instructions <strong>inside the IPv6 destination address</strong>. A router advertises a
+prefix — its <em>locator</em> — and every address under it is a <em>SID</em>: &quot;an instruction I will execute if a packet arrives
+addressed to me&quot;. <code>End</code> means &quot;forward me on&quot;, <code>End.X</code> means &quot;send me out this link&quot;, <code>End.DT4</code> means &quot;strip the IPv6
+header and look the inner IPv4 packet up in this VRF&quot;. A packet that must visit several routers carries the list in a
+<em>Segment Routing Header</em> (SRH); a packet that needs only one instruction carries none — the SID <em>is</em> the destination.
+There is no MPLS, no LDP, no RSVP, no tunnel state in the core: the P routers just route IPv6.</p>
+<p>With the <strong>uSID</strong> (micro-SID) flavour used here, one 128-bit address packs several 16-bit instructions, so even a
+multi-hop explicit path fits in the destination address alone. The lab shows both forms.</p>
+<h2>2. The lab</h2>
+<p><img src="topology.png" alt="topology" /></p>
+<table>
+<thead>
+<tr>
+<th>Layer</th>
+<th>What</th>
+<th>How</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Core</td>
+<td>3 P routers in a triangle (p1, p2, p3), 4 PEs, one per data centre; IPv6-only links, MTU 9000</td>
+<td>VyOS rolling (FRR 10.6, Linux 6.18)</td>
+</tr>
+<tr>
+<td>Underlay</td>
+<td>IS-IS level-2 carrying loopbacks <strong>and SRv6 locators</strong></td>
+<td><code>protocols isis … segment-routing srv6 locator main</code></td>
+</tr>
+<tr>
+<td>SRv6</td>
+<td>block <code>fd00:c::/32</code>, /48 locator per node, uSID <code>usid-f3216</code> (32-bit block, 16-bit node, 16-bit function)</td>
+<td><code>protocols segment-routing srv6 locator main</code></td>
+</tr>
+<tr>
+<td>Overlay</td>
+<td>BGP VPNv4 between PE loopbacks, route reflectors on p1 <strong>and</strong> p3, SIDs carried in the BGP Prefix-SID attribute</td>
+<td><code>address-family ipv4-vpn</code>, <code>sid vpn export auto</code></td>
+</tr>
+<tr>
+<td>Tenants</td>
+<td><code>tenant-a</code> (VRF table 100, RT 65000:100) and <code>tenant-b</code> (200, 65000:200), each with one CE-attached LAN per DC</td>
+<td>VRF per tenant on PEs and CEs</td>
+</tr>
+<tr>
+<td>Sites</td>
+<td>CE per DC (VyOS, eBGP to its PE inside the VRF), two Alpine Linux hosts per DC (h1 in tenant-a, h2 in tenant-b)</td>
+<td></td>
+</tr>
+<tr>
+<td>Resilience</td>
+<td>BFD on every core adjacency (300 ms × 3)</td>
+<td><code>protocols bfd</code></td>
+</tr>
+</tbody>
+</table>
+<p>Addresses to keep in mind: PE loopbacks <code>fd00:a::1-4</code>, P loopbacks <code>fd00:a::11-13</code>; locators <code>fd00:c:&lt;n&gt;::/48</code> with the
+same <em>n</em>; tenant-a LANs <code>172.20.&lt;dc&gt;.0/24</code>, tenant-b LANs <code>172.21.&lt;dc&gt;.0/24</code>; hosts are <code>.2</code>, CEs <code>.1</code>.</p>
+<h2>3. The underlay: IS-IS carries the locators</h2>
+<p>A PE has two core links and therefore two IS-IS adjacencies:</p>
+<pre><code>vyos@pe1:~$ show isis neighbor
+Area VyOS:
+ System Id           Interface   L  State         Holdtime SNPA
+ p1                  eth1        2  Up            29       2020.2020.2020
+ p2                  eth2        2  Up            30       2020.2020.2020
+</code></pre>
+<p>The locator is a /48 under the block, status Up:</p>
+<pre><code>vyos@pe1:~$ show segment-routing srv6 locator
+Locator:
+Name                 ID      Prefix                   Status
+-------------------- ------- ------------------------ -------
+main                       1 fd00:c:1::/48            Up
+</code></pre>
+<p>IS-IS advertises it as a prefix like any other, plus SRv6 sub-TLVs describing what the node can do with a segment
+list (how deep an SRH it can process, how many segments it can push). p1 sees all seven SRv6-capable nodes:</p>
+<pre><code>vyos@p1:~$ show isis segment-routing srv6 node
+Area VyOS:
+ IS-IS L1 SRv6-Nodes:
+
+ IS-IS L2 SRv6-Nodes:
+
+ System ID       Algorithm  SRH Max SL  SRH Max End Pop  SRH Max H.encaps  SRH Max End D  
+ -----------------------------------------------------------------------------------------
+ 0000.0000.0001  SPF        3           3                2                 5              
+ 0000.0000.0002  SPF        3           3                2                 5              
+ 0000.0000.0003  SPF        3           3                2                 5              
+ 0000.0000.0004  SPF        3           3                2                 5              
+ 0000.0000.0011  SPF        3           3                2                 5              
+ 0000.0000.0012  SPF        3           3                2                 5              
+ 0000.0000.0013  SPF        3           3                2                 5
+</code></pre>
+<p>From pe1's point of view every other locator is an ordinary IS-IS route. Note the metrics: <code>fd00:c:11::/48</code> (p1) and
+<code>fd00:c:12::/48</code> (p2) are one hop away (10), the other PEs two hops (20):</p>
+<pre><code>vyos@pe1:~$ show ipv6 route isis | grep fd00:c:
+I&gt;* fd00:c:1::/48 [115/0] is directly connected, dum0, seg6local uN, weight 1, 00:27:18
+I&gt;* fd00:c:1:e002::/64 [115/0] is directly connected, eth1, seg6local uA nh6 fe80::5054:ff:fec6:503, eth1, weight 1, 00:27:18
+I&gt;* fd00:c:1:e003::/64 [115/0] is directly connected, eth2, seg6local uA nh6 fe80::5054:ff:fec6:603, eth2, weight 1, 00:27:14
+I&gt;* fd00:c:2::/48 [115/20] via fe80::5054:ff:fec6:503, eth1, weight 1, 00:26:47
+I&gt;* fd00:c:2::1/128 [115/30] via fe80::5054:ff:fec6:503, eth1, weight 1, 00:26:47
+I&gt;* fd00:c:3::/48 [115/20] via fe80::5054:ff:fec6:603, eth2, weight 1, 00:26:48
+I&gt;* fd00:c:3::1/128 [115/30] via fe80::5054:ff:fec6:603, eth2, weight 1, 00:26:48
+I&gt;* fd00:c:4::/48 [115/20] via fe80::5054:ff:fec6:603, eth2, weight 1, 00:26:43
+I&gt;* fd00:c:4::1/128 [115/30] via fe80::5054:ff:fec6:603, eth2, weight 1, 00:26:43
+I&gt;* fd00:c:11::/48 [115/10] via fe80::5054:ff:fec6:503, eth1, weight 1, 00:27:17
+I&gt;* fd00:c:11::1/128 [115/20] via fe80::5054:ff:fec6:503, eth1, weight 1, 00:27:17
+I&gt;* fd00:c:12::/48 [115/10] via fe80::5054:ff:fec6:603, eth2, weight 1, 00:26:48
+</code></pre>
+<h3>Local SIDs: what a node will <em>do</em></h3>
+<p>IS-IS also installs the node's own SIDs into the Linux kernel as <code>seg6local</code> routes. This is the part worth staring at,
+because it is the entire SRv6 data plane of a P router:</p>
+<pre><code>vyos@p2:~$ ip -6 route show | grep seg6local
+fd00:c:12:e000::/64 nhid 31  encap seg6local action End.X nh6 fe80::5054:ff:fec6:501 oif eth1 flavors next-csid lblen 32 nflen 16 dev eth1 proto isis metric 20 pref medium
+fd00:c:12:e001::/64 nhid 32  encap seg6local action End.X nh6 fe80::5054:ff:fec6:102 oif eth3 flavors next-csid lblen 32 nflen 16 dev eth3 proto isis metric 20 pref medium
+fd00:c:12:e002::/64 nhid 33  encap seg6local action End.X nh6 fe80::5054:ff:fec6:202 oif eth4 flavors next-csid lblen 32 nflen 16 dev eth4 proto isis metric 20 pref medium
+fd00:c:12:e003::/64 nhid 34  encap seg6local action End.X nh6 fe80::5054:ff:fec6:301 oif eth5 flavors next-csid lblen 32 nflen 16 dev eth5 proto isis metric 20 pref medium
+fd00:c:12:e004::/64 nhid 41  encap seg6local action End.X nh6 fe80::5054:ff:fec6:702 oif eth2 flavors next-csid lblen 32 nflen 16 dev eth2 proto isis metric 20 pref medium
+fd00:c:12:e005::/64 nhid 43  encap seg6local action End.X nh6 fe80::5054:ff:fec6:401 oif eth6 flavors next-csid lblen 32 nflen 16 dev eth6 proto isis metric 20 pref medium
+fd00:c:12::/48 nhid 25  encap seg6local action End flavors next-csid lblen 32 nflen 16 dev dum0 proto isis metric 20 pref medium
+</code></pre>
+<ul>
+<li><code>fd00:c:12::/48 … action End flavors next-csid</code> — the <strong>uN</strong> SID: anything addressed inside my locator that I do not
+have a more specific entry for is &quot;shift the next uSID into place and forward&quot; (see §6).</li>
+<li><code>fd00:c:12:e00x::/64 … action End.X nh6 … oif ethN</code> — one <strong>uA</strong> SID per adjacency: &quot;send it out this link, to this
+neighbour&quot;, regardless of the IGP's opinion.</li>
+</ul>
+<p>A P router has nothing else: no VRFs, no tenant routes, no BGP.</p>
+<pre><code>vyos@p2:~$ ip route show vrf tenant-a; ip vrf show
+Error: argument &quot;tenant-a&quot; is wrong: Invalid VRF
+
+Name              Table
+-----------------------
+No VRF has been configured
+</code></pre>
+<p>A PE has the same two kinds plus one SID per tenant VRF, installed by BGP:</p>
+<pre><code>vyos@pe1:~$ ip -6 route show | grep seg6local
+fd00:c:1:e000:: nhid 41  encap seg6local action End.DT4 vrftable tenant-b dev tenant-b proto bgp metric 20 pref medium
+fd00:c:1:e001:: nhid 37  encap seg6local action End.DT4 vrftable tenant-a dev tenant-a proto bgp metric 20 pref medium
+fd00:c:1:e002::/64 nhid 43  encap seg6local action End.X nh6 fe80::5054:ff:fec6:503 oif eth1 flavors next-csid lblen 32 nflen 16 dev eth1 proto isis metric 20 pref medium
+fd00:c:1:e003::/64 nhid 60  encap seg6local action End.X nh6 fe80::5054:ff:fec6:603 oif eth2 flavors next-csid lblen 32 nflen 16 dev eth2 proto isis metric 20 pref medium
+fd00:c:1::/48 nhid 40  encap seg6local action End flavors next-csid lblen 32 nflen 16 dev dum0 proto isis metric 20 pref medium
+</code></pre>
+<p><code>fd00:c:1:e001:: … End.DT4 vrftable tenant-a</code> is the <strong>uDT4</strong> SID: &quot;decapsulate, then route the IPv4 packet inside in
+VRF tenant-a&quot;. That address is what the remote PEs will put on packets for dc1's tenant-a LAN. The function value
+(<code>e001</code>) is allocated by FRR at run time, which is why the tests and tools read it back rather than assume it.</p>
+<p>BFD watches each adjacency so a silent link failure is detected in under a second:</p>
+<pre><code>vyos@pe1:~$ show bfd peers brief
+Session count: 2
+SessionId  LocalAddress                             PeerAddress                             Status          Profile             
+=========  ============                             ===========                             ======          =======             
+2112531093 fe80::5054:ff:fec6:102                   fe80::5054:ff:fec6:603                  up              -                   
+1801289531 fe80::5054:ff:fec6:101                   fe80::5054:ff:fec6:503                  up              -
+</code></pre>
+<h2>4. The overlay: BGP VPNv4 with SIDs instead of labels</h2>
+<p>Each PE peers with <strong>both</strong> route reflectors over IPv6 loopbacks. The IPv4-VPN routes travel over IPv6 sessions thanks
+to the extended-nexthop capability:</p>
+<pre><code>vyos@pe1:~$ show bgp ipv4 vpn summary
+BGP router identifier 10.255.0.1, local AS number 65000 VRF default vrf-id 0
+BGP table version 0
+RIB entries 15, using 2400 bytes of memory
+Peers 2, using 58 KiB of memory
+
+Neighbor        V         AS   MsgRcvd   MsgSent   TblVer  InQ OutQ  Up/Down State/PfxRcd   PfxSnt Desc
+fd00:a::11      4      65000        45        33        5    0    0 00:26:50           12        4 p1 route reflector
+fd00:a::13      4      65000        45        33        5    0    0 00:26:51           12        4 p3 route reflector
+
+Total number of neighbors 2
+</code></pre>
+<p>Inside VRF tenant-a the PE runs plain eBGP with the CE, which advertises the site LAN:</p>
+<pre><code>vyos@pe1:~$ show ip bgp vrf tenant-a summary
+
+IPv4 Unicast Summary:
+BGP router identifier 10.255.0.1, local AS number 65000 VRF tenant-a vrf-id 10
+BGP table version 8
+RIB entries 15, using 2400 bytes of memory
+Peers 1, using 29 KiB of memory
+
+Neighbor        V         AS   MsgRcvd   MsgSent   TblVer  InQ OutQ  Up/Down State/PfxRcd   PfxSnt Desc
+172.16.1.2      4      65001        38        38        8    0    0 00:27:11            1        8 ce1 (tenant-a)
+
+Total number of neighbors 1
+</code></pre>
+<p>The reflector sees every site of every tenant, distinguished by route distinguisher (<code>65000:1xx</code> = tenant-a, <code>65000:2xx</code>
+= tenant-b, xx = the PE) and keyed for import by route target:</p>
+<pre><code>vyos@p1:~$ show bgp ipv4 vpn summary
+BGP router identifier 10.255.0.11, local AS number 65000 VRF default vrf-id 0
+BGP table version 0
+RIB entries 15, using 2400 bytes of memory
+Peers 4, using 116 KiB of memory
+Peer groups 1, using 72 bytes of memory
+
+Neighbor        V         AS   MsgRcvd   MsgSent   TblVer  InQ OutQ  Up/Down State/PfxRcd   PfxSnt Desc
+fd00:a::1       4      65000        33        45        2    0    0 00:26:51            4       16 pe1
+fd00:a::2       4      65000        33        45        2    0    0 00:26:51            4       16 pe2
+fd00:a::3       4      65000        33        45        2    0    0 00:26:49            4       16 pe3
+fd00:a::4       4      65000        33        45        2    0    0 00:26:46            4       16 pe4
+
+Total number of neighbors 4
+</code></pre>
+<p>Now the interesting attribute. Here is dc3's tenant-a LAN as pe1 learned it — twice, once per reflector:</p>
+<pre><code>vyos@pe1:~$ show bgp ipv4 vpn 172.20.3.0/24
+BGP routing table entry for 65000:103:172.20.3.0/24, version 2
+not allocated
+Paths: (2 available, best #1)
+  Not advertised to any peer
+  65003
+    0.0.0.0 (metric 20) from fd00:a::11 (10.255.0.3)
+      Origin IGP, metric 0, localpref 100, valid, internal, multipath, best (Neighbor IP)
+      Extended Community: RT:65000:100
+      Originator: 10.255.0.3, Cluster list: 10.255.0.11 
+      Remote labels: 917504
+      Remote SID: fd00:c:3::, sid structure=[32 16 16 0 16 48]
+      Last update: Fri Sep 18 02:06:33 2026
+  65003
+    0.0.0.0 (metric 20) from fd00:a::13 (10.255.0.3)
+      Origin IGP, metric 0, localpref 100, valid, internal, multipath
+      Extended Community: RT:65000:100
+      Originator: 10.255.0.3, Cluster list: 10.255.0.13 
+      Remote labels: 917504
+      Remote SID: fd00:c:3::, sid structure=[32 16 16 0 16 48]
+      Last update: Fri Sep 18 02:06:33 2026
+</code></pre>
+<p>Three things to read off this:</p>
+<ol>
+<li><strong><code>Remote SID: fd00:c:3::, sid structure=[32 16 16 0 16 48]</code></strong> — the BGP Prefix-SID attribute. The locator is pe3's,
+the structure says &quot;32-bit block, 16-bit node, 16-bit function, transposition of 16 bits at offset 48&quot;. The function
+bits were <em>transposed</em> into the label field (<code>Remote labels: 917504</code> = <code>0xE000</code> &lt;&lt; 4), a standard trick to keep the
+SID attribute compact; the receiver reassembles <code>fd00:c:3:e000::</code>.</li>
+<li><strong><code>RT:65000:100</code></strong> — the route target; only VRFs importing 65000:100 (tenant-a) get this route. tenant-b never sees it.</li>
+<li><strong><code>Originator: 10.255.0.3, Cluster list: 10.255.0.11</code></strong> / <code>10.255.0.13</code> — two copies, one via each reflector, so
+losing p1 loses nothing (test suite 06 proves it).</li>
+</ol>
+<p>BGP hands the route to zebra, which resolves the SID's locator through IS-IS and installs an <strong>encapsulating</strong> route in
+the tenant VRF. Compare with the label-based world: there is no label table, the VPN route simply says &quot;wrap in IPv6 to
+this address&quot;:</p>
+<pre><code>vyos@pe1:~$ ip route show vrf tenant-a
+127.0.0.0/8 dev tenant-a proto kernel scope link src 127.0.0.1 
+172.16.1.0/30 dev eth3 proto kernel scope link src 172.16.1.1 
+172.16.2.0/30 nhid 82 proto bgp metric 20 
+	nexthop  encap seg6 mode encap segs 1 [ fd00:c:2:e001:: ] via inet6 fe80::5054:ff:fec6:503 dev eth1 weight 1 
+	nexthop  encap seg6 mode encap segs 1 [ fd00:c:2:e001:: ] via inet6 fe80::5054:ff:fec6:603 dev eth2 weight 1 
+172.16.3.0/30 nhid 96  encap seg6 mode encap segs 1 [ fd00:c:3:e000:: ] via inet6 fe80::5054:ff:fec6:603 dev eth2 proto bgp metric 20 
+172.16.4.0/30 nhid 107  encap seg6 mode encap segs 1 [ fd00:c:4:e001:: ] via inet6 fe80::5054:ff:fec6:603 dev eth2 proto bgp metric 20 
+172.20.1.0/24 nhid 63 via 172.16.1.2 dev eth3 proto bgp metric 20 
+172.20.2.0/24 nhid 82 proto bgp metric 20 
+	nexthop  encap seg6 mode encap segs 1 [ fd00:c:2:e001:: ] via inet6 fe80::5054:ff:fec6:503 dev eth1 weight 1 
+	nexthop  encap seg6 mode encap segs 1 [ fd00:c:2:e001:: ] via inet6 fe80::5054:ff:fec6:603 dev eth2 weight 1 
+172.20.3.0/24 nhid 96  encap seg6 mode encap segs 1 [ fd00:c:3:e000:: ] via inet6 fe80::5054:ff:fec6:603 dev eth2 proto bgp metric 20 
+172.20.4.0/24 nhid 107  encap seg6 mode encap segs 1 [ fd00:c:4:e001:: ] via inet6 fe80::5054:ff:fec6:603 dev eth2 proto bgp metric 20
+</code></pre>
+<p><code>172.20.3.0/24 … encap seg6 mode encap segs 1 [ fd00:c:3:e000:: ] via fe80::… dev eth2</code> — one segment, out eth2 towards
+p2 (the shortest path to pe3). <code>172.20.2.0/24</code> has <strong>two</strong> next hops because pe2 is equidistant via p1 and p2: ECMP for
+free, from the IGP.</p>
+<p>The CE does not know any of this happened. It sees the remote LANs as ordinary eBGP routes from its PE:</p>
+<pre><code>vyos@ce1:~$ show ip route vrf tenant-a bgp
+Codes: K - kernel route, C - connected, L - local, S - static,
+       R - RIP, O - OSPF, I - IS-IS, B - BGP, E - EIGRP, N - NHRP,
+       T - Table, v - VNC, V - VNC-Direct, A - Babel, F - PBR,
+       f - OpenFabric, t - Table-Direct,
+       &gt; - selected route, * - FIB route, q - queued, r - rejected, b - backup
+       t - trapped, o - offload failure
+
+IPv4 unicast VRF tenant-a:
+B   172.16.1.0/30 [20/0] via 172.16.1.1 inactive, weight 1, 00:27:16
+B&gt;* 172.16.2.0/30 [20/0] via 172.16.1.1, eth1, weight 1, 00:26:55
+B&gt;* 172.16.3.0/30 [20/0] via 172.16.1.1, eth1, weight 1, 00:26:53
+B&gt;* 172.16.4.0/30 [20/0] via 172.16.1.1, eth1, weight 1, 00:26:51
+B&gt;* 172.20.2.0/24 [20/0] via 172.16.1.1, eth1, weight 1, 00:26:55
+B&gt;* 172.20.3.0/24 [20/0] via 172.16.1.1, eth1, weight 1, 00:26:53
+B&gt;* 172.20.4.0/24 [20/0] via 172.16.1.1, eth1, weight 1, 00:26:51
+</code></pre>
+<h2>5. Packet walk: dc1-h1 → dc3-h1</h2>
+<p>The host has one interface in the tenant LAN and a default route to the CE:</p>
+<pre><code>lab@dc1-h1:~$ ip -br addr; ip route
+lo               UNKNOWN        127.0.0.1/8 ::1/128 
+eth0             UP             10.3.0.41/24 fe80::5054:ff:fec6:c00/64 
+eth1             UP             172.20.1.2/24 fe80::5054:ff:fec6:c01/64 
+default via 172.20.1.1 dev eth1 
+10.0.0.0/8 via 10.3.0.1 dev eth0 
+10.3.0.0/24 dev eth0 proto kernel scope link src 10.3.0.41 
+172.20.1.0/24 dev eth1 proto kernel scope link src 172.20.1.2
+</code></pre>
+<pre><code>lab@dc1-h1:~$ ping -c 3 172.20.3.2
+PING 172.20.3.2 (172.20.3.2): 56 data bytes
+64 bytes from 172.20.3.2: seq=0 ttl=42 time=2.017 ms
+64 bytes from 172.20.3.2: seq=1 ttl=42 time=2.101 ms
+64 bytes from 172.20.3.2: seq=2 ttl=42 time=2.265 ms
+
+--- 172.20.3.2 ping statistics ---
+3 packets transmitted, 3 packets received, 0% packet loss
+round-trip min/avg/max = 2.017/2.127/2.265 ms
+</code></pre>
+<pre><code> dc1-h1 ─── ce1 ─── pe1 ══════ p2 ══════ pe3 ─── ce3 ─── dc3-h1
+          IPv4      │ encap                │ decap     IPv4
+                    │ IPv6 fd00:a::1 → fd00:c:3:e000::
+                    │ (no SRH: one segment = the destination)
+                    └───────── plain IPv6 forwarding on p2 ─────────┘
+</code></pre>
+<p>Step by step:</p>
+<ol>
+<li><strong>ce1</strong> routes <code>172.20.3.0/24</code> to pe1 over the VRF's eBGP session (plain IPv4).</li>
+<li><strong>pe1</strong> looks the destination up in VRF tenant-a and hits the <code>encap seg6</code> route: it pushes an outer IPv6 header,
+source = its loopback <code>fd00:a::1</code>, destination = pe3's uDT4 SID <code>fd00:c:3:e000::</code>. With a single segment the Linux
+implementation adds an SRH with that one entry (segments-left 0) — functionally the destination address is the whole
+instruction. Outer lookup: <code>fd00:c:3::/48</code> via IS-IS → eth2 → p2.</li>
+<li><strong>p2</strong> receives an IPv6 packet for <code>fd00:c:3:e000::</code>. It is not in p2's locator, so p2 does what any IPv6 router does:
+longest match → <code>fd00:c:3::/48</code> → eth5 → pe3. p2 never looks at the SRH, never knows there is a tenant inside. Captured
+on p2's link to pe3:</li>
+</ol>
+<pre><code>vyos@p2:~$ sudo tcpdump -ni eth5 -vv 'ip6 and dst net fd00:c:3::/48'
+02:33:39.274871 IP6 (hlim 62, next-header Routing (43) payload length: 108) fd00:a::1 &gt; fd00:c:3:e000::: RT6 (len=2, type=4, segleft=0, last-entry=0, flags=0x0, tag=0, [0]fd00:c:3:e000::) IP (tos 0x0, ttl 63, id 7054, offset 0, flags [DF], proto ICMP (1), length 84)
+    172.20.1.2 &gt; 172.20.3.2: ICMP echo request, id 10, seq 0, length 64
+02:33:39.774875 IP6 (hlim 62, next-header Routing (43) payload length: 108) fd00:a::1 &gt; fd00:c:3:e000::: RT6 (len=2, type=4, segleft=0, last-entry=0, flags=0x0, tag=0, [0]fd00:c:3:e000::) IP (tos 0x0, ttl 63, id 7474, offset 0, flags [DF], proto ICMP (1), length 84)
+    172.20.1.2 &gt; 172.20.3.2: ICMP echo request, id 10, seq 1, length 64
+02:33:40.275052 IP6 (hlim 62, next-header Routing (43) payload length: 108) fd00:a::1 &gt; fd00:c:3:e000::: RT6 (len=2, type=4, segleft=0, last-entry=0, flags=0x0, tag=0, [0]fd00:c:3:e000::) IP (tos 0x0, ttl 63, id 7788, offset 0, flags [DF], proto ICMP (1), length 84)
+    172.20.1.2 &gt; 172.20.3.2: ICMP echo request, id 10, seq 2, length 64
+02:33:40.775164 IP6 (hlim 62, next-header Routing (43) payload length: 108) fd00:a::1 &gt; fd00:c:3:e000::: RT6 (len=2, type=4, segleft=0, last-entry=0, flags=0x0, tag=0, [0]fd00:c:3:e000::) IP (tos 0x0, ttl 63, id 7953, offset 0, flags [DF], proto ICMP (1), length 84)
+    172.20.1.2 &gt; 172.20.3.2: ICMP echo request, id 10, seq 3, length 64
+</code></pre>
+<p><code>next-header Routing (43)</code>, <code>RT6 type=4</code> is the SRH; <code>segleft=0</code>; the inner packet is the ICMP echo from
+<code>172.20.1.2</code> to <code>172.20.3.2</code>. Outer hop limit 62 (64 − pe1 − p2); inner TTL 63 (only ce1 decremented it — the core
+is invisible to the tenant's traceroute, see below).</p>
+<ol start="4">
+<li><strong>pe3</strong> owns <code>fd00:c:3:e000::</code> — its <code>seg6local … End.DT4 vrftable tenant-a</code> route. The kernel removes the IPv6
+header, and routes the IPv4 packet in VRF tenant-a → <code>172.20.3.0/24</code> connected via ce3.</li>
+<li><strong>ce3 → dc3-h1</strong>, and the reply does the same in reverse with pe1's uDT4 SID <code>fd00:c:1:e001::</code> as destination.</li>
+</ol>
+<p>The tenant sees exactly one &quot;missing&quot; hop for the whole core (<code>*</code> at hop 2 is pe1's VRF, which has no address on the
+core path; the SRv6 hops do not decrement the inner TTL at all):</p>
+<pre><code>lab@dc1-h1:~$ traceroute -n 172.20.3.2
+traceroute to 172.20.3.2 (172.20.3.2), 30 hops max, 46 byte packets
+ 1  172.20.1.1  0.373 ms
+ 2  *
+ 3  172.16.3.2  1.593 ms
+ 4  172.20.3.2  1.697 ms
+</code></pre>
+<p>Isolation between tenants is not a firewall rule — it is the absence of a route. tenant-a's host cannot reach
+tenant-b's host <em>at the same site</em>:</p>
+<pre><code>lab@dc1-h1:~$ ping -c 2 172.21.1.2
+PING 172.21.1.2 (172.21.1.2): 56 data bytes
+
+--- 172.21.1.2 ping statistics ---
+2 packets transmitted, 0 packets received, 100% packet loss
+</code></pre>
+<h2>6. uSID: the whole path in one address</h2>
+<p>The structure <code>usid-f3216</code> means: 32-bit <strong>block</strong> <code>fd00:c</code>, then 16-bit <strong>node</strong> IDs, then 16-bit <strong>functions</strong>.
+A locator <code>fd00:c:3::/48</code> = block + node 3. And because the node ID is only 16 bits, several can be chained in the
+remaining 96 bits of one address:</p>
+<pre><code> fd00:c : 11 : 13 : 3 : e001 :: 
+ ──────   ──   ──   ─   ────
+ block    p1   p3   pe3  uDT4(tenant-b on pe3)
+</code></pre>
+<p>Each node whose ID is in the <em>first</em> slot after the block owns the packet: its uN SID (<code>End flavors next-csid</code>,
+&quot;NEXT-C-SID&quot;) <strong>shifts the address left by 16 bits</strong> (dropping its own ID, padding with zeros) and forwards on the
+new destination. No SRH entry is consumed; the segment list lives in the address itself.</p>
+<p>The lab's steering tool builds exactly that address to force tenant-b's dc1 → dc3 traffic over p1 and p3 instead of
+the shortest path through p2:</p>
+<pre><code>$ tools/steer.py add pe1 tenant-b 172.21.3.0/24 p1 p3
+pe1: tenant-b 172.21.3.0/24 -&gt; p1 -&gt; p3 -&gt; pe3  segments fd00:c:11:13:3:e001::  (out eth1)  [uSID: one compressed segment]
+172.21.3.0/24 nhid 119  encap seg6 mode encap segs 1 [ fd00:c:11:13:3:e001:: ] dev eth1 proto static metric 20
+</code></pre>
+<p>Watch the destination address change hop by hop. On p1's link <em>towards p3</em>, p1 has already consumed its uSID
+(<code>:11:</code>), so the destination is now <code>fd00:c:13:3:e001::</code> — while the SRH still shows the original carrier:</p>
+<pre><code>vyos@p1:~$ sudo tcpdump -ni eth2 -vv 'ip6 and dst net fd00:c::/32'
+02:35:26.833037 IP6 (hlim 62, next-header Routing (43) payload length: 108) fd00:a::1 &gt; fd00:c:13:3:e001::: RT6 (len=2, type=4, segleft=0, last-entry=0, flags=0x0, tag=0, [0]fd00:c:11:13:3:e001::) IP (tos 0x0, ttl 63, id 41183, offset 0, flags [DF], proto ICMP (1), length 84)
+    172.21.1.2 &gt; 172.21.3.2: ICMP echo request, id 8, seq 0, length 64
+02:35:27.333111 IP6 (hlim 62, next-header Routing (43) payload length: 108) fd00:a::1 &gt; fd00:c:13:3:e001::: RT6 (len=2, type=4, segleft=0, last-entry=0, flags=0x0, tag=0, [0]fd00:c:11:13:3:e001::) IP (tos 0x0, ttl 63, id 41230, offset 0, flags [DF], proto ICMP (1), length 84)
+    172.21.1.2 &gt; 172.21.3.2: ICMP echo request, id 8, seq 1, length 64
+</code></pre>
+<p>On p3's link towards pe3, p3 has shifted its own <code>:13:</code> out and the address is down to pe3's uDT4 SID
+<code>fd00:c:3:e001::</code>, exactly what a non-steered packet would carry:</p>
+<pre><code>vyos@p3:~$ sudo tcpdump -ni eth3 -vv 'ip6 and dst net fd00:c::/32'
+02:35:31.979345 IP6 (hlim 61, next-header Routing (43) payload length: 108) fd00:a::1 &gt; fd00:c:3:e001::: RT6 (len=2, type=4, segleft=0, last-entry=0, flags=0x0, tag=0, [0]fd00:c:11:13:3:e001::) IP (tos 0x0, ttl 63, id 43200, offset 0, flags [DF], proto ICMP (1), length 84)
+    172.21.1.2 &gt; 172.21.3.2: ICMP echo request, id 9, seq 0, length 64
+02:35:32.479412 IP6 (hlim 61, next-header Routing (43) payload length: 108) fd00:a::1 &gt; fd00:c:3:e001::: RT6 (len=2, type=4, segleft=0, last-entry=0, flags=0x0, tag=0, [0]fd00:c:11:13:3:e001::) IP (tos 0x0, ttl 63, id 43582, offset 0, flags [DF], proto ICMP (1), length 84)
+    172.21.1.2 &gt; 172.21.3.2: ICMP echo request, id 9, seq 1, length 64
+</code></pre>
+<p>Hop limit 61 at p3 = three routers (pe1, p1, p3); the unsteered packet showed 62 after two. The tenant still sees a
+single opaque hop:</p>
+<pre><code>lab@dc1-h2:~$ traceroute -n 172.21.3.2
+traceroute to 172.21.3.2 (172.21.3.2), 30 hops max, 46 byte packets
+ 1  172.21.1.1  0.372 ms
+ 2  *
+ 3  172.17.3.2  1.963 ms
+ 4  172.21.3.2  2.156 ms
+</code></pre>
+<p>The same path expressed the classic way — three full SIDs in an SRH — also works (<code>--uncompressed</code>), and is a good way
+to see what uSID saves: a three-entry SRH is 56 bytes and every P router on the path has to process it; the uSID
+packet carries the same one-entry SRH as unsteered traffic (24 bytes, and none at all with reduced encapsulation) and the
+P routers only rewrite the destination address:</p>
+<pre><code>$ tools/steer.py add pe1 tenant-b 172.21.3.0/24 p1 p3 --uncompressed
+172.21.3.0/24 nhid 161  encap seg6 mode encap segs 3 [ fd00:c:11:: fd00:c:13:: fd00:c:3:e001:: ] dev eth1 proto static metric 20
+</code></pre>
+<p>Removing the policy puts the prefix back on the BGP-learned single-segment route:</p>
+<pre><code>$ tools/steer.py del pe1 tenant-b 172.21.3.0/24
+pe1: tenant-b 172.21.3.0/24 back on the IGP shortest path
+172.21.3.0/24 nhid 99  encap seg6 mode encap segs 1 [ fd00:c:3:e001:: ] via inet6 fe80::5054:ff:fec6:603 dev eth2 proto bgp metric 20
+</code></pre>
+<h2>7. What breaks, and how the lab proves it does not</h2>
+<ul>
+<li><strong>Reflector failure</strong> (suite 06): shutting every client session on p1 leaves every VRF route, every SRv6 route and every
+in-tenant ping intact via p3 — the two <code>Cluster list</code> copies in §4 are the reason.</li>
+<li><strong>Link failure</strong> (suite 08): a silent cut of p2–pe3 (firewall drop of IS-IS + BFD, not an interface shutdown) is
+detected by BFD in ~1 s; pe3 moves every tenant route to p3, and a 0.2 s ping stream across cut and repair loses ≤ 10
+packets (measured: 4). Nothing in BGP changes: the VPN routes still point at the same SIDs, only the IGP path to the
+locator moved.</li>
+<li><strong>Throughput</strong> (suite 10): ~140 Mbit/s TCP host to host on a 1-vCPU software data plane over UDP-tunnelled links;
+steered uSID and uncompressed paths within a few percent of each other.</li>
+<li><strong>Tenant isolation</strong> (suite 05): 2 × 4 × 3 in-tenant pings succeed, every cross-tenant pair fails, P routers hold no
+tenant state.</li>
+</ul>
+<h2>8. Operating it like a network, not a demo</h2>
+<p>The point of the lab is not the seven routers, it is everything around them:</p>
+<ul>
+<li><strong>Source of truth</strong> — Nautobot models sites, devices, links, prefixes, VRFs with RTs and RDs, BGP peerings and the
+SRv6 locators; <code>nautobot/render.py</code> renders the exact configuration each node runs, and a test checks the rendering
+against <code>lab.conf</code> and against the routers.</li>
+<li><strong>Provisioning</strong> — a portal (FastAPI) adds a tenant or a site as a pipeline: allocate, model in Nautobot, render,
+bring up VMs, push configs, run the tests, back the configurations up to Gitea — with each step's log on the page.</li>
+<li><strong>Verification</strong> — 49 Robot Framework cases across 11 suites, run after every change; results (with every node's
+configuration and routing tables) are committed to the repository.</li>
+<li><strong>Monitoring</strong> — node-exporter and frr-exporter on every router, node-exporter on every host, and the portal's own
+<code>/metrics</code> for what exporters cannot see (tenant health, IS-IS/BFD adjacency counts), scraped by Prometheus into
+VictoriaMetrics with Grafana dashboards and alert rules:</li>
+</ul>
+<pre><code>$ curl -s http://10.3.0.11:9342/metrics | grep -E '^frr_(bgp_peer_state|bfd_peer_state)'
+frr_bfd_peer_state{local=&quot;fe80::5054:ff:fec6:101&quot;,peer=&quot;fe80::5054:ff:fec6:503&quot;} 1
+frr_bfd_peer_state{local=&quot;fe80::5054:ff:fec6:102&quot;,peer=&quot;fe80::5054:ff:fec6:603&quot;} 1
+frr_bgp_peer_state{afi=&quot;ipv4&quot;,local_as=&quot;65000&quot;,peer=&quot;172.16.1.2&quot;,peer_as=&quot;65001&quot;,safi=&quot;unicast&quot;,vrf=&quot;tenant-a&quot;} 1
+frr_bgp_peer_state{afi=&quot;ipv4&quot;,local_as=&quot;65000&quot;,peer=&quot;172.17.1.2&quot;,peer_as=&quot;65001&quot;,safi=&quot;unicast&quot;,vrf=&quot;tenant-b&quot;} 1
+frr_bgp_peer_state{afi=&quot;ipv4&quot;,local_as=&quot;65000&quot;,peer=&quot;fd00:a::11&quot;,peer_as=&quot;65000&quot;,safi=&quot;vpn&quot;,vrf=&quot;default&quot;} 1
+frr_bgp_peer_state{afi=&quot;ipv4&quot;,local_as=&quot;65000&quot;,peer=&quot;fd00:a::13&quot;,peer_as=&quot;65000&quot;,safi=&quot;vpn&quot;,vrf=&quot;default&quot;} 1
+</code></pre>
+<pre><code>$ curl -s http://127.0.0.1:8091/metrics | grep -E '^lab_(tenant_health|isis_adjacencies_up|tenant_site_bgp_up)'
+lab_tenant_site_bgp_up{lab=&quot;srv6-core&quot;,tenant=&quot;tenant-a&quot;,dc=&quot;dc1&quot;,pe=&quot;pe1&quot;,ce=&quot;ce1&quot;} 1
+lab_tenant_site_bgp_up{lab=&quot;srv6-core&quot;,tenant=&quot;tenant-b&quot;,dc=&quot;dc1&quot;,pe=&quot;pe1&quot;,ce=&quot;ce1&quot;} 1
+lab_tenant_health{lab=&quot;srv6-core&quot;,tenant=&quot;tenant-a&quot;,sites=&quot;4&quot;} 2
+lab_tenant_health{lab=&quot;srv6-core&quot;,tenant=&quot;tenant-b&quot;,sites=&quot;4&quot;} 2
+lab_isis_adjacencies_up{lab=&quot;srv6-core&quot;,node=&quot;pe1&quot;,role=&quot;pe&quot;} 2
+lab_isis_adjacencies_up{lab=&quot;srv6-core&quot;,node=&quot;pe2&quot;,role=&quot;pe&quot;} 2
+lab_isis_adjacencies_up{lab=&quot;srv6-core&quot;,node=&quot;pe3&quot;,role=&quot;pe&quot;} 2
+lab_isis_adjacencies_up{lab=&quot;srv6-core&quot;,node=&quot;pe4&quot;,role=&quot;pe&quot;} 2
+</code></pre>
+<h2>9. Three things worth remembering</h2>
+<ol>
+<li><strong>SRv6 is just IPv6 routing plus local instructions.</strong> The P routers in this lab run IS-IS and forward IPv6; every
+SRv6 behaviour is a <code>seg6local</code> route on the node that owns the address. If you can read <code>ip -6 route</code>, you can debug
+the core.</li>
+<li><strong>The VPN is the same BGP VPN you already know</strong>, with a SID where the label used to be. RD, RT, reflectors, import
+and export policy all carry over unchanged; only the transport moved from labels to addresses.</li>
+<li><strong>uSID makes traffic engineering cheap.</strong> A four-hop explicit path costs zero extra bytes on the wire and no state in
+the core — the path is the destination address, rewritten as it goes.</li>
+</ol>
+<hr />
+<p><em>Everything here is reproducible: https://github.com/dcantor/srv6-core — <code>./lab.sh up &amp;&amp; ./lab.sh bootstrap &amp;&amp; ./lab.sh test</code>.
+Configuration lines are in the README; the renderer is <code>tools/render.py</code>. Captures: <code>docs/walkthrough_capture.py</code>;
+this document: <code>docs/build_walkthrough.py</code>.</em></p>
+</body></html>
