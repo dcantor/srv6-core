@@ -499,6 +499,6 @@ U
 
 cmd="${1:-}"; shift || true
 case "$cmd" in
-  up|down|bootstrap|configure|steer|nautobot|webapp|iperf|ansible|backup|wait|status|inventory|verify|test|console|ssh|log|rebuild|clean) "cmd_$cmd" "$@" ;;
+  up|down|bootstrap|configure|steer|nautobot|webapp|iperf|backup|wait|status|inventory|verify|test|console|ssh|log|rebuild|clean) "cmd_$cmd" "$@" ;;
   *) usage; exit 1 ;;
 esac
