@@ -5,6 +5,10 @@ locator, isis_net, asn, pe, rd {tenant: rd}, ports [{name, ip, peer, peer_port, 
 import ipaddress
 
 
+NMS_IP, VM_PORT, VL_SYSLOG_PORT = "10.3.0.10", 8428, 5514  # the NMS on the OOB network: VictoriaMetrics (InfluxDB API) and VictoriaLogs (syslog)
+TELEGRAF_TOKEN = "srv6core-lab-telegraf".ljust(86, "_") + "=="   # VyOS insists on an InfluxDB-shaped token (86 chars + ==); VictoriaMetrics ignores it
+
+
 def render_all(inv):
     """{node name: config text} for every VyOS node in the inventory."""
     R = _Renderer(inv); return {n["name"]: R.render(n) for n in inv["nodes"] if n["role"] in ("pe", "p", "ce")}
@@ -26,7 +30,16 @@ class _Renderer:
                 f"set protocols static route 10.0.0.0/8 next-hop {self.inv['oob']['gateway']}",
                 "# monitoring: Prometheus exporters on the OOB address (node-exporter :9100, frr-exporter :9342), scraped from the NMS",
                 f"set service monitoring prometheus node-exporter listen-address {n['mgmt_ip']}",
-                f"set service monitoring prometheus frr-exporter listen-address {n['mgmt_ip']}"]
+                f"set service monitoring prometheus frr-exporter listen-address {n['mgmt_ip']}",
+                "# telemetry pushed by the node itself: VyOS Telegraf -> VictoriaMetrics on the NMS over the InfluxDB v2 write API (host",
+                "# metrics, VyOS service state, kernel nstat counters), every series tagged lab / role / dc; syslog -> VictoriaLogs (UDP 5514)",
+                f"set service monitoring telegraf influxdb url http://{NMS_IP}", f"set service monitoring telegraf influxdb port {VM_PORT}",
+                f"set service monitoring telegraf influxdb bucket {self.inv['lab']}", "set service monitoring telegraf influxdb authentication organization lab",
+                f"set service monitoring telegraf influxdb authentication token {TELEGRAF_TOKEN}",
+                f"set system syslog remote {NMS_IP} port {VL_SYSLOG_PORT}", f"set system syslog remote {NMS_IP} protocol udp",
+                f"set system syslog remote {NMS_IP} facility all level info",
+                f"set service monitoring telegraf global-tag lab value {self.inv['lab']}", f"set service monitoring telegraf global-tag role value {n['role']}",
+                f"set service monitoring telegraf global-tag dc value {n['dc']}"]
 
 
     def core_ports(self, n):

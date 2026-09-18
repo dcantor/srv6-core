@@ -10,6 +10,7 @@ ${PORTAL}           http://127.0.0.1:8091
 ${PROMETHEUS}       http://10.0.0.10:9090
 ${VICTORIAMETRICS}  http://10.0.0.10:8428
 ${GRAFANA}          http://10.0.0.10:3001
+${VICTORIALOGS}     http://10.0.0.10:9428
 
 *** Test Cases ***
 Every VyOS node serves node-exporter and frr-exporter on its OOB address
@@ -79,12 +80,33 @@ VictoriaMetrics holds the series remote-written by Prometheus
     ${expected}=    Evaluate    len($PES) * (len($RRS) + len($TENANTS)) + len($EXT_SITES)
     Should Be Equal As Numbers    ${bgp}[0][value]    ${expected}    msg=${bgp}[0][value] Established PE BGP sessions in VictoriaMetrics, expected ${expected}
 
+Every VyOS node pushes Telegraf metrics into VictoriaMetrics, tagged with the lab, role and DC
+    ${pushing}=    Prometheus Query    ${VICTORIAMETRICS}    count by (host, role, dc) (cpu_usage_idle{lab="srv6-core",cpu="cpu-total"})
+    ${hosts}=    Evaluate    sorted(r["labels"]["host"] for r in $pushing)
+    Lists Should Be Equal    ${hosts}    ${{ sorted($VYOS) }}    msg=Telegraf series missing for some VyOS nodes
+    FOR    ${r}    IN    @{pushing}
+        ${h}=    Set Variable    ${r}[labels][host]
+        Should Be Equal    ${r}[labels][role]    ${NODES}[${h}][role]
+        Should Be Equal    ${r}[labels][dc]    ${NODES}[${h}][dc]
+    END
+    ${svc}=    Prometheus Query    ${VICTORIAMETRICS}    count(vyos_services_status{lab="srv6-core"} == 0) or vector(0)
+    Should Be Equal As Numbers    ${svc}[0][value]    0    msg=a VyOS-reported service is down (vyos_services_status)
+    ${fresh}=    Prometheus Query    ${VICTORIAMETRICS}    count(count by (host) (last_over_time(cpu_usage_idle{lab="srv6-core",cpu="cpu-total"}[2m])))
+    Should Be Equal As Numbers    ${fresh}[0][value]    ${{ len($VYOS) }}    msg=not every node pushed within the last 2 minutes
+
+Every VyOS node's syslog reaches VictoriaLogs
+    ${r}=    Http Get    ${VICTORIALOGS}/select/logsql/query    query=_time:15m | stats by (hostname) count() as n
+    ${hosts}=    Evaluate    sorted(__import__("json").loads(l)["hostname"] for l in $r.splitlines() if l.strip())
+    FOR    ${n}    IN    @{VYOS}
+        Should Contain    ${hosts}    ${n}    msg=no syslog from ${n} in the last 15 minutes
+    END
+
 Grafana is healthy and serves the provisioned dashboards
     ${health}=    Http Get    ${GRAFANA}/api/health
     Should Be Equal    ${health}[database]    ok
     ${dash}=    Http Get    ${GRAFANA}/api/search    type=dash-db
     ${uids}=    Evaluate    [d["uid"] for d in $dash]
-    FOR    ${uid}    IN    srv6-core-overview    lab-node-detail    labs-fleet
+    FOR    ${uid}    IN    srv6-core-overview    lab-node-detail    labs-fleet    vyos-telegraf
         Should Contain    ${uids}    ${uid}    msg=dashboard ${uid} not provisioned
     END
     ${d}=    Http Get    ${GRAFANA}/api/dashboards/uid/srv6-core-overview

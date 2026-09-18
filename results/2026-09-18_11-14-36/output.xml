@@ -1,0 +1,2545 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<robot generator="Robot 7.5 (Python 3.14.4 on linux)" generated="2026-09-18T11:17:45.021625" rpa="false" schemaversion="5">
+<suite id="s1" name="srv6 core lab" source="/home/dcantor/srv6-core/tests/suites/11_monitoring.robot">
+<test id="s1-t1" name="Every VyOS node serves node-exporter and frr-exporter on its OOB address" line="16">
+<for flavor="IN">
+<iter>
+<kw name="Http Get" owner="LabLib">
+<msg time="2026-09-18T11:17:48.385415" level="INFO">${node} = # HELP go_gc_duration_seconds A summary of the wall-time pause (stop-the-world) duration in garbage collection cycles.
+# TYPE go_gc_duration_seconds summary
+go_gc_duration_seconds{quantile="0"} 1.7183...</msg>
+<var>${node}</var>
+<arg>http://${MGMT}[${n}]:9100/metrics</arg>
+<doc>GET a URL; returns the parsed JSON, or the text for non-JSON answers (Prometheus exposition).</doc>
+<status status="PASS" start="2026-09-18T11:17:47.506138" elapsed="0.879328"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${node}</arg>
+<arg>node_uname_info{</arg>
+<arg>msg=${n}: node-exporter has no node_uname_info</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:48.385639" elapsed="0.000599"/>
+</kw>
+<kw name="Http Get" owner="LabLib">
+<msg time="2026-09-18T11:17:49.072432" level="INFO">${frr} = # HELP frr_bfd_peer_count Number of peers detected.
+# TYPE frr_bfd_peer_count gauge
+frr_bfd_peer_count 2
+# HELP frr_bfd_peer_state State of the bfd peer (1 = Up, 0 = Down).
+# TYPE frr_bfd_peer_state g...</msg>
+<var>${frr}</var>
+<arg>http://${MGMT}[${n}]:9342/metrics</arg>
+<doc>GET a URL; returns the parsed JSON, or the text for non-JSON answers (Prometheus exposition).</doc>
+<status status="PASS" start="2026-09-18T11:17:48.386342" elapsed="0.686141"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${frr}</arg>
+<arg>frr_route_total</arg>
+<arg>msg=${n}: frr-exporter has no frr_route_total</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:49.072661" elapsed="0.000412"/>
+</kw>
+<var name="${n}">pe1</var>
+<status status="PASS" start="2026-09-18T11:17:47.505628" elapsed="1.567481"/>
+</iter>
+<iter>
+<kw name="Http Get" owner="LabLib">
+<msg time="2026-09-18T11:17:49.357650" level="INFO">${node} = # HELP go_gc_duration_seconds A summary of the wall-time pause (stop-the-world) duration in garbage collection cycles.
+# TYPE go_gc_duration_seconds summary
+go_gc_duration_seconds{quantile="0"} 1.74e-...</msg>
+<var>${node}</var>
+<arg>http://${MGMT}[${n}]:9100/metrics</arg>
+<doc>GET a URL; returns the parsed JSON, or the text for non-JSON answers (Prometheus exposition).</doc>
+<status status="PASS" start="2026-09-18T11:17:49.073306" elapsed="0.284397"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${node}</arg>
+<arg>node_uname_info{</arg>
+<arg>msg=${n}: node-exporter has no node_uname_info</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:49.357865" elapsed="0.000416"/>
+</kw>
+<kw name="Http Get" owner="LabLib">
+<msg time="2026-09-18T11:17:49.763908" level="INFO">${frr} = # HELP frr_bfd_peer_count Number of peers detected.
+# TYPE frr_bfd_peer_count gauge
+frr_bfd_peer_count 2
+# HELP frr_bfd_peer_state State of the bfd peer (1 = Up, 0 = Down).
+# TYPE frr_bfd_peer_state g...</msg>
+<var>${frr}</var>
+<arg>http://${MGMT}[${n}]:9342/metrics</arg>
+<doc>GET a URL; returns the parsed JSON, or the text for non-JSON answers (Prometheus exposition).</doc>
+<status status="PASS" start="2026-09-18T11:17:49.358378" elapsed="0.405566"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${frr}</arg>
+<arg>frr_route_total</arg>
+<arg>msg=${n}: frr-exporter has no frr_route_total</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:49.764080" elapsed="0.000380"/>
+</kw>
+<var name="${n}">pe2</var>
+<status status="PASS" start="2026-09-18T11:17:49.073226" elapsed="0.691267"/>
+</iter>
+<iter>
+<kw name="Http Get" owner="LabLib">
+<msg time="2026-09-18T11:17:49.977269" level="INFO">${node} = # HELP go_gc_duration_seconds A summary of the wall-time pause (stop-the-world) duration in garbage collection cycles.
+# TYPE go_gc_duration_seconds summary
+go_gc_duration_seconds{quantile="0"} 1.7093...</msg>
+<var>${node}</var>
+<arg>http://${MGMT}[${n}]:9100/metrics</arg>
+<doc>GET a URL; returns the parsed JSON, or the text for non-JSON answers (Prometheus exposition).</doc>
+<status status="PASS" start="2026-09-18T11:17:49.764677" elapsed="0.212634"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${node}</arg>
+<arg>node_uname_info{</arg>
+<arg>msg=${n}: node-exporter has no node_uname_info</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:49.977446" elapsed="0.000422"/>
+</kw>
+<kw name="Http Get" owner="LabLib">
+<msg time="2026-09-18T11:17:50.946443" level="INFO">${frr} = # HELP frr_bfd_peer_count Number of peers detected.
+# TYPE frr_bfd_peer_count gauge
+frr_bfd_peer_count 2
+# HELP frr_bfd_peer_state State of the bfd peer (1 = Up, 0 = Down).
+# TYPE frr_bfd_peer_state g...</msg>
+<var>${frr}</var>
+<arg>http://${MGMT}[${n}]:9342/metrics</arg>
+<doc>GET a URL; returns the parsed JSON, or the text for non-JSON answers (Prometheus exposition).</doc>
+<status status="PASS" start="2026-09-18T11:17:49.977970" elapsed="0.968523"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${frr}</arg>
+<arg>frr_route_total</arg>
+<arg>msg=${n}: frr-exporter has no frr_route_total</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:50.946655" elapsed="0.000360"/>
+</kw>
+<var name="${n}">pe3</var>
+<status status="PASS" start="2026-09-18T11:17:49.764586" elapsed="1.182462"/>
+</iter>
+<iter>
+<kw name="Http Get" owner="LabLib">
+<msg time="2026-09-18T11:17:51.239855" level="INFO">${node} = # HELP go_gc_duration_seconds A summary of the wall-time pause (stop-the-world) duration in garbage collection cycles.
+# TYPE go_gc_duration_seconds summary
+go_gc_duration_seconds{quantile="0"} 2.0198...</msg>
+<var>${node}</var>
+<arg>http://${MGMT}[${n}]:9100/metrics</arg>
+<doc>GET a URL; returns the parsed JSON, or the text for non-JSON answers (Prometheus exposition).</doc>
+<status status="PASS" start="2026-09-18T11:17:50.947201" elapsed="0.292692"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${node}</arg>
+<arg>node_uname_info{</arg>
+<arg>msg=${n}: node-exporter has no node_uname_info</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:51.240062" elapsed="0.000372"/>
+</kw>
+<kw name="Http Get" owner="LabLib">
+<msg time="2026-09-18T11:17:51.758983" level="INFO">${frr} = # HELP frr_bfd_peer_count Number of peers detected.
+# TYPE frr_bfd_peer_count gauge
+frr_bfd_peer_count 2
+# HELP frr_bfd_peer_state State of the bfd peer (1 = Up, 0 = Down).
+# TYPE frr_bfd_peer_state g...</msg>
+<var>${frr}</var>
+<arg>http://${MGMT}[${n}]:9342/metrics</arg>
+<doc>GET a URL; returns the parsed JSON, or the text for non-JSON answers (Prometheus exposition).</doc>
+<status status="PASS" start="2026-09-18T11:17:51.240522" elapsed="0.518512"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${frr}</arg>
+<arg>frr_route_total</arg>
+<arg>msg=${n}: frr-exporter has no frr_route_total</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:51.759183" elapsed="0.000384"/>
+</kw>
+<var name="${n}">pe4</var>
+<status status="PASS" start="2026-09-18T11:17:50.947134" elapsed="0.812490"/>
+</iter>
+<iter>
+<kw name="Http Get" owner="LabLib">
+<msg time="2026-09-18T11:17:51.773192" level="INFO">${node} = # HELP go_gc_duration_seconds A summary of the wall-time pause (stop-the-world) duration in garbage collection cycles.
+# TYPE go_gc_duration_seconds summary
+go_gc_duration_seconds{quantile="0"} 2.0785...</msg>
+<var>${node}</var>
+<arg>http://${MGMT}[${n}]:9100/metrics</arg>
+<doc>GET a URL; returns the parsed JSON, or the text for non-JSON answers (Prometheus exposition).</doc>
+<status status="PASS" start="2026-09-18T11:17:51.759805" elapsed="0.013427"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${node}</arg>
+<arg>node_uname_info{</arg>
+<arg>msg=${n}: node-exporter has no node_uname_info</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:51.773441" elapsed="0.000468"/>
+</kw>
+<kw name="Http Get" owner="LabLib">
+<msg time="2026-09-18T11:17:52.055553" level="INFO">${frr} = # HELP frr_bfd_peer_count Number of peers detected.
+# TYPE frr_bfd_peer_count gauge
+frr_bfd_peer_count 4
+# HELP frr_bfd_peer_state State of the bfd peer (1 = Up, 0 = Down).
+# TYPE frr_bfd_peer_state g...</msg>
+<var>${frr}</var>
+<arg>http://${MGMT}[${n}]:9342/metrics</arg>
+<doc>GET a URL; returns the parsed JSON, or the text for non-JSON answers (Prometheus exposition).</doc>
+<status status="PASS" start="2026-09-18T11:17:51.774009" elapsed="0.281604"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${frr}</arg>
+<arg>frr_route_total</arg>
+<arg>msg=${n}: frr-exporter has no frr_route_total</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:52.055785" elapsed="0.000349"/>
+</kw>
+<var name="${n}">p1</var>
+<status status="PASS" start="2026-09-18T11:17:51.759729" elapsed="0.296446"/>
+</iter>
+<iter>
+<kw name="Http Get" owner="LabLib">
+<msg time="2026-09-18T11:17:52.293274" level="INFO">${node} = # HELP go_gc_duration_seconds A summary of the wall-time pause (stop-the-world) duration in garbage collection cycles.
+# TYPE go_gc_duration_seconds summary
+go_gc_duration_seconds{quantile="0"} 2.4177...</msg>
+<var>${node}</var>
+<arg>http://${MGMT}[${n}]:9100/metrics</arg>
+<doc>GET a URL; returns the parsed JSON, or the text for non-JSON answers (Prometheus exposition).</doc>
+<status status="PASS" start="2026-09-18T11:17:52.056359" elapsed="0.236969"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${node}</arg>
+<arg>node_uname_info{</arg>
+<arg>msg=${n}: node-exporter has no node_uname_info</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:52.293483" elapsed="0.000415"/>
+</kw>
+<kw name="Http Get" owner="LabLib">
+<msg time="2026-09-18T11:17:52.560409" level="INFO">${frr} = # HELP frr_bfd_peer_count Number of peers detected.
+# TYPE frr_bfd_peer_count gauge
+frr_bfd_peer_count 6
+# HELP frr_bfd_peer_state State of the bfd peer (1 = Up, 0 = Down).
+# TYPE frr_bfd_peer_state g...</msg>
+<var>${frr}</var>
+<arg>http://${MGMT}[${n}]:9342/metrics</arg>
+<doc>GET a URL; returns the parsed JSON, or the text for non-JSON answers (Prometheus exposition).</doc>
+<status status="PASS" start="2026-09-18T11:17:52.294018" elapsed="0.266449"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${frr}</arg>
+<arg>frr_route_total</arg>
+<arg>msg=${n}: frr-exporter has no frr_route_total</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:52.560666" elapsed="0.000388"/>
+</kw>
+<var name="${n}">p2</var>
+<status status="PASS" start="2026-09-18T11:17:52.056286" elapsed="0.504804"/>
+</iter>
+<iter>
+<kw name="Http Get" owner="LabLib">
+<msg time="2026-09-18T11:17:52.788959" level="INFO">${node} = # HELP go_gc_duration_seconds A summary of the wall-time pause (stop-the-world) duration in garbage collection cycles.
+# TYPE go_gc_duration_seconds summary
+go_gc_duration_seconds{quantile="0"} 2.1242...</msg>
+<var>${node}</var>
+<arg>http://${MGMT}[${n}]:9100/metrics</arg>
+<doc>GET a URL; returns the parsed JSON, or the text for non-JSON answers (Prometheus exposition).</doc>
+<status status="PASS" start="2026-09-18T11:17:52.561308" elapsed="0.227692"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${node}</arg>
+<arg>node_uname_info{</arg>
+<arg>msg=${n}: node-exporter has no node_uname_info</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:52.789134" elapsed="0.000363"/>
+</kw>
+<kw name="Http Get" owner="LabLib">
+<msg time="2026-09-18T11:17:53.120106" level="INFO">${frr} = # HELP frr_bfd_peer_count Number of peers detected.
+# TYPE frr_bfd_peer_count gauge
+frr_bfd_peer_count 4
+# HELP frr_bfd_peer_state State of the bfd peer (1 = Up, 0 = Down).
+# TYPE frr_bfd_peer_state g...</msg>
+<var>${frr}</var>
+<arg>http://${MGMT}[${n}]:9342/metrics</arg>
+<doc>GET a URL; returns the parsed JSON, or the text for non-JSON answers (Prometheus exposition).</doc>
+<status status="PASS" start="2026-09-18T11:17:52.789617" elapsed="0.330529"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${frr}</arg>
+<arg>frr_route_total</arg>
+<arg>msg=${n}: frr-exporter has no frr_route_total</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:53.120277" elapsed="0.000358"/>
+</kw>
+<var name="${n}">p3</var>
+<status status="PASS" start="2026-09-18T11:17:52.561203" elapsed="0.559465"/>
+</iter>
+<iter>
+<kw name="Http Get" owner="LabLib">
+<msg time="2026-09-18T11:17:53.139391" level="INFO">${node} = # HELP go_gc_duration_seconds A summary of the wall-time pause (stop-the-world) duration in garbage collection cycles.
+# TYPE go_gc_duration_seconds summary
+go_gc_duration_seconds{quantile="0"} 1.8038...</msg>
+<var>${node}</var>
+<arg>http://${MGMT}[${n}]:9100/metrics</arg>
+<doc>GET a URL; returns the parsed JSON, or the text for non-JSON answers (Prometheus exposition).</doc>
+<status status="PASS" start="2026-09-18T11:17:53.120852" elapsed="0.018578"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${node}</arg>
+<arg>node_uname_info{</arg>
+<arg>msg=${n}: node-exporter has no node_uname_info</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:53.139584" elapsed="0.000439"/>
+</kw>
+<kw name="Http Get" owner="LabLib">
+<msg time="2026-09-18T11:17:53.266985" level="INFO">${frr} = # HELP frr_bfd_peer_count Number of peers detected.
+# TYPE frr_bfd_peer_count gauge
+frr_bfd_peer_count 0
+# HELP frr_bgp_peer_groups_count_total Number of peer groups configured.
+# TYPE frr_bgp_peer_gr...</msg>
+<var>${frr}</var>
+<arg>http://${MGMT}[${n}]:9342/metrics</arg>
+<doc>GET a URL; returns the parsed JSON, or the text for non-JSON answers (Prometheus exposition).</doc>
+<status status="PASS" start="2026-09-18T11:17:53.140118" elapsed="0.126915"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${frr}</arg>
+<arg>frr_route_total</arg>
+<arg>msg=${n}: frr-exporter has no frr_route_total</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:53.267170" elapsed="0.000386"/>
+</kw>
+<var name="${n}">ce1</var>
+<status status="PASS" start="2026-09-18T11:17:53.120760" elapsed="0.146830"/>
+</iter>
+<iter>
+<kw name="Http Get" owner="LabLib">
+<msg time="2026-09-18T11:17:53.286380" level="INFO">${node} = # HELP go_gc_duration_seconds A summary of the wall-time pause (stop-the-world) duration in garbage collection cycles.
+# TYPE go_gc_duration_seconds summary
+go_gc_duration_seconds{quantile="0"} 2.0445...</msg>
+<var>${node}</var>
+<arg>http://${MGMT}[${n}]:9100/metrics</arg>
+<doc>GET a URL; returns the parsed JSON, or the text for non-JSON answers (Prometheus exposition).</doc>
+<status status="PASS" start="2026-09-18T11:17:53.267772" elapsed="0.018647"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${node}</arg>
+<arg>node_uname_info{</arg>
+<arg>msg=${n}: node-exporter has no node_uname_info</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:53.286568" elapsed="0.000373"/>
+</kw>
+<kw name="Http Get" owner="LabLib">
+<msg time="2026-09-18T11:17:53.680741" level="INFO">${frr} = # HELP frr_bfd_peer_count Number of peers detected.
+# TYPE frr_bfd_peer_count gauge
+frr_bfd_peer_count 0
+# HELP frr_bgp_peer_groups_count_total Number of peer groups configured.
+# TYPE frr_bgp_peer_gr...</msg>
+<var>${frr}</var>
+<arg>http://${MGMT}[${n}]:9342/metrics</arg>
+<doc>GET a URL; returns the parsed JSON, or the text for non-JSON answers (Prometheus exposition).</doc>
+<status status="PASS" start="2026-09-18T11:17:53.287032" elapsed="0.393778"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${frr}</arg>
+<arg>frr_route_total</arg>
+<arg>msg=${n}: frr-exporter has no frr_route_total</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:53.680963" elapsed="0.000373"/>
+</kw>
+<var name="${n}">ce2</var>
+<status status="PASS" start="2026-09-18T11:17:53.267695" elapsed="0.413673"/>
+</iter>
+<iter>
+<kw name="Http Get" owner="LabLib">
+<msg time="2026-09-18T11:17:53.701692" level="INFO">${node} = # HELP go_gc_duration_seconds A summary of the wall-time pause (stop-the-world) duration in garbage collection cycles.
+# TYPE go_gc_duration_seconds summary
+go_gc_duration_seconds{quantile="0"} 1.7034...</msg>
+<var>${node}</var>
+<arg>http://${MGMT}[${n}]:9100/metrics</arg>
+<doc>GET a URL; returns the parsed JSON, or the text for non-JSON answers (Prometheus exposition).</doc>
+<status status="PASS" start="2026-09-18T11:17:53.681555" elapsed="0.020180"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${node}</arg>
+<arg>node_uname_info{</arg>
+<arg>msg=${n}: node-exporter has no node_uname_info</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:53.701871" elapsed="0.000358"/>
+</kw>
+<kw name="Http Get" owner="LabLib">
+<msg time="2026-09-18T11:17:53.989744" level="INFO">${frr} = # HELP frr_bfd_peer_count Number of peers detected.
+# TYPE frr_bfd_peer_count gauge
+frr_bfd_peer_count 0
+# HELP frr_bgp_peer_groups_count_total Number of peer groups configured.
+# TYPE frr_bgp_peer_gr...</msg>
+<var>${frr}</var>
+<arg>http://${MGMT}[${n}]:9342/metrics</arg>
+<doc>GET a URL; returns the parsed JSON, or the text for non-JSON answers (Prometheus exposition).</doc>
+<status status="PASS" start="2026-09-18T11:17:53.702319" elapsed="0.287468"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${frr}</arg>
+<arg>frr_route_total</arg>
+<arg>msg=${n}: frr-exporter has no frr_route_total</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:53.989925" elapsed="0.000342"/>
+</kw>
+<var name="${n}">ce3</var>
+<status status="PASS" start="2026-09-18T11:17:53.681464" elapsed="0.308837"/>
+</iter>
+<iter>
+<kw name="Http Get" owner="LabLib">
+<msg time="2026-09-18T11:17:54.010061" level="INFO">${node} = # HELP go_gc_duration_seconds A summary of the wall-time pause (stop-the-world) duration in garbage collection cycles.
+# TYPE go_gc_duration_seconds summary
+go_gc_duration_seconds{quantile="0"} 1.7739...</msg>
+<var>${node}</var>
+<arg>http://${MGMT}[${n}]:9100/metrics</arg>
+<doc>GET a URL; returns the parsed JSON, or the text for non-JSON answers (Prometheus exposition).</doc>
+<status status="PASS" start="2026-09-18T11:17:53.990461" elapsed="0.019642"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${node}</arg>
+<arg>node_uname_info{</arg>
+<arg>msg=${n}: node-exporter has no node_uname_info</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.010233" elapsed="0.000389"/>
+</kw>
+<kw name="Http Get" owner="LabLib">
+<msg time="2026-09-18T11:17:54.330809" level="INFO">${frr} = # HELP frr_bfd_peer_count Number of peers detected.
+# TYPE frr_bfd_peer_count gauge
+frr_bfd_peer_count 0
+# HELP frr_bgp_peer_groups_count_total Number of peer groups configured.
+# TYPE frr_bgp_peer_gr...</msg>
+<var>${frr}</var>
+<arg>http://${MGMT}[${n}]:9342/metrics</arg>
+<doc>GET a URL; returns the parsed JSON, or the text for non-JSON answers (Prometheus exposition).</doc>
+<status status="PASS" start="2026-09-18T11:17:54.010737" elapsed="0.320115"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${frr}</arg>
+<arg>frr_route_total</arg>
+<arg>msg=${n}: frr-exporter has no frr_route_total</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.331005" elapsed="0.000384"/>
+</kw>
+<var name="${n}">ce4</var>
+<status status="PASS" start="2026-09-18T11:17:53.990385" elapsed="0.341036"/>
+</iter>
+<var>${n}</var>
+<value>@{VYOS}</value>
+<status status="PASS" start="2026-09-18T11:17:47.505426" elapsed="6.826021"/>
+</for>
+<status status="PASS" start="2026-09-18T11:17:47.505161" elapsed="6.826385"/>
+</test>
+<test id="s1-t2" name="The frr-exporter reports every BGP session of every PE as Established" line="24">
+<for flavor="IN">
+<iter>
+<kw name="Http Get" owner="LabLib">
+<msg time="2026-09-18T11:17:54.336729" level="INFO">${text} = # HELP frr_bfd_peer_count Number of peers detected.
+# TYPE frr_bfd_peer_count gauge
+frr_bfd_peer_count 2
+# HELP frr_bfd_peer_state State of the bfd peer (1 = Up, 0 = Down).
+# TYPE frr_bfd_peer_state g...</msg>
+<var>${text}</var>
+<arg>http://${MGMT}[${pe}]:9342/metrics</arg>
+<doc>GET a URL; returns the parsed JSON, or the text for non-JSON answers (Prometheus exposition).</doc>
+<status status="PASS" start="2026-09-18T11:17:54.332170" elapsed="0.004597"/>
+</kw>
+<kw name="Metric Samples" owner="LabLib">
+<msg time="2026-09-18T11:17:54.337324" level="INFO">${peers} = [{'labels': {'afi': 'ipv4', 'local_as': '65000', 'peer': '172.16.1.2', 'peer_as': '65001', 'safi': 'unicast', 'vrf': 'tenant-a'}, 'value': 1.0}, {'labels': {'afi': 'ipv4', 'local_as': '65000', 'peer':...</msg>
+<var>${peers}</var>
+<arg>${text}</arg>
+<arg>frr_bgp_peer_state</arg>
+<doc>Parse the samples of one metric from Prometheus text exposition: [{labels, value}].</doc>
+<status status="PASS" start="2026-09-18T11:17:54.336895" elapsed="0.000452"/>
+</kw>
+<kw name="Evaluate" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.337937" level="INFO">${expected} = 4</msg>
+<var>${expected}</var>
+<arg>len($RRS) + len($TENANTS) + len([s for s in $EXT_SITES.values() if s["pe"] == "${pe}"])</arg>
+<doc>Evaluates the given expression in Python and returns the result.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.337443" elapsed="0.000516"/>
+</kw>
+<kw name="Length Should Be" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.338283" level="INFO">Length is 4.</msg>
+<arg>${peers}</arg>
+<arg>${expected}</arg>
+<arg>msg=${pe}: expected ${expected} BGP peers in frr_bgp_peer_state</arg>
+<doc>Verifies that the length of the given item is correct.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.338034" elapsed="0.000285"/>
+</kw>
+<for flavor="IN">
+<iter>
+<kw name="Should Be Equal As Numbers" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.338777" level="INFO">Argument types are:
+&lt;class 'float'&gt;
+&lt;class 'str'&gt;</msg>
+<arg>${p}[value]</arg>
+<arg>1</arg>
+<arg>msg=${pe}: peer ${p}[labels][peer] (${p}[labels][vrf]) is not Established</arg>
+<doc>Fails if objects are unequal after converting them to real numbers.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.338521" elapsed="0.000307"/>
+</kw>
+<var name="${p}">{'labels': {'afi': 'ipv4', 'local_as': '65000', 'peer': '172.16.1.2', 'peer_as': '65001', 'safi': 'unicast', 'vrf': 'tenant-a'}, 'value': 1.0}</var>
+<status status="PASS" start="2026-09-18T11:17:54.338447" elapsed="0.000408"/>
+</iter>
+<iter>
+<kw name="Should Be Equal As Numbers" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.339205" level="INFO">Argument types are:
+&lt;class 'float'&gt;
+&lt;class 'str'&gt;</msg>
+<arg>${p}[value]</arg>
+<arg>1</arg>
+<arg>msg=${pe}: peer ${p}[labels][peer] (${p}[labels][vrf]) is not Established</arg>
+<doc>Fails if objects are unequal after converting them to real numbers.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.338987" elapsed="0.000256"/>
+</kw>
+<var name="${p}">{'labels': {'afi': 'ipv4', 'local_as': '65000', 'peer': '172.18.1.2', 'peer_as': '65001', 'safi': 'unicast', 'vrf': 'tenant-b'}, 'value': 1.0}</var>
+<status status="PASS" start="2026-09-18T11:17:54.338915" elapsed="0.000353"/>
+</iter>
+<iter>
+<kw name="Should Be Equal As Numbers" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.339585" level="INFO">Argument types are:
+&lt;class 'float'&gt;
+&lt;class 'str'&gt;</msg>
+<arg>${p}[value]</arg>
+<arg>1</arg>
+<arg>msg=${pe}: peer ${p}[labels][peer] (${p}[labels][vrf]) is not Established</arg>
+<doc>Fails if objects are unequal after converting them to real numbers.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.339391" elapsed="0.000263"/>
+</kw>
+<var name="${p}">{'labels': {'afi': 'ipv4', 'local_as': '65000', 'peer': 'fd00:a::11', 'peer_as': '65000', 'safi': 'vpn', 'vrf': 'default'}, 'value': 1.0}</var>
+<status status="PASS" start="2026-09-18T11:17:54.339323" elapsed="0.000356"/>
+</iter>
+<iter>
+<kw name="Should Be Equal As Numbers" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.340019" level="INFO">Argument types are:
+&lt;class 'float'&gt;
+&lt;class 'str'&gt;</msg>
+<arg>${p}[value]</arg>
+<arg>1</arg>
+<arg>msg=${pe}: peer ${p}[labels][peer] (${p}[labels][vrf]) is not Established</arg>
+<doc>Fails if objects are unequal after converting them to real numbers.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.339822" elapsed="0.000234"/>
+</kw>
+<var name="${p}">{'labels': {'afi': 'ipv4', 'local_as': '65000', 'peer': 'fd00:a::13', 'peer_as': '65000', 'safi': 'vpn', 'vrf': 'default'}, 'value': 1.0}</var>
+<status status="PASS" start="2026-09-18T11:17:54.339756" elapsed="0.000324"/>
+</iter>
+<var>${p}</var>
+<value>@{peers}</value>
+<status status="PASS" start="2026-09-18T11:17:54.338359" elapsed="0.001741"/>
+</for>
+<var name="${pe}">pe1</var>
+<status status="PASS" start="2026-09-18T11:17:54.332100" elapsed="0.008026"/>
+</iter>
+<iter>
+<kw name="Http Get" owner="LabLib">
+<msg time="2026-09-18T11:17:54.345079" level="INFO">${text} = # HELP frr_bfd_peer_count Number of peers detected.
+# TYPE frr_bfd_peer_count gauge
+frr_bfd_peer_count 2
+# HELP frr_bfd_peer_state State of the bfd peer (1 = Up, 0 = Down).
+# TYPE frr_bfd_peer_state g...</msg>
+<var>${text}</var>
+<arg>http://${MGMT}[${pe}]:9342/metrics</arg>
+<doc>GET a URL; returns the parsed JSON, or the text for non-JSON answers (Prometheus exposition).</doc>
+<status status="PASS" start="2026-09-18T11:17:54.340250" elapsed="0.004863"/>
+</kw>
+<kw name="Metric Samples" owner="LabLib">
+<msg time="2026-09-18T11:17:54.345462" level="INFO">${peers} = [{'labels': {'afi': 'ipv4', 'local_as': '65000', 'peer': '172.16.2.2', 'peer_as': '65002', 'safi': 'unicast', 'vrf': 'tenant-a'}, 'value': 1.0}, {'labels': {'afi': 'ipv4', 'local_as': '65000', 'peer':...</msg>
+<var>${peers}</var>
+<arg>${text}</arg>
+<arg>frr_bgp_peer_state</arg>
+<doc>Parse the samples of one metric from Prometheus text exposition: [{labels, value}].</doc>
+<status status="PASS" start="2026-09-18T11:17:54.345214" elapsed="0.000268"/>
+</kw>
+<kw name="Evaluate" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.346056" level="INFO">${expected} = 4</msg>
+<var>${expected}</var>
+<arg>len($RRS) + len($TENANTS) + len([s for s in $EXT_SITES.values() if s["pe"] == "${pe}"])</arg>
+<doc>Evaluates the given expression in Python and returns the result.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.345576" elapsed="0.000501"/>
+</kw>
+<kw name="Length Should Be" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.346407" level="INFO">Length is 4.</msg>
+<arg>${peers}</arg>
+<arg>${expected}</arg>
+<arg>msg=${pe}: expected ${expected} BGP peers in frr_bgp_peer_state</arg>
+<doc>Verifies that the length of the given item is correct.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.346150" elapsed="0.000291"/>
+</kw>
+<for flavor="IN">
+<iter>
+<kw name="Should Be Equal As Numbers" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.346912" level="INFO">Argument types are:
+&lt;class 'float'&gt;
+&lt;class 'str'&gt;</msg>
+<arg>${p}[value]</arg>
+<arg>1</arg>
+<arg>msg=${pe}: peer ${p}[labels][peer] (${p}[labels][vrf]) is not Established</arg>
+<doc>Fails if objects are unequal after converting them to real numbers.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.346658" elapsed="0.000297"/>
+</kw>
+<var name="${p}">{'labels': {'afi': 'ipv4', 'local_as': '65000', 'peer': '172.16.2.2', 'peer_as': '65002', 'safi': 'unicast', 'vrf': 'tenant-a'}, 'value': 1.0}</var>
+<status status="PASS" start="2026-09-18T11:17:54.346573" elapsed="0.000407"/>
+</iter>
+<iter>
+<kw name="Should Be Equal As Numbers" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.347308" level="INFO">Argument types are:
+&lt;class 'float'&gt;
+&lt;class 'str'&gt;</msg>
+<arg>${p}[value]</arg>
+<arg>1</arg>
+<arg>msg=${pe}: peer ${p}[labels][peer] (${p}[labels][vrf]) is not Established</arg>
+<doc>Fails if objects are unequal after converting them to real numbers.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.347108" elapsed="0.000237"/>
+</kw>
+<var name="${p}">{'labels': {'afi': 'ipv4', 'local_as': '65000', 'peer': '172.18.2.2', 'peer_as': '65002', 'safi': 'unicast', 'vrf': 'tenant-b'}, 'value': 1.0}</var>
+<status status="PASS" start="2026-09-18T11:17:54.347042" elapsed="0.000328"/>
+</iter>
+<iter>
+<kw name="Should Be Equal As Numbers" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.347701" level="INFO">Argument types are:
+&lt;class 'float'&gt;
+&lt;class 'str'&gt;</msg>
+<arg>${p}[value]</arg>
+<arg>1</arg>
+<arg>msg=${pe}: peer ${p}[labels][peer] (${p}[labels][vrf]) is not Established</arg>
+<doc>Fails if objects are unequal after converting them to real numbers.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.347491" elapsed="0.000260"/>
+</kw>
+<var name="${p}">{'labels': {'afi': 'ipv4', 'local_as': '65000', 'peer': 'fd00:a::11', 'peer_as': '65000', 'safi': 'vpn', 'vrf': 'default'}, 'value': 1.0}</var>
+<status status="PASS" start="2026-09-18T11:17:54.347422" elapsed="0.000356"/>
+</iter>
+<iter>
+<kw name="Should Be Equal As Numbers" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.348091" level="INFO">Argument types are:
+&lt;class 'float'&gt;
+&lt;class 'str'&gt;</msg>
+<arg>${p}[value]</arg>
+<arg>1</arg>
+<arg>msg=${pe}: peer ${p}[labels][peer] (${p}[labels][vrf]) is not Established</arg>
+<doc>Fails if objects are unequal after converting them to real numbers.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.347897" elapsed="0.000230"/>
+</kw>
+<var name="${p}">{'labels': {'afi': 'ipv4', 'local_as': '65000', 'peer': 'fd00:a::13', 'peer_as': '65000', 'safi': 'vpn', 'vrf': 'default'}, 'value': 1.0}</var>
+<status status="PASS" start="2026-09-18T11:17:54.347831" elapsed="0.000319"/>
+</iter>
+<var>${p}</var>
+<value>@{peers}</value>
+<status status="PASS" start="2026-09-18T11:17:54.346482" elapsed="0.001687"/>
+</for>
+<var name="${pe}">pe2</var>
+<status status="PASS" start="2026-09-18T11:17:54.340203" elapsed="0.007985"/>
+</iter>
+<iter>
+<kw name="Http Get" owner="LabLib">
+<msg time="2026-09-18T11:17:54.352601" level="INFO">${text} = # HELP frr_bfd_peer_count Number of peers detected.
+# TYPE frr_bfd_peer_count gauge
+frr_bfd_peer_count 2
+# HELP frr_bfd_peer_state State of the bfd peer (1 = Up, 0 = Down).
+# TYPE frr_bfd_peer_state g...</msg>
+<var>${text}</var>
+<arg>http://${MGMT}[${pe}]:9342/metrics</arg>
+<doc>GET a URL; returns the parsed JSON, or the text for non-JSON answers (Prometheus exposition).</doc>
+<status status="PASS" start="2026-09-18T11:17:54.348315" elapsed="0.004320"/>
+</kw>
+<kw name="Metric Samples" owner="LabLib">
+<msg time="2026-09-18T11:17:54.352959" level="INFO">${peers} = [{'labels': {'afi': 'ipv4', 'local_as': '65000', 'peer': '172.16.3.2', 'peer_as': '65003', 'safi': 'unicast', 'vrf': 'tenant-a'}, 'value': 1.0}, {'labels': {'afi': 'ipv4', 'local_as': '65000', 'peer':...</msg>
+<var>${peers}</var>
+<arg>${text}</arg>
+<arg>frr_bgp_peer_state</arg>
+<doc>Parse the samples of one metric from Prometheus text exposition: [{labels, value}].</doc>
+<status status="PASS" start="2026-09-18T11:17:54.352729" elapsed="0.000250"/>
+</kw>
+<kw name="Evaluate" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.353427" level="INFO">${expected} = 4</msg>
+<var>${expected}</var>
+<arg>len($RRS) + len($TENANTS) + len([s for s in $EXT_SITES.values() if s["pe"] == "${pe}"])</arg>
+<doc>Evaluates the given expression in Python and returns the result.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.353063" elapsed="0.000384"/>
+</kw>
+<kw name="Length Should Be" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.353784" level="INFO">Length is 4.</msg>
+<arg>${peers}</arg>
+<arg>${expected}</arg>
+<arg>msg=${pe}: expected ${expected} BGP peers in frr_bgp_peer_state</arg>
+<doc>Verifies that the length of the given item is correct.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.353511" elapsed="0.000321"/>
+</kw>
+<for flavor="IN">
+<iter>
+<kw name="Should Be Equal As Numbers" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.354237" level="INFO">Argument types are:
+&lt;class 'float'&gt;
+&lt;class 'str'&gt;</msg>
+<arg>${p}[value]</arg>
+<arg>1</arg>
+<arg>msg=${pe}: peer ${p}[labels][peer] (${p}[labels][vrf]) is not Established</arg>
+<doc>Fails if objects are unequal after converting them to real numbers.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.354025" elapsed="0.000251"/>
+</kw>
+<var name="${p}">{'labels': {'afi': 'ipv4', 'local_as': '65000', 'peer': '172.16.3.2', 'peer_as': '65003', 'safi': 'unicast', 'vrf': 'tenant-a'}, 'value': 1.0}</var>
+<status status="PASS" start="2026-09-18T11:17:54.353960" elapsed="0.000341"/>
+</iter>
+<iter>
+<kw name="Should Be Equal As Numbers" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.354631" level="INFO">Argument types are:
+&lt;class 'float'&gt;
+&lt;class 'str'&gt;</msg>
+<arg>${p}[value]</arg>
+<arg>1</arg>
+<arg>msg=${pe}: peer ${p}[labels][peer] (${p}[labels][vrf]) is not Established</arg>
+<doc>Fails if objects are unequal after converting them to real numbers.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.354418" elapsed="0.000253"/>
+</kw>
+<var name="${p}">{'labels': {'afi': 'ipv4', 'local_as': '65000', 'peer': '172.18.3.2', 'peer_as': '65003', 'safi': 'unicast', 'vrf': 'tenant-b'}, 'value': 1.0}</var>
+<status status="PASS" start="2026-09-18T11:17:54.354356" elapsed="0.000349"/>
+</iter>
+<iter>
+<kw name="Should Be Equal As Numbers" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.355049" level="INFO">Argument types are:
+&lt;class 'float'&gt;
+&lt;class 'str'&gt;</msg>
+<arg>${p}[value]</arg>
+<arg>1</arg>
+<arg>msg=${pe}: peer ${p}[labels][peer] (${p}[labels][vrf]) is not Established</arg>
+<doc>Fails if objects are unequal after converting them to real numbers.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.354847" elapsed="0.000240"/>
+</kw>
+<var name="${p}">{'labels': {'afi': 'ipv4', 'local_as': '65000', 'peer': 'fd00:a::11', 'peer_as': '65000', 'safi': 'vpn', 'vrf': 'default'}, 'value': 1.0}</var>
+<status status="PASS" start="2026-09-18T11:17:54.354776" elapsed="0.000336"/>
+</iter>
+<iter>
+<kw name="Should Be Equal As Numbers" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.355435" level="INFO">Argument types are:
+&lt;class 'float'&gt;
+&lt;class 'str'&gt;</msg>
+<arg>${p}[value]</arg>
+<arg>1</arg>
+<arg>msg=${pe}: peer ${p}[labels][peer] (${p}[labels][vrf]) is not Established</arg>
+<doc>Fails if objects are unequal after converting them to real numbers.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.355229" elapsed="0.000243"/>
+</kw>
+<var name="${p}">{'labels': {'afi': 'ipv4', 'local_as': '65000', 'peer': 'fd00:a::13', 'peer_as': '65000', 'safi': 'vpn', 'vrf': 'default'}, 'value': 1.0}</var>
+<status status="PASS" start="2026-09-18T11:17:54.355166" elapsed="0.000332"/>
+</iter>
+<var>${p}</var>
+<value>@{peers}</value>
+<status status="PASS" start="2026-09-18T11:17:54.353873" elapsed="0.001645"/>
+</for>
+<var name="${pe}">pe3</var>
+<status status="PASS" start="2026-09-18T11:17:54.348263" elapsed="0.007284"/>
+</iter>
+<iter>
+<kw name="Http Get" owner="LabLib">
+<msg time="2026-09-18T11:17:54.360676" level="INFO">${text} = # HELP frr_bfd_peer_count Number of peers detected.
+# TYPE frr_bfd_peer_count gauge
+frr_bfd_peer_count 2
+# HELP frr_bfd_peer_state State of the bfd peer (1 = Up, 0 = Down).
+# TYPE frr_bfd_peer_state g...</msg>
+<var>${text}</var>
+<arg>http://${MGMT}[${pe}]:9342/metrics</arg>
+<doc>GET a URL; returns the parsed JSON, or the text for non-JSON answers (Prometheus exposition).</doc>
+<status status="PASS" start="2026-09-18T11:17:54.355732" elapsed="0.004986"/>
+</kw>
+<kw name="Metric Samples" owner="LabLib">
+<msg time="2026-09-18T11:17:54.361065" level="INFO">${peers} = [{'labels': {'afi': 'ipv4', 'local_as': '65000', 'peer': '172.16.4.2', 'peer_as': '65004', 'safi': 'unicast', 'vrf': 'tenant-a'}, 'value': 1.0}, {'labels': {'afi': 'ipv4', 'local_as': '65000', 'peer':...</msg>
+<var>${peers}</var>
+<arg>${text}</arg>
+<arg>frr_bgp_peer_state</arg>
+<doc>Parse the samples of one metric from Prometheus text exposition: [{labels, value}].</doc>
+<status status="PASS" start="2026-09-18T11:17:54.360824" elapsed="0.000265"/>
+</kw>
+<kw name="Evaluate" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.361781" level="INFO">${expected} = 4</msg>
+<var>${expected}</var>
+<arg>len($RRS) + len($TENANTS) + len([s for s in $EXT_SITES.values() if s["pe"] == "${pe}"])</arg>
+<doc>Evaluates the given expression in Python and returns the result.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.361201" elapsed="0.000607"/>
+</kw>
+<kw name="Length Should Be" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.362240" level="INFO">Length is 4.</msg>
+<arg>${peers}</arg>
+<arg>${expected}</arg>
+<arg>msg=${pe}: expected ${expected} BGP peers in frr_bgp_peer_state</arg>
+<doc>Verifies that the length of the given item is correct.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.361913" elapsed="0.000364"/>
+</kw>
+<for flavor="IN">
+<iter>
+<kw name="Should Be Equal As Numbers" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.362777" level="INFO">Argument types are:
+&lt;class 'float'&gt;
+&lt;class 'str'&gt;</msg>
+<arg>${p}[value]</arg>
+<arg>1</arg>
+<arg>msg=${pe}: peer ${p}[labels][peer] (${p}[labels][vrf]) is not Established</arg>
+<doc>Fails if objects are unequal after converting them to real numbers.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.362525" elapsed="0.000298"/>
+</kw>
+<var name="${p}">{'labels': {'afi': 'ipv4', 'local_as': '65000', 'peer': '172.16.4.2', 'peer_as': '65004', 'safi': 'unicast', 'vrf': 'tenant-a'}, 'value': 1.0}</var>
+<status status="PASS" start="2026-09-18T11:17:54.362447" elapsed="0.000404"/>
+</iter>
+<iter>
+<kw name="Should Be Equal As Numbers" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.363207" level="INFO">Argument types are:
+&lt;class 'float'&gt;
+&lt;class 'str'&gt;</msg>
+<arg>${p}[value]</arg>
+<arg>1</arg>
+<arg>msg=${pe}: peer ${p}[labels][peer] (${p}[labels][vrf]) is not Established</arg>
+<doc>Fails if objects are unequal after converting them to real numbers.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.362992" elapsed="0.000253"/>
+</kw>
+<var name="${p}">{'labels': {'afi': 'ipv4', 'local_as': '65000', 'peer': '172.18.4.2', 'peer_as': '65004', 'safi': 'unicast', 'vrf': 'tenant-b'}, 'value': 1.0}</var>
+<status status="PASS" start="2026-09-18T11:17:54.362914" elapsed="0.000356"/>
+</iter>
+<iter>
+<kw name="Should Be Equal As Numbers" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.363651" level="INFO">Argument types are:
+&lt;class 'float'&gt;
+&lt;class 'str'&gt;</msg>
+<arg>${p}[value]</arg>
+<arg>1</arg>
+<arg>msg=${pe}: peer ${p}[labels][peer] (${p}[labels][vrf]) is not Established</arg>
+<doc>Fails if objects are unequal after converting them to real numbers.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.363421" elapsed="0.000284"/>
+</kw>
+<var name="${p}">{'labels': {'afi': 'ipv4', 'local_as': '65000', 'peer': 'fd00:a::11', 'peer_as': '65000', 'safi': 'vpn', 'vrf': 'default'}, 'value': 1.0}</var>
+<status status="PASS" start="2026-09-18T11:17:54.363331" elapsed="0.000404"/>
+</iter>
+<iter>
+<kw name="Should Be Equal As Numbers" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.364069" level="INFO">Argument types are:
+&lt;class 'float'&gt;
+&lt;class 'str'&gt;</msg>
+<arg>${p}[value]</arg>
+<arg>1</arg>
+<arg>msg=${pe}: peer ${p}[labels][peer] (${p}[labels][vrf]) is not Established</arg>
+<doc>Fails if objects are unequal after converting them to real numbers.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.363861" elapsed="0.000246"/>
+</kw>
+<var name="${p}">{'labels': {'afi': 'ipv4', 'local_as': '65000', 'peer': 'fd00:a::13', 'peer_as': '65000', 'safi': 'vpn', 'vrf': 'default'}, 'value': 1.0}</var>
+<status status="PASS" start="2026-09-18T11:17:54.363794" elapsed="0.000338"/>
+</iter>
+<var>${p}</var>
+<value>@{peers}</value>
+<status status="PASS" start="2026-09-18T11:17:54.362323" elapsed="0.001841"/>
+</for>
+<var name="${pe}">pe4</var>
+<status status="PASS" start="2026-09-18T11:17:54.355660" elapsed="0.008526"/>
+</iter>
+<var>${pe}</var>
+<value>@{PES}</value>
+<status status="PASS" start="2026-09-18T11:17:54.331958" elapsed="0.032243"/>
+</for>
+<status status="PASS" start="2026-09-18T11:17:54.331748" elapsed="0.032527"/>
+</test>
+<test id="s1-t3" name="Every tenant host serves node-exporter" line="35">
+<for flavor="IN">
+<iter>
+<kw name="Http Get" owner="LabLib">
+<msg time="2026-09-18T11:17:54.375577" level="INFO">${text} = # HELP go_gc_duration_seconds A summary of the wall-time pause (stop-the-world) duration in garbage collection cycles.
+# TYPE go_gc_duration_seconds summary
+go_gc_duration_seconds{quantile="0"} 2.3491...</msg>
+<var>${text}</var>
+<arg>http://${MGMT}[${h}]:9100/metrics</arg>
+<doc>GET a URL; returns the parsed JSON, or the text for non-JSON answers (Prometheus exposition).</doc>
+<status status="PASS" start="2026-09-18T11:17:54.364825" elapsed="0.010804"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${text}</arg>
+<arg>node_network_receive_bytes_total{device="eth1"}</arg>
+<arg>msg=${h}: no eth1 counters</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.375772" elapsed="0.000353"/>
+</kw>
+<var name="${h}">dc1-h1</var>
+<status status="PASS" start="2026-09-18T11:17:54.364751" elapsed="0.011408"/>
+</iter>
+<iter>
+<kw name="Http Get" owner="LabLib">
+<msg time="2026-09-18T11:17:54.386293" level="INFO">${text} = # HELP go_gc_duration_seconds A summary of the wall-time pause (stop-the-world) duration in garbage collection cycles.
+# TYPE go_gc_duration_seconds summary
+go_gc_duration_seconds{quantile="0"} 2.2834...</msg>
+<var>${text}</var>
+<arg>http://${MGMT}[${h}]:9100/metrics</arg>
+<doc>GET a URL; returns the parsed JSON, or the text for non-JSON answers (Prometheus exposition).</doc>
+<status status="PASS" start="2026-09-18T11:17:54.376325" elapsed="0.010003"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${text}</arg>
+<arg>node_network_receive_bytes_total{device="eth1"}</arg>
+<arg>msg=${h}: no eth1 counters</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.386470" elapsed="0.000417"/>
+</kw>
+<var name="${h}">dc1-h2</var>
+<status status="PASS" start="2026-09-18T11:17:54.376239" elapsed="0.010682"/>
+</iter>
+<iter>
+<kw name="Http Get" owner="LabLib">
+<msg time="2026-09-18T11:17:54.398246" level="INFO">${text} = # HELP go_gc_duration_seconds A summary of the wall-time pause (stop-the-world) duration in garbage collection cycles.
+# TYPE go_gc_duration_seconds summary
+go_gc_duration_seconds{quantile="0"} 2.379e...</msg>
+<var>${text}</var>
+<arg>http://${MGMT}[${h}]:9100/metrics</arg>
+<doc>GET a URL; returns the parsed JSON, or the text for non-JSON answers (Prometheus exposition).</doc>
+<status status="PASS" start="2026-09-18T11:17:54.387070" elapsed="0.011212"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${text}</arg>
+<arg>node_network_receive_bytes_total{device="eth1"}</arg>
+<arg>msg=${h}: no eth1 counters</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.398406" elapsed="0.000431"/>
+</kw>
+<var name="${h}">dc2-h1</var>
+<status status="PASS" start="2026-09-18T11:17:54.387001" elapsed="0.011872"/>
+</iter>
+<iter>
+<kw name="Http Get" owner="LabLib">
+<msg time="2026-09-18T11:17:54.410046" level="INFO">${text} = # HELP go_gc_duration_seconds A summary of the wall-time pause (stop-the-world) duration in garbage collection cycles.
+# TYPE go_gc_duration_seconds summary
+go_gc_duration_seconds{quantile="0"} 2.4276...</msg>
+<var>${text}</var>
+<arg>http://${MGMT}[${h}]:9100/metrics</arg>
+<doc>GET a URL; returns the parsed JSON, or the text for non-JSON answers (Prometheus exposition).</doc>
+<status status="PASS" start="2026-09-18T11:17:54.399026" elapsed="0.011051"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${text}</arg>
+<arg>node_network_receive_bytes_total{device="eth1"}</arg>
+<arg>msg=${h}: no eth1 counters</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.410189" elapsed="0.000354"/>
+</kw>
+<var name="${h}">dc2-h2</var>
+<status status="PASS" start="2026-09-18T11:17:54.398954" elapsed="0.011624"/>
+</iter>
+<iter>
+<kw name="Http Get" owner="LabLib">
+<msg time="2026-09-18T11:17:54.421483" level="INFO">${text} = # HELP go_gc_duration_seconds A summary of the wall-time pause (stop-the-world) duration in garbage collection cycles.
+# TYPE go_gc_duration_seconds summary
+go_gc_duration_seconds{quantile="0"} 2.2625...</msg>
+<var>${text}</var>
+<arg>http://${MGMT}[${h}]:9100/metrics</arg>
+<doc>GET a URL; returns the parsed JSON, or the text for non-JSON answers (Prometheus exposition).</doc>
+<status status="PASS" start="2026-09-18T11:17:54.410764" elapsed="0.010760"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${text}</arg>
+<arg>node_network_receive_bytes_total{device="eth1"}</arg>
+<arg>msg=${h}: no eth1 counters</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.421654" elapsed="0.000330"/>
+</kw>
+<var name="${h}">dc3-h1</var>
+<status status="PASS" start="2026-09-18T11:17:54.410671" elapsed="0.011344"/>
+</iter>
+<iter>
+<kw name="Http Get" owner="LabLib">
+<msg time="2026-09-18T11:17:54.433159" level="INFO">${text} = # HELP go_gc_duration_seconds A summary of the wall-time pause (stop-the-world) duration in garbage collection cycles.
+# TYPE go_gc_duration_seconds summary
+go_gc_duration_seconds{quantile="0"} 2.4137...</msg>
+<var>${text}</var>
+<arg>http://${MGMT}[${h}]:9100/metrics</arg>
+<doc>GET a URL; returns the parsed JSON, or the text for non-JSON answers (Prometheus exposition).</doc>
+<status status="PASS" start="2026-09-18T11:17:54.422160" elapsed="0.011037"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${text}</arg>
+<arg>node_network_receive_bytes_total{device="eth1"}</arg>
+<arg>msg=${h}: no eth1 counters</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.433324" elapsed="0.000450"/>
+</kw>
+<var name="${h}">dc3-h2</var>
+<status status="PASS" start="2026-09-18T11:17:54.422094" elapsed="0.011721"/>
+</iter>
+<iter>
+<kw name="Http Get" owner="LabLib">
+<msg time="2026-09-18T11:17:54.444151" level="INFO">${text} = # HELP go_gc_duration_seconds A summary of the wall-time pause (stop-the-world) duration in garbage collection cycles.
+# TYPE go_gc_duration_seconds summary
+go_gc_duration_seconds{quantile="0"} 2.2566...</msg>
+<var>${text}</var>
+<arg>http://${MGMT}[${h}]:9100/metrics</arg>
+<doc>GET a URL; returns the parsed JSON, or the text for non-JSON answers (Prometheus exposition).</doc>
+<status status="PASS" start="2026-09-18T11:17:54.433975" elapsed="0.010213"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${text}</arg>
+<arg>node_network_receive_bytes_total{device="eth1"}</arg>
+<arg>msg=${h}: no eth1 counters</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.444310" elapsed="0.000414"/>
+</kw>
+<var name="${h}">dc4-h1</var>
+<status status="PASS" start="2026-09-18T11:17:54.433901" elapsed="0.010867"/>
+</iter>
+<iter>
+<kw name="Http Get" owner="LabLib">
+<msg time="2026-09-18T11:17:54.455578" level="INFO">${text} = # HELP go_gc_duration_seconds A summary of the wall-time pause (stop-the-world) duration in garbage collection cycles.
+# TYPE go_gc_duration_seconds summary
+go_gc_duration_seconds{quantile="0"} 2.2695...</msg>
+<var>${text}</var>
+<arg>http://${MGMT}[${h}]:9100/metrics</arg>
+<doc>GET a URL; returns the parsed JSON, or the text for non-JSON answers (Prometheus exposition).</doc>
+<status status="PASS" start="2026-09-18T11:17:54.444935" elapsed="0.010699"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${text}</arg>
+<arg>node_network_receive_bytes_total{device="eth1"}</arg>
+<arg>msg=${h}: no eth1 counters</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.455776" elapsed="0.000376"/>
+</kw>
+<var name="${h}">dc4-h2</var>
+<status status="PASS" start="2026-09-18T11:17:54.444857" elapsed="0.011336"/>
+</iter>
+<var>${h}</var>
+<value>@{HOSTS}</value>
+<status status="PASS" start="2026-09-18T11:17:54.364661" elapsed="0.091566"/>
+</for>
+<status status="PASS" start="2026-09-18T11:17:54.364454" elapsed="0.091861"/>
+</test>
+<test id="s1-t4" name="The portal's service discovery lists every exporter of the lab" line="41">
+<kw name="Http Get" owner="LabLib">
+<msg time="2026-09-18T11:17:54.459204" level="INFO">${sd} = [{'targets': ['10.3.0.11:9100'], 'labels': {'lab': 'srv6-core', 'node': 'pe1', 'role': 'pe', 'dc': 'dc1', 'job': 'node'}}, {'targets': ['10.3.0.11:9342'], 'labels': {'lab': 'srv6-core', 'node': 'pe1',...</msg>
+<var>${sd}</var>
+<arg>${PORTAL}/api/sd</arg>
+<doc>GET a URL; returns the parsed JSON, or the text for non-JSON answers (Prometheus exposition).</doc>
+<status status="PASS" start="2026-09-18T11:17:54.456712" elapsed="0.002522"/>
+</kw>
+<kw name="Evaluate" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.459725" level="INFO">${targets} = ['10.3.0.11:9100', '10.3.0.11:9342', '10.3.0.12:9100', '10.3.0.12:9342', '10.3.0.13:9100', '10.3.0.13:9342', '10.3.0.14:9100', '10.3.0.14:9342', '10.3.0.1:8091', '10.3.0.21:9100', '10.3.0.21:9342', '1...</msg>
+<var>${targets}</var>
+<arg>sorted(t for g in $sd for t in g["targets"])</arg>
+<doc>Evaluates the given expression in Python and returns the result.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.459341" elapsed="0.000412"/>
+</kw>
+<for flavor="IN">
+<iter>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${targets}</arg>
+<arg>${MGMT}[${n}]:9100</arg>
+<arg>msg=${n} node-exporter missing from /api/sd</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.459968" elapsed="0.000315"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${targets}</arg>
+<arg>${MGMT}[${n}]:9342</arg>
+<arg>msg=${n} frr-exporter missing from /api/sd</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.460368" elapsed="0.000286"/>
+</kw>
+<var name="${n}">pe1</var>
+<status status="PASS" start="2026-09-18T11:17:54.459900" elapsed="0.000786"/>
+</iter>
+<iter>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${targets}</arg>
+<arg>${MGMT}[${n}]:9100</arg>
+<arg>msg=${n} node-exporter missing from /api/sd</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.460839" elapsed="0.000335"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${targets}</arg>
+<arg>${MGMT}[${n}]:9342</arg>
+<arg>msg=${n} frr-exporter missing from /api/sd</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.461277" elapsed="0.000270"/>
+</kw>
+<var name="${n}">pe2</var>
+<status status="PASS" start="2026-09-18T11:17:54.460773" elapsed="0.000805"/>
+</iter>
+<iter>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${targets}</arg>
+<arg>${MGMT}[${n}]:9100</arg>
+<arg>msg=${n} node-exporter missing from /api/sd</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.461748" elapsed="0.000280"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${targets}</arg>
+<arg>${MGMT}[${n}]:9342</arg>
+<arg>msg=${n} frr-exporter missing from /api/sd</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.462112" elapsed="0.000284"/>
+</kw>
+<var name="${n}">pe3</var>
+<status status="PASS" start="2026-09-18T11:17:54.461661" elapsed="0.000765"/>
+</iter>
+<iter>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${targets}</arg>
+<arg>${MGMT}[${n}]:9100</arg>
+<arg>msg=${n} node-exporter missing from /api/sd</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.462581" elapsed="0.000276"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${targets}</arg>
+<arg>${MGMT}[${n}]:9342</arg>
+<arg>msg=${n} frr-exporter missing from /api/sd</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.462949" elapsed="0.000251"/>
+</kw>
+<var name="${n}">pe4</var>
+<status status="PASS" start="2026-09-18T11:17:54.462509" elapsed="0.000729"/>
+</iter>
+<iter>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${targets}</arg>
+<arg>${MGMT}[${n}]:9100</arg>
+<arg>msg=${n} node-exporter missing from /api/sd</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.463371" elapsed="0.000269"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${targets}</arg>
+<arg>${MGMT}[${n}]:9342</arg>
+<arg>msg=${n} frr-exporter missing from /api/sd</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.463741" elapsed="0.000250"/>
+</kw>
+<var name="${n}">p1</var>
+<status status="PASS" start="2026-09-18T11:17:54.463308" elapsed="0.000712"/>
+</iter>
+<iter>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${targets}</arg>
+<arg>${MGMT}[${n}]:9100</arg>
+<arg>msg=${n} node-exporter missing from /api/sd</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.464145" elapsed="0.000254"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${targets}</arg>
+<arg>${MGMT}[${n}]:9342</arg>
+<arg>msg=${n} frr-exporter missing from /api/sd</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.464492" elapsed="0.000270"/>
+</kw>
+<var name="${n}">p2</var>
+<status status="PASS" start="2026-09-18T11:17:54.464080" elapsed="0.000711"/>
+</iter>
+<iter>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${targets}</arg>
+<arg>${MGMT}[${n}]:9100</arg>
+<arg>msg=${n} node-exporter missing from /api/sd</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.464913" elapsed="0.000226"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${targets}</arg>
+<arg>${MGMT}[${n}]:9342</arg>
+<arg>msg=${n} frr-exporter missing from /api/sd</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.465228" elapsed="0.000219"/>
+</kw>
+<var name="${n}">p3</var>
+<status status="PASS" start="2026-09-18T11:17:54.464850" elapsed="0.000638"/>
+</iter>
+<iter>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${targets}</arg>
+<arg>${MGMT}[${n}]:9100</arg>
+<arg>msg=${n} node-exporter missing from /api/sd</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.465644" elapsed="0.000267"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${targets}</arg>
+<arg>${MGMT}[${n}]:9342</arg>
+<arg>msg=${n} frr-exporter missing from /api/sd</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.465995" elapsed="0.000225"/>
+</kw>
+<var name="${n}">ce1</var>
+<status status="PASS" start="2026-09-18T11:17:54.465566" elapsed="0.000682"/>
+</iter>
+<iter>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${targets}</arg>
+<arg>${MGMT}[${n}]:9100</arg>
+<arg>msg=${n} node-exporter missing from /api/sd</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.466363" elapsed="0.000279"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${targets}</arg>
+<arg>${MGMT}[${n}]:9342</arg>
+<arg>msg=${n} frr-exporter missing from /api/sd</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.466745" elapsed="0.000253"/>
+</kw>
+<var name="${n}">ce2</var>
+<status status="PASS" start="2026-09-18T11:17:54.466304" elapsed="0.000723"/>
+</iter>
+<iter>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${targets}</arg>
+<arg>${MGMT}[${n}]:9100</arg>
+<arg>msg=${n} node-exporter missing from /api/sd</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.467142" elapsed="0.000220"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${targets}</arg>
+<arg>${MGMT}[${n}]:9342</arg>
+<arg>msg=${n} frr-exporter missing from /api/sd</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.467436" elapsed="0.000261"/>
+</kw>
+<var name="${n}">ce3</var>
+<status status="PASS" start="2026-09-18T11:17:54.467084" elapsed="0.000649"/>
+</iter>
+<iter>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${targets}</arg>
+<arg>${MGMT}[${n}]:9100</arg>
+<arg>msg=${n} node-exporter missing from /api/sd</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.467858" elapsed="0.000226"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${targets}</arg>
+<arg>${MGMT}[${n}]:9342</arg>
+<arg>msg=${n} frr-exporter missing from /api/sd</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.468159" elapsed="0.000215"/>
+</kw>
+<var name="${n}">ce4</var>
+<status status="PASS" start="2026-09-18T11:17:54.467799" elapsed="0.000601"/>
+</iter>
+<var>${n}</var>
+<value>@{VYOS}</value>
+<status status="PASS" start="2026-09-18T11:17:54.459798" elapsed="0.008623"/>
+</for>
+<for flavor="IN">
+<iter>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${targets}</arg>
+<arg>${MGMT}[${h}]:9100</arg>
+<arg>msg=${h} node-exporter missing from /api/sd</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.468628" elapsed="0.000256"/>
+</kw>
+<var name="${h}">dc1-h1</var>
+<status status="PASS" start="2026-09-18T11:17:54.468558" elapsed="0.000354"/>
+</iter>
+<iter>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${targets}</arg>
+<arg>${MGMT}[${h}]:9100</arg>
+<arg>msg=${h} node-exporter missing from /api/sd</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.469020" elapsed="0.000221"/>
+</kw>
+<var name="${h}">dc1-h2</var>
+<status status="PASS" start="2026-09-18T11:17:54.468962" elapsed="0.000305"/>
+</iter>
+<iter>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${targets}</arg>
+<arg>${MGMT}[${h}]:9100</arg>
+<arg>msg=${h} node-exporter missing from /api/sd</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.469377" elapsed="0.000252"/>
+</kw>
+<var name="${h}">dc2-h1</var>
+<status status="PASS" start="2026-09-18T11:17:54.469317" elapsed="0.000339"/>
+</iter>
+<iter>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${targets}</arg>
+<arg>${MGMT}[${h}]:9100</arg>
+<arg>msg=${h} node-exporter missing from /api/sd</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.469785" elapsed="0.000219"/>
+</kw>
+<var name="${h}">dc2-h2</var>
+<status status="PASS" start="2026-09-18T11:17:54.469718" elapsed="0.000313"/>
+</iter>
+<iter>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${targets}</arg>
+<arg>${MGMT}[${h}]:9100</arg>
+<arg>msg=${h} node-exporter missing from /api/sd</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.470137" elapsed="0.000207"/>
+</kw>
+<var name="${h}">dc3-h1</var>
+<status status="PASS" start="2026-09-18T11:17:54.470081" elapsed="0.000288"/>
+</iter>
+<iter>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${targets}</arg>
+<arg>${MGMT}[${h}]:9100</arg>
+<arg>msg=${h} node-exporter missing from /api/sd</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.470494" elapsed="0.000258"/>
+</kw>
+<var name="${h}">dc3-h2</var>
+<status status="PASS" start="2026-09-18T11:17:54.470417" elapsed="0.000365"/>
+</iter>
+<iter>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${targets}</arg>
+<arg>${MGMT}[${h}]:9100</arg>
+<arg>msg=${h} node-exporter missing from /api/sd</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.470889" elapsed="0.000216"/>
+</kw>
+<var name="${h}">dc4-h1</var>
+<status status="PASS" start="2026-09-18T11:17:54.470832" elapsed="0.000301"/>
+</iter>
+<iter>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${targets}</arg>
+<arg>${MGMT}[${h}]:9100</arg>
+<arg>msg=${h} node-exporter missing from /api/sd</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.471237" elapsed="0.000210"/>
+</kw>
+<var name="${h}">dc4-h2</var>
+<status status="PASS" start="2026-09-18T11:17:54.471182" elapsed="0.000300"/>
+</iter>
+<var>${h}</var>
+<value>@{HOSTS}</value>
+<status status="PASS" start="2026-09-18T11:17:54.468464" elapsed="0.003044"/>
+</for>
+<kw name="Evaluate" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.471964" level="INFO">${portal} = [{'targets': ['10.3.0.1:8091'], 'labels': {'lab': 'srv6-core', 'job': 'portal', 'role': 'portal'}}]</msg>
+<var>${portal}</var>
+<arg>[g for g in $sd if g["labels"].get("job") == "portal"]</arg>
+<doc>Evaluates the given expression in Python and returns the result.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.471598" elapsed="0.000388"/>
+</kw>
+<kw name="Length Should Be" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.472250" level="INFO">Length is 1.</msg>
+<arg>${portal}</arg>
+<arg>1</arg>
+<arg>msg=the portal itself is not in /api/sd</arg>
+<doc>Verifies that the length of the given item is correct.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.472053" elapsed="0.000234"/>
+</kw>
+<status status="PASS" start="2026-09-18T11:17:54.456446" elapsed="0.015913"/>
+</test>
+<test id="s1-t5" name="The portal's metrics report every tenant healthy and the core fully adjacent" line="54">
+<kw name="Wait Until Keyword Succeeds" owner="BuiltIn">
+<kw name="Portal Metrics Show Everything Up">
+<kw name="Http Get" owner="LabLib">
+<msg time="2026-09-18T11:17:54.490774" level="INFO">${text} = # HELP lab_state_generated_seconds When the state below was collected
+# TYPE lab_state_generated_seconds gauge
+lab_state_generated_seconds{lab="srv6-core"} 1789744588
+# HELP lab_host_reachable 1 if th...</msg>
+<var>${text}</var>
+<arg>${PORTAL}/metrics</arg>
+<doc>GET a URL; returns the parsed JSON, or the text for non-JSON answers (Prometheus exposition).</doc>
+<status status="PASS" start="2026-09-18T11:17:54.473503" elapsed="0.017312"/>
+</kw>
+<kw name="Metric Samples" owner="LabLib">
+<msg time="2026-09-18T11:17:54.491285" level="INFO">${health} = [{'labels': {'lab': 'srv6-core', 'tenant': 'tenant-a', 'sites': '4'}, 'value': 2.0}, {'labels': {'lab': 'srv6-core', 'tenant': 'tenant-b', 'sites': '4'}, 'value': 2.0}]</msg>
+<var>${health}</var>
+<arg>${text}</arg>
+<arg>lab_tenant_health</arg>
+<doc>Parse the samples of one metric from Prometheus text exposition: [{labels, value}].</doc>
+<status status="PASS" start="2026-09-18T11:17:54.490937" elapsed="0.000374"/>
+</kw>
+<kw name="Length Should Be" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.491807" level="INFO">Length is 2.</msg>
+<arg>${health}</arg>
+<arg>${{ len($TENANTS) }}</arg>
+<doc>Verifies that the length of the given item is correct.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.491397" elapsed="0.000447"/>
+</kw>
+<for flavor="IN">
+<iter>
+<kw name="Should Be Equal As Numbers" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.492365" level="INFO">Argument types are:
+&lt;class 'float'&gt;
+&lt;class 'str'&gt;</msg>
+<arg>${h}[value]</arg>
+<arg>2</arg>
+<arg>msg=${h}[labels][tenant] is not healthy (2 = up)</arg>
+<doc>Fails if objects are unequal after converting them to real numbers.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.492112" elapsed="0.000297"/>
+</kw>
+<var name="${h}">{'labels': {'lab': 'srv6-core', 'tenant': 'tenant-a', 'sites': '4'}, 'value': 2.0}</var>
+<status status="PASS" start="2026-09-18T11:17:54.492019" elapsed="0.000415"/>
+</iter>
+<iter>
+<kw name="Should Be Equal As Numbers" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.492823" level="INFO">Argument types are:
+&lt;class 'float'&gt;
+&lt;class 'str'&gt;</msg>
+<arg>${h}[value]</arg>
+<arg>2</arg>
+<arg>msg=${h}[labels][tenant] is not healthy (2 = up)</arg>
+<doc>Fails if objects are unequal after converting them to real numbers.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.492588" elapsed="0.000276"/>
+</kw>
+<var name="${h}">{'labels': {'lab': 'srv6-core', 'tenant': 'tenant-b', 'sites': '4'}, 'value': 2.0}</var>
+<status status="PASS" start="2026-09-18T11:17:54.492513" elapsed="0.000376"/>
+</iter>
+<var>${h}</var>
+<value>@{health}</value>
+<status status="PASS" start="2026-09-18T11:17:54.491888" elapsed="0.001021"/>
+</for>
+<kw name="Metric Samples" owner="LabLib">
+<msg time="2026-09-18T11:17:54.493287" level="INFO">${bgp} = [{'labels': {'lab': 'srv6-core', 'tenant': 'tenant-a', 'dc': 'dc1', 'pe': 'pe1', 'ce': 'ce1', 'external': ''}, 'value': 1.0}, {'labels': {'lab': 'srv6-core', 'tenant': 'tenant-a', 'dc': 'dc2', 'pe': '...</msg>
+<var>${bgp}</var>
+<arg>${text}</arg>
+<arg>lab_tenant_site_bgp_up</arg>
+<doc>Parse the samples of one metric from Prometheus text exposition: [{labels, value}].</doc>
+<status status="PASS" start="2026-09-18T11:17:54.492972" elapsed="0.000338"/>
+</kw>
+<kw name="Evaluate" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.493754" level="INFO">${sites} = 8</msg>
+<var>${sites}</var>
+<arg>sum(len(s) for s in $SITES.values()) + len($EXT_SITES)</arg>
+<doc>Evaluates the given expression in Python and returns the result.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.493390" elapsed="0.000385"/>
+</kw>
+<kw name="Length Should Be" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.494079" level="INFO">Length is 8.</msg>
+<arg>${bgp}</arg>
+<arg>${sites}</arg>
+<doc>Verifies that the length of the given item is correct.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.493841" elapsed="0.000282"/>
+</kw>
+<for flavor="IN">
+<iter>
+<kw name="Should Be Equal As Numbers" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.494657" level="INFO">Argument types are:
+&lt;class 'float'&gt;
+&lt;class 'str'&gt;</msg>
+<arg>${b}[value]</arg>
+<arg>1</arg>
+<arg>msg=${b}[labels][tenant] ${b}[labels][dc]: PE-CE eBGP down</arg>
+<doc>Fails if objects are unequal after converting them to real numbers.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.494396" elapsed="0.000311"/>
+</kw>
+<var name="${b}">{'labels': {'lab': 'srv6-core', 'tenant': 'tenant-a', 'dc': 'dc1', 'pe': 'pe1', 'ce': 'ce1', 'external': ''}, 'value': 1.0}</var>
+<status status="PASS" start="2026-09-18T11:17:54.494293" elapsed="0.000450"/>
+</iter>
+<iter>
+<kw name="Should Be Equal As Numbers" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.495088" level="INFO">Argument types are:
+&lt;class 'float'&gt;
+&lt;class 'str'&gt;</msg>
+<arg>${b}[value]</arg>
+<arg>1</arg>
+<arg>msg=${b}[labels][tenant] ${b}[labels][dc]: PE-CE eBGP down</arg>
+<doc>Fails if objects are unequal after converting them to real numbers.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.494876" elapsed="0.000252"/>
+</kw>
+<var name="${b}">{'labels': {'lab': 'srv6-core', 'tenant': 'tenant-a', 'dc': 'dc2', 'pe': 'pe2', 'ce': 'ce2', 'external': ''}, 'value': 1.0}</var>
+<status status="PASS" start="2026-09-18T11:17:54.494807" elapsed="0.000348"/>
+</iter>
+<iter>
+<kw name="Should Be Equal As Numbers" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.495482" level="INFO">Argument types are:
+&lt;class 'float'&gt;
+&lt;class 'str'&gt;</msg>
+<arg>${b}[value]</arg>
+<arg>1</arg>
+<arg>msg=${b}[labels][tenant] ${b}[labels][dc]: PE-CE eBGP down</arg>
+<doc>Fails if objects are unequal after converting them to real numbers.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.495275" elapsed="0.000256"/>
+</kw>
+<var name="${b}">{'labels': {'lab': 'srv6-core', 'tenant': 'tenant-a', 'dc': 'dc3', 'pe': 'pe3', 'ce': 'ce3', 'external': ''}, 'value': 1.0}</var>
+<status status="PASS" start="2026-09-18T11:17:54.495211" elapsed="0.000348"/>
+</iter>
+<iter>
+<kw name="Should Be Equal As Numbers" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.495917" level="INFO">Argument types are:
+&lt;class 'float'&gt;
+&lt;class 'str'&gt;</msg>
+<arg>${b}[value]</arg>
+<arg>1</arg>
+<arg>msg=${b}[labels][tenant] ${b}[labels][dc]: PE-CE eBGP down</arg>
+<doc>Fails if objects are unequal after converting them to real numbers.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.495707" elapsed="0.000248"/>
+</kw>
+<var name="${b}">{'labels': {'lab': 'srv6-core', 'tenant': 'tenant-a', 'dc': 'dc4', 'pe': 'pe4', 'ce': 'ce4', 'external': ''}, 'value': 1.0}</var>
+<status status="PASS" start="2026-09-18T11:17:54.495626" elapsed="0.000355"/>
+</iter>
+<iter>
+<kw name="Should Be Equal As Numbers" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.496290" level="INFO">Argument types are:
+&lt;class 'float'&gt;
+&lt;class 'str'&gt;</msg>
+<arg>${b}[value]</arg>
+<arg>1</arg>
+<arg>msg=${b}[labels][tenant] ${b}[labels][dc]: PE-CE eBGP down</arg>
+<doc>Fails if objects are unequal after converting them to real numbers.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.496101" elapsed="0.000226"/>
+</kw>
+<var name="${b}">{'labels': {'lab': 'srv6-core', 'tenant': 'tenant-b', 'dc': 'dc1', 'pe': 'pe1', 'ce': 'ce1', 'external': ''}, 'value': 1.0}</var>
+<status status="PASS" start="2026-09-18T11:17:54.496037" elapsed="0.000314"/>
+</iter>
+<iter>
+<kw name="Should Be Equal As Numbers" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.496700" level="INFO">Argument types are:
+&lt;class 'float'&gt;
+&lt;class 'str'&gt;</msg>
+<arg>${b}[value]</arg>
+<arg>1</arg>
+<arg>msg=${b}[labels][tenant] ${b}[labels][dc]: PE-CE eBGP down</arg>
+<doc>Fails if objects are unequal after converting them to real numbers.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.496489" elapsed="0.000250"/>
+</kw>
+<var name="${b}">{'labels': {'lab': 'srv6-core', 'tenant': 'tenant-b', 'dc': 'dc2', 'pe': 'pe2', 'ce': 'ce2', 'external': ''}, 'value': 1.0}</var>
+<status status="PASS" start="2026-09-18T11:17:54.496404" elapsed="0.000364"/>
+</iter>
+<iter>
+<kw name="Should Be Equal As Numbers" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.497084" level="INFO">Argument types are:
+&lt;class 'float'&gt;
+&lt;class 'str'&gt;</msg>
+<arg>${b}[value]</arg>
+<arg>1</arg>
+<arg>msg=${b}[labels][tenant] ${b}[labels][dc]: PE-CE eBGP down</arg>
+<doc>Fails if objects are unequal after converting them to real numbers.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.496889" elapsed="0.000232"/>
+</kw>
+<var name="${b}">{'labels': {'lab': 'srv6-core', 'tenant': 'tenant-b', 'dc': 'dc3', 'pe': 'pe3', 'ce': 'ce3', 'external': ''}, 'value': 1.0}</var>
+<status status="PASS" start="2026-09-18T11:17:54.496822" elapsed="0.000326"/>
+</iter>
+<iter>
+<kw name="Should Be Equal As Numbers" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.497451" level="INFO">Argument types are:
+&lt;class 'float'&gt;
+&lt;class 'str'&gt;</msg>
+<arg>${b}[value]</arg>
+<arg>1</arg>
+<arg>msg=${b}[labels][tenant] ${b}[labels][dc]: PE-CE eBGP down</arg>
+<doc>Fails if objects are unequal after converting them to real numbers.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.497264" elapsed="0.000236"/>
+</kw>
+<var name="${b}">{'labels': {'lab': 'srv6-core', 'tenant': 'tenant-b', 'dc': 'dc4', 'pe': 'pe4', 'ce': 'ce4', 'external': ''}, 'value': 1.0}</var>
+<status status="PASS" start="2026-09-18T11:17:54.497201" elapsed="0.000330"/>
+</iter>
+<var>${b}</var>
+<value>@{bgp}</value>
+<status status="PASS" start="2026-09-18T11:17:54.494177" elapsed="0.003375"/>
+</for>
+<kw name="Metric Samples" owner="LabLib">
+<msg time="2026-09-18T11:17:54.497906" level="INFO">${up} = [{'labels': {'lab': 'srv6-core', 'node': 'pe1', 'role': 'pe'}, 'value': 2.0}, {'labels': {'lab': 'srv6-core', 'node': 'pe2', 'role': 'pe'}, 'value': 2.0}, {'labels': {'lab': 'srv6-core', 'node': 'pe3'...</msg>
+<var>${up}</var>
+<arg>${text}</arg>
+<arg>lab_isis_adjacencies_up</arg>
+<doc>Parse the samples of one metric from Prometheus text exposition: [{labels, value}].</doc>
+<status status="PASS" start="2026-09-18T11:17:54.497637" elapsed="0.000289"/>
+</kw>
+<kw name="Metric Samples" owner="LabLib">
+<msg time="2026-09-18T11:17:54.498234" level="INFO">${exp} = [{'labels': {'lab': 'srv6-core', 'node': 'pe1', 'role': 'pe'}, 'value': 2.0}, {'labels': {'lab': 'srv6-core', 'node': 'pe2', 'role': 'pe'}, 'value': 2.0}, {'labels': {'lab': 'srv6-core', 'node': 'pe3'...</msg>
+<var>${exp}</var>
+<arg>${text}</arg>
+<arg>lab_isis_adjacencies_expected</arg>
+<doc>Parse the samples of one metric from Prometheus text exposition: [{labels, value}].</doc>
+<status status="PASS" start="2026-09-18T11:17:54.497988" elapsed="0.000266"/>
+</kw>
+<kw name="Length Should Be" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.498619" level="INFO">Length is 7.</msg>
+<arg>${up}</arg>
+<arg>${{ len($CORE) }}</arg>
+<doc>Verifies that the length of the given item is correct.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.498320" elapsed="0.000334"/>
+</kw>
+<for flavor="IN ZIP">
+<iter>
+<kw name="Should Be Equal As Numbers" owner="BuiltIn">
+<arg>${u}[value]</arg>
+<arg>${e}[value]</arg>
+<arg>msg=${u}[labels][node]: ${u}[value] IS-IS adjacencies up, ${e}[value] expected</arg>
+<doc>Fails if objects are unequal after converting them to real numbers.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.498879" elapsed="0.000245"/>
+</kw>
+<kw name="Evaluate" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.499470" level="INFO">${links} = 2</msg>
+<var>${links}</var>
+<arg>len($ISIS_NEIGHBORS[$u["labels"]["node"]])</arg>
+<doc>Evaluates the given expression in Python and returns the result.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.499216" elapsed="0.000281"/>
+</kw>
+<kw name="Should Be Equal As Numbers" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.499791" level="INFO">Argument types are:
+&lt;class 'float'&gt;
+&lt;class 'int'&gt;</msg>
+<arg>${e}[value]</arg>
+<arg>${links}</arg>
+<arg>msg=${u}[labels][node]: expected count disagrees with the inventory</arg>
+<doc>Fails if objects are unequal after converting them to real numbers.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.499583" elapsed="0.000247"/>
+</kw>
+<var name="${u}">{'labels': {'lab': 'srv6-core', 'node': 'pe1', 'role': 'pe'}, 'value': 2.0}</var>
+<var name="${e}">{'labels': {'lab': 'srv6-core', 'node': 'pe1', 'role': 'pe'}, 'value': 2.0}</var>
+<status status="PASS" start="2026-09-18T11:17:54.498811" elapsed="0.001044"/>
+</iter>
+<iter>
+<kw name="Should Be Equal As Numbers" owner="BuiltIn">
+<arg>${u}[value]</arg>
+<arg>${e}[value]</arg>
+<arg>msg=${u}[labels][node]: ${u}[value] IS-IS adjacencies up, ${e}[value] expected</arg>
+<doc>Fails if objects are unequal after converting them to real numbers.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.499993" elapsed="0.000236"/>
+</kw>
+<kw name="Evaluate" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.500569" level="INFO">${links} = 2</msg>
+<var>${links}</var>
+<arg>len($ISIS_NEIGHBORS[$u["labels"]["node"]])</arg>
+<doc>Evaluates the given expression in Python and returns the result.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.500311" elapsed="0.000278"/>
+</kw>
+<kw name="Should Be Equal As Numbers" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.500881" level="INFO">Argument types are:
+&lt;class 'float'&gt;
+&lt;class 'int'&gt;</msg>
+<arg>${e}[value]</arg>
+<arg>${links}</arg>
+<arg>msg=${u}[labels][node]: expected count disagrees with the inventory</arg>
+<doc>Fails if objects are unequal after converting them to real numbers.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.500680" elapsed="0.000239"/>
+</kw>
+<var name="${u}">{'labels': {'lab': 'srv6-core', 'node': 'pe2', 'role': 'pe'}, 'value': 2.0}</var>
+<var name="${e}">{'labels': {'lab': 'srv6-core', 'node': 'pe2', 'role': 'pe'}, 'value': 2.0}</var>
+<status status="PASS" start="2026-09-18T11:17:54.499928" elapsed="0.001017"/>
+</iter>
+<iter>
+<kw name="Should Be Equal As Numbers" owner="BuiltIn">
+<arg>${u}[value]</arg>
+<arg>${e}[value]</arg>
+<arg>msg=${u}[labels][node]: ${u}[value] IS-IS adjacencies up, ${e}[value] expected</arg>
+<doc>Fails if objects are unequal after converting them to real numbers.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.501088" elapsed="0.000229"/>
+</kw>
+<kw name="Evaluate" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.501676" level="INFO">${links} = 2</msg>
+<var>${links}</var>
+<arg>len($ISIS_NEIGHBORS[$u["labels"]["node"]])</arg>
+<doc>Evaluates the given expression in Python and returns the result.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.501396" elapsed="0.000300"/>
+</kw>
+<kw name="Should Be Equal As Numbers" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.501969" level="INFO">Argument types are:
+&lt;class 'float'&gt;
+&lt;class 'int'&gt;</msg>
+<arg>${e}[value]</arg>
+<arg>${links}</arg>
+<arg>msg=${u}[labels][node]: expected count disagrees with the inventory</arg>
+<doc>Fails if objects are unequal after converting them to real numbers.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.501775" elapsed="0.000236"/>
+</kw>
+<var name="${u}">{'labels': {'lab': 'srv6-core', 'node': 'pe3', 'role': 'pe'}, 'value': 2.0}</var>
+<var name="${e}">{'labels': {'lab': 'srv6-core', 'node': 'pe3', 'role': 'pe'}, 'value': 2.0}</var>
+<status status="PASS" start="2026-09-18T11:17:54.501023" elapsed="0.001014"/>
+</iter>
+<iter>
+<kw name="Should Be Equal As Numbers" owner="BuiltIn">
+<arg>${u}[value]</arg>
+<arg>${e}[value]</arg>
+<arg>msg=${u}[labels][node]: ${u}[value] IS-IS adjacencies up, ${e}[value] expected</arg>
+<doc>Fails if objects are unequal after converting them to real numbers.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.502184" elapsed="0.000233"/>
+</kw>
+<kw name="Evaluate" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.502781" level="INFO">${links} = 2</msg>
+<var>${links}</var>
+<arg>len($ISIS_NEIGHBORS[$u["labels"]["node"]])</arg>
+<doc>Evaluates the given expression in Python and returns the result.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.502527" elapsed="0.000273"/>
+</kw>
+<kw name="Should Be Equal As Numbers" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.503073" level="INFO">Argument types are:
+&lt;class 'float'&gt;
+&lt;class 'int'&gt;</msg>
+<arg>${e}[value]</arg>
+<arg>${links}</arg>
+<arg>msg=${u}[labels][node]: expected count disagrees with the inventory</arg>
+<doc>Fails if objects are unequal after converting them to real numbers.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.502875" elapsed="0.000235"/>
+</kw>
+<var name="${u}">{'labels': {'lab': 'srv6-core', 'node': 'pe4', 'role': 'pe'}, 'value': 2.0}</var>
+<var name="${e}">{'labels': {'lab': 'srv6-core', 'node': 'pe4', 'role': 'pe'}, 'value': 2.0}</var>
+<status status="PASS" start="2026-09-18T11:17:54.502117" elapsed="0.001019"/>
+</iter>
+<iter>
+<kw name="Should Be Equal As Numbers" owner="BuiltIn">
+<arg>${u}[value]</arg>
+<arg>${e}[value]</arg>
+<arg>msg=${u}[labels][node]: ${u}[value] IS-IS adjacencies up, ${e}[value] expected</arg>
+<doc>Fails if objects are unequal after converting them to real numbers.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.503277" elapsed="0.000245"/>
+</kw>
+<kw name="Evaluate" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.503854" level="INFO">${links} = 4</msg>
+<var>${links}</var>
+<arg>len($ISIS_NEIGHBORS[$u["labels"]["node"]])</arg>
+<doc>Evaluates the given expression in Python and returns the result.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.503615" elapsed="0.000259"/>
+</kw>
+<kw name="Should Be Equal As Numbers" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.504143" level="INFO">Argument types are:
+&lt;class 'float'&gt;
+&lt;class 'int'&gt;</msg>
+<arg>${e}[value]</arg>
+<arg>${links}</arg>
+<arg>msg=${u}[labels][node]: expected count disagrees with the inventory</arg>
+<doc>Fails if objects are unequal after converting them to real numbers.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.503949" elapsed="0.000230"/>
+</kw>
+<var name="${u}">{'labels': {'lab': 'srv6-core', 'node': 'p1', 'role': 'p'}, 'value': 4.0}</var>
+<var name="${e}">{'labels': {'lab': 'srv6-core', 'node': 'p1', 'role': 'p'}, 'value': 4.0}</var>
+<status status="PASS" start="2026-09-18T11:17:54.503214" elapsed="0.000999"/>
+</iter>
+<iter>
+<kw name="Should Be Equal As Numbers" owner="BuiltIn">
+<arg>${u}[value]</arg>
+<arg>${e}[value]</arg>
+<arg>msg=${u}[labels][node]: ${u}[value] IS-IS adjacencies up, ${e}[value] expected</arg>
+<doc>Fails if objects are unequal after converting them to real numbers.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.504350" elapsed="0.000266"/>
+</kw>
+<kw name="Evaluate" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.504923" level="INFO">${links} = 6</msg>
+<var>${links}</var>
+<arg>len($ISIS_NEIGHBORS[$u["labels"]["node"]])</arg>
+<doc>Evaluates the given expression in Python and returns the result.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.504697" elapsed="0.000244"/>
+</kw>
+<kw name="Should Be Equal As Numbers" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.505198" level="INFO">Argument types are:
+&lt;class 'float'&gt;
+&lt;class 'int'&gt;</msg>
+<arg>${e}[value]</arg>
+<arg>${links}</arg>
+<arg>msg=${u}[labels][node]: expected count disagrees with the inventory</arg>
+<doc>Fails if objects are unequal after converting them to real numbers.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.505016" elapsed="0.000218"/>
+</kw>
+<var name="${u}">{'labels': {'lab': 'srv6-core', 'node': 'p2', 'role': 'p'}, 'value': 6.0}</var>
+<var name="${e}">{'labels': {'lab': 'srv6-core', 'node': 'p2', 'role': 'p'}, 'value': 6.0}</var>
+<status status="PASS" start="2026-09-18T11:17:54.504287" elapsed="0.000970"/>
+</iter>
+<iter>
+<kw name="Should Be Equal As Numbers" owner="BuiltIn">
+<arg>${u}[value]</arg>
+<arg>${e}[value]</arg>
+<arg>msg=${u}[labels][node]: ${u}[value] IS-IS adjacencies up, ${e}[value] expected</arg>
+<doc>Fails if objects are unequal after converting them to real numbers.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.505393" elapsed="0.000277"/>
+</kw>
+<kw name="Evaluate" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.505985" level="INFO">${links} = 4</msg>
+<var>${links}</var>
+<arg>len($ISIS_NEIGHBORS[$u["labels"]["node"]])</arg>
+<doc>Evaluates the given expression in Python and returns the result.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.505754" elapsed="0.000250"/>
+</kw>
+<kw name="Should Be Equal As Numbers" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.506270" level="INFO">Argument types are:
+&lt;class 'float'&gt;
+&lt;class 'int'&gt;</msg>
+<arg>${e}[value]</arg>
+<arg>${links}</arg>
+<arg>msg=${u}[labels][node]: expected count disagrees with the inventory</arg>
+<doc>Fails if objects are unequal after converting them to real numbers.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.506080" elapsed="0.000227"/>
+</kw>
+<var name="${u}">{'labels': {'lab': 'srv6-core', 'node': 'p3', 'role': 'p'}, 'value': 4.0}</var>
+<var name="${e}">{'labels': {'lab': 'srv6-core', 'node': 'p3', 'role': 'p'}, 'value': 4.0}</var>
+<status status="PASS" start="2026-09-18T11:17:54.505331" elapsed="0.001000"/>
+</iter>
+<var>${u}</var>
+<var>${e}</var>
+<value>${up}</value>
+<value>${exp}</value>
+<status status="PASS" start="2026-09-18T11:17:54.498695" elapsed="0.007659"/>
+</for>
+<kw name="Metric Samples" owner="LabLib">
+<msg time="2026-09-18T11:17:54.506694" level="INFO">${hosts} = [{'labels': {'lab': 'srv6-core', 'host': 'dc1-h1', 'tenant': 'tenant-a', 'dc': 'dc1'}, 'value': 1.0}, {'labels': {'lab': 'srv6-core', 'host': 'dc2-h1', 'tenant': 'tenant-a', 'dc': 'dc2'}, 'value': 1.0...</msg>
+<var>${hosts}</var>
+<arg>${text}</arg>
+<arg>lab_host_reachable</arg>
+<doc>Parse the samples of one metric from Prometheus text exposition: [{labels, value}].</doc>
+<status status="PASS" start="2026-09-18T11:17:54.506414" elapsed="0.000300"/>
+</kw>
+<kw name="Length Should Be" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.507020" level="INFO">Length is 8.</msg>
+<arg>${hosts}</arg>
+<arg>${{ len($HOSTS) }}</arg>
+<doc>Verifies that the length of the given item is correct.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.506777" elapsed="0.000279"/>
+</kw>
+<for flavor="IN">
+<iter>
+<kw name="Should Be Equal As Numbers" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.507428" level="INFO">Argument types are:
+&lt;class 'float'&gt;
+&lt;class 'str'&gt;</msg>
+<arg>${h}[value]</arg>
+<arg>1</arg>
+<arg>msg=${h}[labels][host] unreachable</arg>
+<doc>Fails if objects are unequal after converting them to real numbers.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.507242" elapsed="0.000229"/>
+</kw>
+<var name="${h}">{'labels': {'lab': 'srv6-core', 'host': 'dc1-h1', 'tenant': 'tenant-a', 'dc': 'dc1'}, 'value': 1.0}</var>
+<status status="PASS" start="2026-09-18T11:17:54.507171" elapsed="0.000334"/>
+</iter>
+<iter>
+<kw name="Should Be Equal As Numbers" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.507838" level="INFO">Argument types are:
+&lt;class 'float'&gt;
+&lt;class 'str'&gt;</msg>
+<arg>${h}[value]</arg>
+<arg>1</arg>
+<arg>msg=${h}[labels][host] unreachable</arg>
+<doc>Fails if objects are unequal after converting them to real numbers.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.507652" elapsed="0.000226"/>
+</kw>
+<var name="${h}">{'labels': {'lab': 'srv6-core', 'host': 'dc2-h1', 'tenant': 'tenant-a', 'dc': 'dc2'}, 'value': 1.0}</var>
+<status status="PASS" start="2026-09-18T11:17:54.507576" elapsed="0.000325"/>
+</iter>
+<iter>
+<kw name="Should Be Equal As Numbers" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.508200" level="INFO">Argument types are:
+&lt;class 'float'&gt;
+&lt;class 'str'&gt;</msg>
+<arg>${h}[value]</arg>
+<arg>1</arg>
+<arg>msg=${h}[labels][host] unreachable</arg>
+<doc>Fails if objects are unequal after converting them to real numbers.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.508020" elapsed="0.000218"/>
+</kw>
+<var name="${h}">{'labels': {'lab': 'srv6-core', 'host': 'dc3-h1', 'tenant': 'tenant-a', 'dc': 'dc3'}, 'value': 1.0}</var>
+<status status="PASS" start="2026-09-18T11:17:54.507955" elapsed="0.000308"/>
+</iter>
+<iter>
+<kw name="Should Be Equal As Numbers" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.508584" level="INFO">Argument types are:
+&lt;class 'float'&gt;
+&lt;class 'str'&gt;</msg>
+<arg>${h}[value]</arg>
+<arg>1</arg>
+<arg>msg=${h}[labels][host] unreachable</arg>
+<doc>Fails if objects are unequal after converting them to real numbers.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.508375" elapsed="0.000264"/>
+</kw>
+<var name="${h}">{'labels': {'lab': 'srv6-core', 'host': 'dc4-h1', 'tenant': 'tenant-a', 'dc': 'dc4'}, 'value': 1.0}</var>
+<status status="PASS" start="2026-09-18T11:17:54.508314" elapsed="0.000350"/>
+</iter>
+<iter>
+<kw name="Should Be Equal As Numbers" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.508962" level="INFO">Argument types are:
+&lt;class 'float'&gt;
+&lt;class 'str'&gt;</msg>
+<arg>${h}[value]</arg>
+<arg>1</arg>
+<arg>msg=${h}[labels][host] unreachable</arg>
+<doc>Fails if objects are unequal after converting them to real numbers.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.508783" elapsed="0.000215"/>
+</kw>
+<var name="${h}">{'labels': {'lab': 'srv6-core', 'host': 'dc1-h2', 'tenant': 'tenant-b', 'dc': 'dc1'}, 'value': 1.0}</var>
+<status status="PASS" start="2026-09-18T11:17:54.508720" elapsed="0.000303"/>
+</iter>
+<iter>
+<kw name="Should Be Equal As Numbers" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.509319" level="INFO">Argument types are:
+&lt;class 'float'&gt;
+&lt;class 'str'&gt;</msg>
+<arg>${h}[value]</arg>
+<arg>1</arg>
+<arg>msg=${h}[labels][host] unreachable</arg>
+<doc>Fails if objects are unequal after converting them to real numbers.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.509140" elapsed="0.000215"/>
+</kw>
+<var name="${h}">{'labels': {'lab': 'srv6-core', 'host': 'dc2-h2', 'tenant': 'tenant-b', 'dc': 'dc2'}, 'value': 1.0}</var>
+<status status="PASS" start="2026-09-18T11:17:54.509075" elapsed="0.000304"/>
+</iter>
+<iter>
+<kw name="Should Be Equal As Numbers" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.509724" level="INFO">Argument types are:
+&lt;class 'float'&gt;
+&lt;class 'str'&gt;</msg>
+<arg>${h}[value]</arg>
+<arg>1</arg>
+<arg>msg=${h}[labels][host] unreachable</arg>
+<doc>Fails if objects are unequal after converting them to real numbers.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.509529" elapsed="0.000231"/>
+</kw>
+<var name="${h}">{'labels': {'lab': 'srv6-core', 'host': 'dc3-h2', 'tenant': 'tenant-b', 'dc': 'dc3'}, 'value': 1.0}</var>
+<status status="PASS" start="2026-09-18T11:17:54.509440" elapsed="0.000344"/>
+</iter>
+<iter>
+<kw name="Should Be Equal As Numbers" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.510072" level="INFO">Argument types are:
+&lt;class 'float'&gt;
+&lt;class 'str'&gt;</msg>
+<arg>${h}[value]</arg>
+<arg>1</arg>
+<arg>msg=${h}[labels][host] unreachable</arg>
+<doc>Fails if objects are unequal after converting them to real numbers.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.509898" elapsed="0.000210"/>
+</kw>
+<var name="${h}">{'labels': {'lab': 'srv6-core', 'host': 'dc4-h2', 'tenant': 'tenant-b', 'dc': 'dc4'}, 'value': 1.0}</var>
+<status status="PASS" start="2026-09-18T11:17:54.509837" elapsed="0.000295"/>
+</iter>
+<var>${h}</var>
+<value>@{hosts}</value>
+<status status="PASS" start="2026-09-18T11:17:54.507092" elapsed="0.003069"/>
+</for>
+<status status="PASS" start="2026-09-18T11:17:54.473264" elapsed="0.036955"/>
+</kw>
+<arg>4 min</arg>
+<arg>30 s</arg>
+<arg>Portal Metrics Show Everything Up</arg>
+<doc>Runs the specified keyword and retries if it fails.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.472781" elapsed="0.037475"/>
+</kw>
+<status status="PASS" start="2026-09-18T11:17:54.472504" elapsed="0.037827"/>
+</test>
+<test id="s1-t6" name="Prometheus scrapes every target of the lab successfully" line="57">
+<kw name="Http Get" owner="LabLib">
+<msg time="2026-09-18T11:17:54.513951" level="INFO">${targets} = {'status': 'success', 'data': {'activeTargets': [{'discoveredLabels': {'__address__': '10.2.0.1:8090', '__always_scrape_classic_histograms__': 'false', '__convert_classic_histograms_to_nhcb__': 'false...</msg>
+<var>${targets}</var>
+<arg>${PROMETHEUS}/api/v1/targets</arg>
+<doc>GET a URL; returns the parsed JSON, or the text for non-JSON answers (Prometheus exposition).</doc>
+<status status="PASS" start="2026-09-18T11:17:54.510710" elapsed="0.003284"/>
+</kw>
+<kw name="Evaluate" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.514652" level="INFO">${lab} = [{'discoveredLabels': {'__address__': '10.3.0.12:9100', '__always_scrape_classic_histograms__': 'false', '__convert_classic_histograms_to_nhcb__': 'false', '__meta_url': 'http://10.3.0.1:8091/api/sd',...</msg>
+<var>${lab}</var>
+<arg>[t for t in $targets["data"]["activeTargets"] if t["labels"].get("lab") == "srv6-core"]</arg>
+<doc>Evaluates the given expression in Python and returns the result.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.514139" elapsed="0.000536"/>
+</kw>
+<kw name="Evaluate" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.515048" level="INFO">${expected} = 31</msg>
+<var>${expected}</var>
+<arg>2 * len($VYOS) + len($HOSTS) + 1</arg>
+<doc>Evaluates the given expression in Python and returns the result.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.514765" elapsed="0.000303"/>
+</kw>
+<kw name="Length Should Be" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.515442" level="INFO">Length is 31.</msg>
+<arg>${lab}</arg>
+<arg>${expected}</arg>
+<arg>msg=Prometheus has ${{ len($lab) }} srv6-core targets, expected ${expected}</arg>
+<doc>Verifies that the length of the given item is correct.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.515137" elapsed="0.000339"/>
+</kw>
+<kw name="Evaluate" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.515852" level="INFO">${down} = []</msg>
+<var>${down}</var>
+<arg>[t["scrapeUrl"] + " " + t["lastError"] for t in $lab if t["health"] != "up"]</arg>
+<doc>Evaluates the given expression in Python and returns the result.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.515557" elapsed="0.000314"/>
+</kw>
+<kw name="Should Be Empty" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.516132" level="INFO">Length is 0.</msg>
+<arg>${down}</arg>
+<arg>msg=targets not up: ${down}</arg>
+<doc>Verifies that the given item is empty.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.515935" elapsed="0.000229"/>
+</kw>
+<status status="PASS" start="2026-09-18T11:17:54.510472" elapsed="0.005756"/>
+</test>
+<test id="s1-t7" name="Prometheus has the alert rules loaded and none of the lab's alerts firing" line="65">
+<kw name="Http Get" owner="LabLib">
+<msg time="2026-09-18T11:17:54.518508" level="INFO">${rules} = {'status': 'success', 'data': {'groups': [{'name': 'lab-exporters', 'file': '/etc/prometheus/alerts.yml', 'rules': [{'state': 'inactive', 'name': 'ExporterDown', 'query': '(up{job=~"node|frr"} == 0) a...</msg>
+<var>${rules}</var>
+<arg>${PROMETHEUS}/api/v1/rules</arg>
+<doc>GET a URL; returns the parsed JSON, or the text for non-JSON answers (Prometheus exposition).</doc>
+<status status="PASS" start="2026-09-18T11:17:54.516550" elapsed="0.001993"/>
+</kw>
+<kw name="Evaluate" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.519012" level="INFO">${names} = ['ExporterDown', 'PortalDown', 'PortalCollectorStale', 'NodeHighCpu', 'NodeLowMemory', 'NodeDiskFull', 'TenantHostUnreachable', 'TenantSiteBgpDown', 'TenantDegraded', 'IsisAdjacencyMissing', 'BfdSessi...</msg>
+<var>${names}</var>
+<arg>[r["name"] for g in $rules["data"]["groups"] for r in g["rules"]]</arg>
+<doc>Evaluates the given expression in Python and returns the result.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.518670" elapsed="0.000366"/>
+</kw>
+<for flavor="IN">
+<iter>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${names}</arg>
+<arg>${a}</arg>
+<arg>msg=alert rule ${a} not loaded</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.519259" elapsed="0.000275"/>
+</kw>
+<var name="${a}">ExporterDown</var>
+<status status="PASS" start="2026-09-18T11:17:54.519173" elapsed="0.000398"/>
+</iter>
+<iter>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${names}</arg>
+<arg>${a}</arg>
+<arg>msg=alert rule ${a} not loaded</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.519739" elapsed="0.000230"/>
+</kw>
+<var name="${a}">TenantHostUnreachable</var>
+<status status="PASS" start="2026-09-18T11:17:54.519652" elapsed="0.000352"/>
+</iter>
+<iter>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${names}</arg>
+<arg>${a}</arg>
+<arg>msg=alert rule ${a} not loaded</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.520131" elapsed="0.000237"/>
+</kw>
+<var name="${a}">TenantSiteBgpDown</var>
+<status status="PASS" start="2026-09-18T11:17:54.520072" elapsed="0.000321"/>
+</iter>
+<iter>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${names}</arg>
+<arg>${a}</arg>
+<arg>msg=alert rule ${a} not loaded</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.520535" elapsed="0.000268"/>
+</kw>
+<var name="${a}">TenantDegraded</var>
+<status status="PASS" start="2026-09-18T11:17:54.520452" elapsed="0.000378"/>
+</iter>
+<iter>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${names}</arg>
+<arg>${a}</arg>
+<arg>msg=alert rule ${a} not loaded</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.520959" elapsed="0.000233"/>
+</kw>
+<var name="${a}">IsisAdjacencyMissing</var>
+<status status="PASS" start="2026-09-18T11:17:54.520880" elapsed="0.000346"/>
+</iter>
+<iter>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${names}</arg>
+<arg>${a}</arg>
+<arg>msg=alert rule ${a} not loaded</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.521337" elapsed="0.000244"/>
+</kw>
+<var name="${a}">BfdSessionDown</var>
+<status status="PASS" start="2026-09-18T11:17:54.521280" elapsed="0.000368"/>
+</iter>
+<iter>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${names}</arg>
+<arg>${a}</arg>
+<arg>msg=alert rule ${a} not loaded</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.521783" elapsed="0.000221"/>
+</kw>
+<var name="${a}">VpnV4SessionDown</var>
+<status status="PASS" start="2026-09-18T11:17:54.521712" elapsed="0.000324"/>
+</iter>
+<iter>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${names}</arg>
+<arg>${a}</arg>
+<arg>msg=alert rule ${a} not loaded</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.522143" elapsed="0.000224"/>
+</kw>
+<var name="${a}">LabTestsFailed</var>
+<status status="PASS" start="2026-09-18T11:17:54.522087" elapsed="0.000304"/>
+</iter>
+<var>${a}</var>
+<value>ExporterDown</value>
+<value>TenantHostUnreachable</value>
+<value>TenantSiteBgpDown</value>
+<value>TenantDegraded</value>
+<value>IsisAdjacencyMissing</value>
+<value>BfdSessionDown</value>
+<value>VpnV4SessionDown</value>
+<value>LabTestsFailed</value>
+<status status="PASS" start="2026-09-18T11:17:54.519079" elapsed="0.003331"/>
+</for>
+<kw name="Wait Until Keyword Succeeds" owner="BuiltIn">
+<kw name="No Lab Alert Firing">
+<kw name="Http Get" owner="LabLib">
+<msg time="2026-09-18T11:17:54.525280" level="INFO">${rules} = {'status': 'success', 'data': {'groups': [{'name': 'lab-exporters', 'file': '/etc/prometheus/alerts.yml', 'rules': [{'state': 'inactive', 'name': 'ExporterDown', 'query': '(up{job=~"node|frr"} == 0) a...</msg>
+<var>${rules}</var>
+<arg>${PROMETHEUS}/api/v1/rules</arg>
+<doc>GET a URL; returns the parsed JSON, or the text for non-JSON answers (Prometheus exposition).</doc>
+<status status="PASS" start="2026-09-18T11:17:54.523105" elapsed="0.002200"/>
+</kw>
+<kw name="Evaluate" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.525872" level="INFO">${firing} = []</msg>
+<var>${firing}</var>
+<arg>[r["name"] for g in $rules["data"]["groups"] for r in g["rules"] if r.get("state") == "firing" and any(a["labels"].get("lab") == "srv6-core" for a in r.get("alerts", []))]</arg>
+<doc>Evaluates the given expression in Python and returns the result.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.525396" elapsed="0.000497"/>
+</kw>
+<kw name="Should Be Empty" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.526207" level="INFO">Length is 0.</msg>
+<arg>${firing}</arg>
+<arg>msg=alerts firing for srv6-core: ${firing}</arg>
+<doc>Verifies that the given item is empty.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.525975" elapsed="0.000271"/>
+</kw>
+<status status="PASS" start="2026-09-18T11:17:54.522916" elapsed="0.003380"/>
+</kw>
+<arg>6 min</arg>
+<arg>30 s</arg>
+<arg>No Lab Alert Firing</arg>
+<doc>Runs the specified keyword and retries if it fails.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.522556" elapsed="0.003772"/>
+</kw>
+<status status="PASS" start="2026-09-18T11:17:54.516347" elapsed="0.010043"/>
+</test>
+<test id="s1-t8" name="VictoriaMetrics holds the series remote-written by Prometheus" line="73">
+<kw name="Prometheus Query" owner="LabLib">
+<msg time="2026-09-18T11:17:54.535377" level="INFO">${up} = [{'labels': {}, 'value': 31.0}]</msg>
+<var>${up}</var>
+<arg>${VICTORIAMETRICS}</arg>
+<arg>count(up{lab="srv6-core"} == 1)</arg>
+<doc>Instant query against a Prometheus-compatible API (Prometheus or VictoriaMetrics); returns the result vector
+as a list of {labels, value}.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.526785" elapsed="0.008630"/>
+</kw>
+<kw name="Evaluate" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.535942" level="INFO">${expected} = 31</msg>
+<var>${expected}</var>
+<arg>2 * len($VYOS) + len($HOSTS) + 1</arg>
+<doc>Evaluates the given expression in Python and returns the result.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.535550" elapsed="0.000413"/>
+</kw>
+<kw name="Should Be Equal As Numbers" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.536317" level="INFO">Argument types are:
+&lt;class 'float'&gt;
+&lt;class 'int'&gt;</msg>
+<arg>${up}[0][value]</arg>
+<arg>${expected}</arg>
+<arg>msg=VictoriaMetrics sees ${up}[0][value] srv6-core targets up</arg>
+<doc>Fails if objects are unequal after converting them to real numbers.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.536064" elapsed="0.000296"/>
+</kw>
+<kw name="Prometheus Query" owner="LabLib">
+<msg time="2026-09-18T11:17:54.539866" level="INFO">${health} = [{'labels': {'__name__': 'lab_tenant_health', 'exported_lab': 'srv6-core', 'instance': '10.3.0.1:8091', 'job': 'portal', 'lab': 'srv6-core', 'role': 'portal', 'site': 'nms', 'sites': '4', 'tenant': 't...</msg>
+<var>${health}</var>
+<arg>${VICTORIAMETRICS}</arg>
+<arg>lab_tenant_health{lab="srv6-core"}</arg>
+<doc>Instant query against a Prometheus-compatible API (Prometheus or VictoriaMetrics); returns the result vector
+as a list of {labels, value}.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.536432" elapsed="0.003461"/>
+</kw>
+<kw name="Length Should Be" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.540323" level="INFO">Length is 2.</msg>
+<arg>${health}</arg>
+<arg>${{ len($TENANTS) }}</arg>
+<doc>Verifies that the length of the given item is correct.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.539984" elapsed="0.000376"/>
+</kw>
+<kw name="Prometheus Query" owner="LabLib">
+<msg time="2026-09-18T11:17:54.543855" level="INFO">${bgp} = [{'labels': {}, 'value': 16.0}]</msg>
+<var>${bgp}</var>
+<arg>${VICTORIAMETRICS}</arg>
+<arg>count(frr_bgp_peer_state{lab="srv6-core",role="pe"} == 1)</arg>
+<doc>Instant query against a Prometheus-compatible API (Prometheus or VictoriaMetrics); returns the result vector
+as a list of {labels, value}.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.540438" elapsed="0.003441"/>
+</kw>
+<kw name="Evaluate" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.544401" level="INFO">${expected} = 16</msg>
+<var>${expected}</var>
+<arg>len($PES) * (len($RRS) + len($TENANTS)) + len($EXT_SITES)</arg>
+<doc>Evaluates the given expression in Python and returns the result.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.543989" elapsed="0.000437"/>
+</kw>
+<kw name="Should Be Equal As Numbers" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.544875" level="INFO">Argument types are:
+&lt;class 'float'&gt;
+&lt;class 'int'&gt;</msg>
+<arg>${bgp}[0][value]</arg>
+<arg>${expected}</arg>
+<arg>msg=${bgp}[0][value] Established PE BGP sessions in VictoriaMetrics, expected ${expected}</arg>
+<doc>Fails if objects are unequal after converting them to real numbers.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.544550" elapsed="0.000382"/>
+</kw>
+<status status="PASS" start="2026-09-18T11:17:54.526541" elapsed="0.018499"/>
+</test>
+<test id="s1-t9" name="Every VyOS node pushes Telegraf metrics into VictoriaMetrics, tagged with the lab, role and DC" line="83">
+<kw name="Prometheus Query" owner="LabLib">
+<msg time="2026-09-18T11:17:54.548150" level="INFO">${nodes} = [{'labels': {'dc': 'core', 'host': 'p1', 'role': 'p'}, 'value': 1.0}, {'labels': {'dc': 'core', 'host': 'p2', 'role': 'p'}, 'value': 1.0}, {'labels': {'dc': 'core', 'host': 'p3', 'role': 'p'}, 'value'...</msg>
+<var>${nodes}</var>
+<arg>${VICTORIAMETRICS}</arg>
+<arg>count by (host, role, dc) (cpu_usage_idle{lab="srv6-core",cpu="cpu-total"})</arg>
+<doc>Instant query against a Prometheus-compatible API (Prometheus or VictoriaMetrics); returns the result vector
+as a list of {labels, value}.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.545514" elapsed="0.002664"/>
+</kw>
+<kw name="Evaluate" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.548666" level="INFO">${hosts} = ['ce1', 'ce2', 'ce3', 'ce4', 'p1', 'p2', 'p3', 'pe1', 'pe2', 'pe3', 'pe4']</msg>
+<var>${hosts}</var>
+<arg>sorted(r["labels"]["host"] for r in $nodes)</arg>
+<doc>Evaluates the given expression in Python and returns the result.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.548289" elapsed="0.000405"/>
+</kw>
+<kw name="Lists Should Be Equal" owner="Collections">
+<msg time="2026-09-18T11:17:54.549210" level="FAIL">Telegraf series missing for some VyOS nodes
+Lists are different:
+Index 0: ce1 != pe1
+Index 1: ce2 != pe2
+Index 2: ce3 != pe3
+Index 3: ce4 != pe4
+Index 7: pe1 != ce1
+Index 8: pe2 != ce2
+Index 9: pe3 != ce3
+Index 10: pe4 != ce4</msg>
+<arg>${hosts}</arg>
+<arg>${VYOS}</arg>
+<arg>msg=Telegraf series missing for some VyOS nodes</arg>
+<doc>Fails if given lists are unequal.</doc>
+<status status="FAIL" start="2026-09-18T11:17:54.548822" elapsed="0.000510">Telegraf series missing for some VyOS nodes
+Lists are different:
+Index 0: ce1 != pe1
+Index 1: ce2 != pe2
+Index 2: ce3 != pe3
+Index 3: ce4 != pe4
+Index 7: pe1 != ce1
+Index 8: pe2 != ce2
+Index 9: pe3 != ce3
+Index 10: pe4 != ce4</status>
+</kw>
+<for flavor="IN">
+<iter>
+<kw name="Should Be Equal" owner="BuiltIn">
+<arg>${r}[labels][role]</arg>
+<arg>${NODES}[${r}[labels][host]][role]</arg>
+<doc>Fails if the given objects are unequal.</doc>
+<status status="NOT RUN" start="2026-09-18T11:17:54.549531" elapsed="0.000015"/>
+</kw>
+<kw name="Should Be Equal" owner="BuiltIn">
+<arg>${r}[labels][dc]</arg>
+<arg>${NODES}[${r}[labels][host]][dc]</arg>
+<doc>Fails if the given objects are unequal.</doc>
+<status status="NOT RUN" start="2026-09-18T11:17:54.549638" elapsed="0.000015"/>
+</kw>
+<var name="${r}"/>
+<status status="NOT RUN" start="2026-09-18T11:17:54.549453" elapsed="0.000223"/>
+</iter>
+<var>${r}</var>
+<value>@{nodes}</value>
+<status status="NOT RUN" start="2026-09-18T11:17:54.549390" elapsed="0.000313"/>
+</for>
+<kw name="Prometheus Query" owner="LabLib">
+<var>${svc}</var>
+<arg>${VICTORIAMETRICS}</arg>
+<arg>count(vyos_services_status{lab="srv6-core"} == 0) or vector(0)</arg>
+<doc>Instant query against a Prometheus-compatible API (Prometheus or VictoriaMetrics); returns the result vector
+as a list of {labels, value}.</doc>
+<status status="NOT RUN" start="2026-09-18T11:17:54.549784" elapsed="0.000013"/>
+</kw>
+<kw name="Should Be Equal As Numbers" owner="BuiltIn">
+<arg>${svc}[0][value]</arg>
+<arg>0</arg>
+<arg>msg=a VyOS-reported service is down (vyos_services_status)</arg>
+<doc>Fails if objects are unequal after converting them to real numbers.</doc>
+<status status="NOT RUN" start="2026-09-18T11:17:54.549868" elapsed="0.000012"/>
+</kw>
+<kw name="Prometheus Query" owner="LabLib">
+<var>${fresh}</var>
+<arg>${VICTORIAMETRICS}</arg>
+<arg>count(count by (host) (last_over_time(cpu_usage_idle{lab="srv6-core",cpu="cpu-total"}[2m])))</arg>
+<doc>Instant query against a Prometheus-compatible API (Prometheus or VictoriaMetrics); returns the result vector
+as a list of {labels, value}.</doc>
+<status status="NOT RUN" start="2026-09-18T11:17:54.549931" elapsed="0.000012"/>
+</kw>
+<kw name="Should Be Equal As Numbers" owner="BuiltIn">
+<arg>${fresh}[0][value]</arg>
+<arg>${{ len($VYOS) }}</arg>
+<arg>msg=not every node pushed within the last 2 minutes</arg>
+<doc>Fails if objects are unequal after converting them to real numbers.</doc>
+<status status="NOT RUN" start="2026-09-18T11:17:54.550005" elapsed="0.000012"/>
+</kw>
+<status status="FAIL" start="2026-09-18T11:17:54.545213" elapsed="0.004902">Telegraf series missing for some VyOS nodes
+Lists are different:
+Index 0: ce1 != pe1
+Index 1: ce2 != pe2
+Index 2: ce3 != pe3
+Index 3: ce4 != pe4
+Index 7: pe1 != ce1
+Index 8: pe2 != ce2
+Index 9: pe3 != ce3
+Index 10: pe4 != ce4</status>
+</test>
+<test id="s1-t10" name="Every VyOS node's syslog reaches VictoriaLogs" line="96">
+<kw name="Http Get" owner="LabLib">
+<msg time="2026-09-18T11:17:54.553408" level="INFO">${r} = {"hostname":"pe3","n":"1028"}
+{"hostname":"ce3","n":"158"}
+{"hostname":"p1","n":"570"}
+{"hostname":"pe2","n":"734"}
+{"hostname":"ce4","n":"124"}
+{"hostname":"p2","n":"572"}
+{"hostname":"ce2","n":"158"...</msg>
+<var>${r}</var>
+<arg>${VICTORIALOGS}/select/logsql/query</arg>
+<arg>query=_time:15m | stats by (hostname) count() as n</arg>
+<doc>GET a URL; returns the parsed JSON, or the text for non-JSON answers (Prometheus exposition).</doc>
+<status status="PASS" start="2026-09-18T11:17:54.550462" elapsed="0.002974"/>
+</kw>
+<kw name="Evaluate" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.553960" level="INFO">${hosts} = ['ce1', 'ce2', 'ce3', 'ce4', 'p1', 'p2', 'p3', 'pe1', 'pe2', 'pe3', 'pe4']</msg>
+<var>${hosts}</var>
+<arg>sorted(__import__("json").loads(l)["hostname"] for l in $r.splitlines() if l.strip())</arg>
+<doc>Evaluates the given expression in Python and returns the result.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.553537" elapsed="0.000444"/>
+</kw>
+<for flavor="IN">
+<iter>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${hosts}</arg>
+<arg>${n}</arg>
+<arg>msg=no syslog from ${n} in the last 15 minutes</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.554185" elapsed="0.000267"/>
+</kw>
+<var name="${n}">pe1</var>
+<status status="PASS" start="2026-09-18T11:17:54.554118" elapsed="0.000364"/>
+</iter>
+<iter>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${hosts}</arg>
+<arg>${n}</arg>
+<arg>msg=no syslog from ${n} in the last 15 minutes</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.554626" elapsed="0.000257"/>
+</kw>
+<var name="${n}">pe2</var>
+<status status="PASS" start="2026-09-18T11:17:54.554540" elapsed="0.000371"/>
+</iter>
+<iter>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${hosts}</arg>
+<arg>${n}</arg>
+<arg>msg=no syslog from ${n} in the last 15 minutes</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.555032" elapsed="0.000214"/>
+</kw>
+<var name="${n}">pe3</var>
+<status status="PASS" start="2026-09-18T11:17:54.554969" elapsed="0.000304"/>
+</iter>
+<iter>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${hosts}</arg>
+<arg>${n}</arg>
+<arg>msg=no syslog from ${n} in the last 15 minutes</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.555384" elapsed="0.000204"/>
+</kw>
+<var name="${n}">pe4</var>
+<status status="PASS" start="2026-09-18T11:17:54.555326" elapsed="0.000297"/>
+</iter>
+<iter>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${hosts}</arg>
+<arg>${n}</arg>
+<arg>msg=no syslog from ${n} in the last 15 minutes</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.555734" elapsed="0.000257"/>
+</kw>
+<var name="${n}">p1</var>
+<status status="PASS" start="2026-09-18T11:17:54.555674" elapsed="0.000346"/>
+</iter>
+<iter>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${hosts}</arg>
+<arg>${n}</arg>
+<arg>msg=no syslog from ${n} in the last 15 minutes</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.556133" elapsed="0.000212"/>
+</kw>
+<var name="${n}">p2</var>
+<status status="PASS" start="2026-09-18T11:17:54.556073" elapsed="0.000303"/>
+</iter>
+<iter>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${hosts}</arg>
+<arg>${n}</arg>
+<arg>msg=no syslog from ${n} in the last 15 minutes</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.556486" elapsed="0.000221"/>
+</kw>
+<var name="${n}">p3</var>
+<status status="PASS" start="2026-09-18T11:17:54.556428" elapsed="0.000305"/>
+</iter>
+<iter>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${hosts}</arg>
+<arg>${n}</arg>
+<arg>msg=no syslog from ${n} in the last 15 minutes</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.556870" elapsed="0.000208"/>
+</kw>
+<var name="${n}">ce1</var>
+<status status="PASS" start="2026-09-18T11:17:54.556802" elapsed="0.000303"/>
+</iter>
+<iter>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${hosts}</arg>
+<arg>${n}</arg>
+<arg>msg=no syslog from ${n} in the last 15 minutes</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.557211" elapsed="0.000205"/>
+</kw>
+<var name="${n}">ce2</var>
+<status status="PASS" start="2026-09-18T11:17:54.557155" elapsed="0.000298"/>
+</iter>
+<iter>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${hosts}</arg>
+<arg>${n}</arg>
+<arg>msg=no syslog from ${n} in the last 15 minutes</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.557559" elapsed="0.000229"/>
+</kw>
+<var name="${n}">ce3</var>
+<status status="PASS" start="2026-09-18T11:17:54.557503" elapsed="0.000319"/>
+</iter>
+<iter>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${hosts}</arg>
+<arg>${n}</arg>
+<arg>msg=no syslog from ${n} in the last 15 minutes</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.557935" elapsed="0.000204"/>
+</kw>
+<var name="${n}">ce4</var>
+<status status="PASS" start="2026-09-18T11:17:54.557878" elapsed="0.000287"/>
+</iter>
+<var>${n}</var>
+<value>@{VYOS}</value>
+<status status="PASS" start="2026-09-18T11:17:54.554024" elapsed="0.004160"/>
+</for>
+<status status="PASS" start="2026-09-18T11:17:54.550239" elapsed="0.008010"/>
+</test>
+<test id="s1-t11" name="Grafana is healthy and serves the provisioned dashboards" line="103">
+<kw name="Http Get" owner="LabLib">
+<msg time="2026-09-18T11:17:54.561003" level="INFO">${health} = {'database': 'ok', 'version': '13.0.2', 'commit': '3fcdbc5a'}</msg>
+<var>${health}</var>
+<arg>${GRAFANA}/api/health</arg>
+<doc>GET a URL; returns the parsed JSON, or the text for non-JSON answers (Prometheus exposition).</doc>
+<status status="PASS" start="2026-09-18T11:17:54.558563" elapsed="0.002478"/>
+</kw>
+<kw name="Should Be Equal" owner="BuiltIn">
+<arg>${health}[database]</arg>
+<arg>ok</arg>
+<doc>Fails if the given objects are unequal.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.561191" elapsed="0.000259"/>
+</kw>
+<kw name="Http Get" owner="LabLib">
+<msg time="2026-09-18T11:17:54.584941" level="INFO">${dash} = [{'id': 1865447184990208, 'uid': 'lab-node-detail', 'orgId': 1, 'title': 'Lab node detail', 'uri': 'db/lab-node-detail', 'url': '/d/lab-node-detail/lab-node-detail', 'slug': '', 'type': 'dash-db', 'ta...</msg>
+<var>${dash}</var>
+<arg>${GRAFANA}/api/search</arg>
+<arg>type=dash-db</arg>
+<doc>GET a URL; returns the parsed JSON, or the text for non-JSON answers (Prometheus exposition).</doc>
+<status status="PASS" start="2026-09-18T11:17:54.561547" elapsed="0.023434"/>
+</kw>
+<kw name="Evaluate" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.585524" level="INFO">${uids} = ['lab-node-detail', 'labs-fleet', 'srv6-core-overview', 'vyos-telegraf']</msg>
+<var>${uids}</var>
+<arg>[d["uid"] for d in $dash]</arg>
+<doc>Evaluates the given expression in Python and returns the result.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.585120" elapsed="0.000428"/>
+</kw>
+<for flavor="IN">
+<iter>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${uids}</arg>
+<arg>${uid}</arg>
+<arg>msg=dashboard ${uid} not provisioned</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.585816" elapsed="0.000277"/>
+</kw>
+<var name="${uid}">srv6-core-overview</var>
+<status status="PASS" start="2026-09-18T11:17:54.585727" elapsed="0.000397"/>
+</iter>
+<iter>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${uids}</arg>
+<arg>${uid}</arg>
+<arg>msg=dashboard ${uid} not provisioned</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.586281" elapsed="0.000254"/>
+</kw>
+<var name="${uid}">lab-node-detail</var>
+<status status="PASS" start="2026-09-18T11:17:54.586202" elapsed="0.000361"/>
+</iter>
+<iter>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${uids}</arg>
+<arg>${uid}</arg>
+<arg>msg=dashboard ${uid} not provisioned</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.586708" elapsed="0.000242"/>
+</kw>
+<var name="${uid}">labs-fleet</var>
+<status status="PASS" start="2026-09-18T11:17:54.586628" elapsed="0.000349"/>
+</iter>
+<iter>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${uids}</arg>
+<arg>${uid}</arg>
+<arg>msg=dashboard ${uid} not provisioned</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.587094" elapsed="0.000248"/>
+</kw>
+<var name="${uid}">vyos-telegraf</var>
+<status status="PASS" start="2026-09-18T11:17:54.587030" elapsed="0.000339"/>
+</iter>
+<var>${uid}</var>
+<value>srv6-core-overview</value>
+<value>lab-node-detail</value>
+<value>labs-fleet</value>
+<value>vyos-telegraf</value>
+<status status="PASS" start="2026-09-18T11:17:54.585598" elapsed="0.001792"/>
+</for>
+<kw name="Http Get" owner="LabLib">
+<msg time="2026-09-18T11:17:54.602078" level="INFO">${d} = {'meta': {'type': 'db', 'canSave': False, 'canEdit': False, 'canAdmin': False, 'canStar': False, 'canDelete': False, 'slug': 'srv6-core3a-overview', 'url': '/d/srv6-core-overview/srv6-core3a-overview'...</msg>
+<var>${d}</var>
+<arg>${GRAFANA}/api/dashboards/uid/srv6-core-overview</arg>
+<doc>GET a URL; returns the parsed JSON, or the text for non-JSON answers (Prometheus exposition).</doc>
+<status status="PASS" start="2026-09-18T11:17:54.587468" elapsed="0.014652"/>
+</kw>
+<kw name="Evaluate" owner="BuiltIn">
+<msg time="2026-09-18T11:17:54.602879" level="INFO">${panels} = [{'datasource': {'type': 'prometheus', 'uid': 'victoriametrics'}, 'fieldConfig': {'defaults': {'mappings': [{'options': {'0': {'color': 'red', 'text': 'down'}, '1': {'color': 'orange', 'text': 'degrad...</msg>
+<var>${panels}</var>
+<arg>[p for p in $d["dashboard"]["panels"] if p["type"] != "row"]</arg>
+<doc>Evaluates the given expression in Python and returns the result.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.602280" elapsed="0.000625"/>
+</kw>
+<kw name="Should Be True" owner="BuiltIn">
+<arg>len($panels) &gt;= 15</arg>
+<doc>Fails if the given condition is not true.</doc>
+<status status="PASS" start="2026-09-18T11:17:54.603008" elapsed="0.000274"/>
+</kw>
+<status status="PASS" start="2026-09-18T11:17:54.558367" elapsed="0.044993"/>
+</test>
+<doc>Monitoring: node-exporter and frr-exporter answer on every VyOS node, node-exporter on every tenant host,
+the portal exposes /metrics and /api/sd, and the Prometheus / VictoriaMetrics / Grafana stack on the NMS
+(lab-portal/monitoring) scrapes every target, evaluates the alert rules and serves the dashboards.
+Set PROMETHEUS / VICTORIAMETRICS / GRAFANA to other URLs if the stack runs elsewhere.</doc>
+<status status="FAIL" start="2026-09-18T11:17:45.022251" elapsed="9.581428"/>
+</suite>
+<statistics>
+<total>
+<stat pass="10" fail="1" skip="0">All Tests</stat>
+</total>
+<tag>
+</tag>
+<suite>
+<stat name="srv6 core lab" id="s1" pass="10" fail="1" skip="0">srv6 core lab</stat>
+</suite>
+</statistics>
+<errors>
+</errors>
+</robot>

@@ -10,6 +10,19 @@ set protocols static route 10.0.0.0/8 next-hop 10.3.0.1
 # monitoring: Prometheus exporters on the OOB address (node-exporter :9100, frr-exporter :9342), scraped from the NMS
 set service monitoring prometheus node-exporter listen-address 10.3.0.11
 set service monitoring prometheus frr-exporter listen-address 10.3.0.11
+# telemetry pushed by the node itself: VyOS Telegraf -> VictoriaMetrics on the NMS over the InfluxDB v2 write API (host
+# metrics, VyOS service state, kernel nstat counters), every series tagged lab / role / dc; syslog -> VictoriaLogs (UDP 5514)
+set service monitoring telegraf influxdb url http://10.3.0.10
+set service monitoring telegraf influxdb port 8428
+set service monitoring telegraf influxdb bucket srv6-core
+set service monitoring telegraf influxdb authentication organization lab
+set service monitoring telegraf influxdb authentication token srv6core-lab-telegraf_________________________________________________________________==
+set system syslog remote 10.3.0.10 port 5514
+set system syslog remote 10.3.0.10 protocol udp
+set system syslog remote 10.3.0.10 facility all level info
+set service monitoring telegraf global-tag lab value srv6-core
+set service monitoring telegraf global-tag role value pe
+set service monitoring telegraf global-tag dc value dc1
 # underlay: IPv6-only core, IS-IS level-2 point-to-point, jumbo frames leave headroom for the SRv6 encapsulation
 set interfaces loopback lo address fd00:a::1/128
 set interfaces ethernet eth1 address fd00:b:0:101::2/64

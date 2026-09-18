@@ -185,7 +185,10 @@ class LabLib:
     def http_get(self, url, timeout=30, **params):
         """GET a URL; returns the parsed JSON, or the text for non-JSON answers (Prometheus exposition)."""
         r = requests.get(url, params=params or None, timeout=timeout); r.raise_for_status()
-        return r.json() if "json" in r.headers.get("content-type", "") else r.text
+        if "json" in r.headers.get("content-type", ""):
+            try: return r.json()
+            except ValueError: pass   # newline-delimited JSON (VictoriaLogs): hand back the text
+        return r.text
 
     @keyword
     def prometheus_query(self, base, expr, timeout=30):
