@@ -295,6 +295,7 @@ cmd_bootstrap() {  # push the day-0 config to VyOS nodes over their serial conso
 cmd_configure() {  # (re)apply nodes/<n>/vyos_config.txt over SSH — idempotent, for changes made after the first boot
   [[ -x "$LAB_DIR/tests/.venv/bin/python" ]] || "$LAB_DIR/tests/setup.sh"
   local n; for n in $(vyos_nodes_or_all "$@"); do "$PY" "$LAB_DIR/tools/vyos_push.py" "${MGMT_IP[$n]}" "$(node_dir "$n")/vyos_config.txt" | sed "s/^/[$n] /"; done
+  "$PY" "$LAB_DIR/tools/frr_logging.py" $(vyos_nodes_or_all "$@")   # FRR state changes to syslog (not expressible in the CLI, see the tool)
 }
 
 cmd_steer() {      # explicit-path SRv6 steering: add|del|show|sid (tools/steer.py)

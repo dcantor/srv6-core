@@ -32,6 +32,8 @@ Losing a route reflector changes nothing for the tenants
     [Documentation]    Shut every client session on ${VICTIM} (peer-group shutdown), wait for the PEs to drop it, then
     ...    prove that every VRF still has every remote LAN (now with a single path, via the surviving reflector), that the
     ...    SRv6 encapsulation routes are still in the kernel, and that every host still reaches its tenant peers.
+    ${ann}=    Grafana Annotate    srv6-core: reflector redundancy test — every client session on ${VICTIM} shut    rr-redundancy    ${VICTIM}
+    Set Suite Variable    ${ann}
     Configure    ${VICTIM}    set protocols bgp peer-group RR-CLIENTS shutdown
     Wait Until Keyword Succeeds    90s    5s    Reflector Sessions Should Be Down On Every PE    ${VICTIM}
     ${survivors}=    Evaluate    [r for r in $RRS if r != $VICTIM]
@@ -61,6 +63,7 @@ Losing a route reflector changes nothing for the tenants
 
 The reflector's sessions come back after it is restored
     Configure    ${VICTIM}    delete protocols bgp peer-group RR-CLIENTS shutdown
+    Grafana Annotation End    ${ann}    srv6-core: reflector redundancy test — ${VICTIM} shut and restored; tenants unaffected
     Wait Until Keyword Succeeds    120s    5s    Reflector Sessions Should Be Up On Every PE    ${VICTIM}
 
 *** Keywords ***

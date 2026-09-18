@@ -35,6 +35,7 @@ set interfaces ethernet eth2 address 172.20.3.1/24
 set interfaces ethernet eth2 description 'dc3 LAN tenant-a: dc3-h1'
 set vrf name tenant-a protocols bgp system-as 65003
 set vrf name tenant-a protocols bgp parameters router-id 172.20.3.1
+set vrf name tenant-a protocols bgp parameters log-neighbor-changes
 set vrf name tenant-a protocols bgp neighbor 172.16.3.1 remote-as 65000
 set vrf name tenant-a protocols bgp neighbor 172.16.3.1 description 'pe3 (tenant-a)'
 set vrf name tenant-a protocols bgp neighbor 172.16.3.1 address-family ipv4-unicast
@@ -49,6 +50,7 @@ set interfaces ethernet eth4 address 172.21.3.1/24
 set interfaces ethernet eth4 description 'dc3 LAN tenant-b: dc3-h2'
 set vrf name tenant-b protocols bgp system-as 65003
 set vrf name tenant-b protocols bgp parameters router-id 172.21.3.1
+set vrf name tenant-b protocols bgp parameters log-neighbor-changes
 set vrf name tenant-b protocols bgp neighbor 172.18.3.1 remote-as 65000
 set vrf name tenant-b protocols bgp neighbor 172.18.3.1 description 'pe3 (tenant-b)'
 set vrf name tenant-b protocols bgp neighbor 172.18.3.1 address-family ipv4-unicast

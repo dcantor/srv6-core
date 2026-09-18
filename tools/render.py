@@ -120,6 +120,7 @@ class _Renderer:
                     f"set vrf name {vrf} protocols static route6 {block} next-hop {self.NODES[x]['loopback6']} vrf default" for x in attached_ps] + [
                     f"# eBGP to the CE; export/import with an SRv6 End.DT4 SID (sid vpn export auto)",
                     f"set vrf name {vrf} protocols bgp system-as {self.SVC['core_as']}", f"set vrf name {vrf} protocols bgp parameters router-id {n['router_id']}",
+                    f"set vrf name {vrf} protocols bgp parameters log-neighbor-changes",
                     f"set vrf name {vrf} protocols bgp neighbor {ce_ip} remote-as {ce['asn']}", f"set vrf name {vrf} protocols bgp neighbor {ce_ip} description '{ce['name']} ({vrf})'",
                     f"set vrf name {vrf} protocols bgp neighbor {ce_ip} address-family ipv4-unicast",
                     f"set vrf name {vrf} protocols bgp address-family ipv4-unicast redistribute connected",
@@ -161,7 +162,7 @@ class _Renderer:
             out += [f"# {vrf}: VRF {vrf} on the CE holds the attachment circuit to {pe_port['peer']} and the {n['dc']} LAN",
                     f"set vrf name {vrf} table {self.SVC['tenants'][vrf]['table']}", f"set interfaces ethernet {pe_port['name']} vrf {vrf}", f"set interfaces ethernet {lan['name']} vrf {vrf}",f"set interfaces ethernet {pe_port['name']} address {pe_port['ip']}", f"set interfaces ethernet {pe_port['name']} description '{pe_port['peer']} {pe_port['peer_port']} ({vrf})'",
                     f"set interfaces ethernet {lan['name']} address {lan['ip']}", f"set interfaces ethernet {lan['name']} description '{n['dc']} LAN {vrf}: {lan['peer']}'",
-                    f"set {v}protocols bgp system-as {n['asn']}", f"set {v}protocols bgp parameters router-id {lan_net.network_address + 1}",
+                    f"set {v}protocols bgp system-as {n['asn']}", f"set {v}protocols bgp parameters router-id {lan_net.network_address + 1}", f"set {v}protocols bgp parameters log-neighbor-changes",
                     f"set {v}protocols bgp neighbor {pe_ip} remote-as {self.SVC['core_as']}", f"set {v}protocols bgp neighbor {pe_ip} description '{pe_port['peer']} ({vrf})'",
                     f"set {v}protocols bgp neighbor {pe_ip} address-family ipv4-unicast", f"set {v}protocols bgp address-family ipv4-unicast network {lan_net}"]
         return out

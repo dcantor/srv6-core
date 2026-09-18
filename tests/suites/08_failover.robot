@@ -32,6 +32,7 @@ A silent core link failure is detected by BFD and traffic reconverges in under t
     ${rt}=    Shell    ${PE}    sudo ip -c=never route show vrf tenant-a ${src}[lan]
     Should Not Contain    ${rt}    dev ${alt}    msg=${PE}: ${src}[lan] already avoids ${P} before the failure
     ${ping}=    Start Background    ${MGMT}[${src}[host]]    ping -c 400 -i 0.2 -W 1 ${dst}[host_ip]    lab    lab
+    ${ann}=    Grafana Annotate    srv6-core: failover test — silent cut of ${P} ${if} (${P}-${PE}), BFD must detect it    failover    ${P}    ${PE}
     Configure    ${P}    set firewall ipv6 input filter rule 10 inbound-interface name ${if}    set firewall ipv6 output filter rule 10 outbound-interface name ${if}
     ...    set firewall ipv6 forward filter rule 10 inbound-interface name ${if}    set firewall ipv6 forward filter rule 11 outbound-interface name ${if}    @{CUT}
     Wait Until Keyword Succeeds    20s    2s    Route Should Use Interface    ${PE}    ${src}[lan]    ${alt}
@@ -46,6 +47,7 @@ A silent core link failure is detected by BFD and traffic reconverges in under t
         END
     END
     Configure    ${P}    delete firewall
+    Grafana Annotation End    ${ann}    srv6-core: failover test — ${P} ${if} cut and repaired; ${PE} moved every tenant route to ${alt} and back
     Wait Until Keyword Succeeds    60s    3s    Route Should Use Interface    ${PE}    ${src}[lan]    eth1
     ${out}=    Finish Background    ${ping}    120
     ${lost}=    Ping Loss    ${out}

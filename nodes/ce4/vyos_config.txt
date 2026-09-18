@@ -35,6 +35,7 @@ set interfaces ethernet eth2 address 172.20.4.1/24
 set interfaces ethernet eth2 description 'dc4 LAN tenant-a: dc4-h1'
 set vrf name tenant-a protocols bgp system-as 65004
 set vrf name tenant-a protocols bgp parameters router-id 172.20.4.1
+set vrf name tenant-a protocols bgp parameters log-neighbor-changes
 set vrf name tenant-a protocols bgp neighbor 172.16.4.1 remote-as 65000
 set vrf name tenant-a protocols bgp neighbor 172.16.4.1 description 'pe4 (tenant-a)'
 set vrf name tenant-a protocols bgp neighbor 172.16.4.1 address-family ipv4-unicast
@@ -49,6 +50,7 @@ set interfaces ethernet eth4 address 172.21.4.1/24
 set interfaces ethernet eth4 description 'dc4 LAN tenant-b: dc4-h2'
 set vrf name tenant-b protocols bgp system-as 65004
 set vrf name tenant-b protocols bgp parameters router-id 172.21.4.1
+set vrf name tenant-b protocols bgp parameters log-neighbor-changes
 set vrf name tenant-b protocols bgp neighbor 172.18.4.1 remote-as 65000
 set vrf name tenant-b protocols bgp neighbor 172.18.4.1 description 'pe4 (tenant-b)'
 set vrf name tenant-b protocols bgp neighbor 172.18.4.1 address-family ipv4-unicast

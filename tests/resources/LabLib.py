@@ -182,6 +182,18 @@ class LabLib:
         return out
 
     @keyword
+    def grafana_annotate(self, text, *tags, start=None, end=None):
+        """A Grafana annotation (point, or region with start/end epoch seconds) tagged srv6-core + test; returns its id."""
+        from labportal import grafana
+        return grafana.annotate(text, tags=["srv6-core", "test", *tags], start=float(start) if start else None, end=float(end) if end else None)
+
+    @keyword
+    def grafana_annotation_end(self, ann_id, text=None):
+        """Close a region annotation now (optionally replacing its text)."""
+        from labportal import grafana
+        grafana.update(ann_id, text=text, end=time.time())
+
+    @keyword
     def http_get(self, url, timeout=30, **params):
         """GET a URL; returns the parsed JSON, or the text for non-JSON answers (Prometheus exposition)."""
         r = requests.get(url, params=params or None, timeout=timeout); r.raise_for_status()

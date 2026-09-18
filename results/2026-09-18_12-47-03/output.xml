@@ -1,0 +1,2838 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<robot generator="Robot 7.5 (Python 3.14.4 on linux)" generated="2026-09-18T12:50:08.820682" rpa="false" schemaversion="5">
+<suite id="s1" name="srv6 core lab" source="/home/dcantor/srv6-core/tests/suites/08_failover.robot">
+<test id="s1-t1" name="BFD runs on every core adjacency" line="16">
+<for flavor="IN">
+<iter>
+<kw name="Vyos" owner="common">
+<kw name="Run Vyos Command" owner="LabLib">
+<msg time="2026-09-18T12:50:19.008332" level="INFO" html="true">&lt;pre&gt;10.3.0.11$ show bfd peers brief
+Session count: 2
+SessionId  LocalAddress                             PeerAddress                             Status          Profile             
+=========  ============                             ===========                             ======          =======             
+357008813  fe80::5054:ff:fec6:102                   fe80::5054:ff:fec6:603                  up              -                   
+4133803520 fe80::5054:ff:fec6:101                   fe80::5054:ff:fec6:503                  up              -                   &lt;/pre&gt;</msg>
+<msg time="2026-09-18T12:50:19.008524" level="INFO">${out} = Session count: 2
+SessionId  LocalAddress                             PeerAddress                             Status          Profile             
+=========  ============                             ==...</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<arg>${timeout}</arg>
+<doc>Run an operational-mode command on a VyOS node and return its output.</doc>
+<status status="PASS" start="2026-09-18T12:50:11.237481" elapsed="7.771080"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-18T12:50:19.008686" elapsed="0.000060"/>
+</return>
+<msg time="2026-09-18T12:50:19.008892" level="INFO">${bfd} = Session count: 2
+SessionId  LocalAddress                             PeerAddress                             Status          Profile             
+=========  ============                             ==...</msg>
+<var>${bfd}</var>
+<arg>${n}</arg>
+<arg>show bfd peers brief</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="PASS" start="2026-09-18T12:50:11.236910" elapsed="7.772003"/>
+</kw>
+<kw name="Regex Findall" owner="LabLib">
+<msg time="2026-09-18T12:50:19.009338" level="INFO">${up} = ['357008813  fe80::5054:ff:fec6:102                   fe80::5054:ff:fec6:603                  up', '4133803520 fe80::5054:ff:fec6:101                   fe80::5054:ff:fec6:503                  up']</msg>
+<var>${up}</var>
+<arg>${bfd}</arg>
+<arg>(?m)^\\d+\\s+fe80\\S+\\s+fe80\\S+\\s+up\\b</arg>
+<status status="PASS" start="2026-09-18T12:50:19.009040" elapsed="0.000322"/>
+</kw>
+<kw name="Get Length" owner="BuiltIn">
+<msg time="2026-09-18T12:50:19.009946" level="INFO">Length is 2.</msg>
+<msg time="2026-09-18T12:50:19.010012" level="INFO">${n_exp} = 2</msg>
+<var>${n_exp}</var>
+<arg>${ISIS_NEIGHBORS}[${n}]</arg>
+<doc>Returns and logs the length of the given item as an integer.</doc>
+<status status="PASS" start="2026-09-18T12:50:19.009462" elapsed="0.000567"/>
+</kw>
+<kw name="Length Should Be" owner="BuiltIn">
+<msg time="2026-09-18T12:50:19.010521" level="INFO">Length is 2.</msg>
+<arg>${up}</arg>
+<arg>${n_exp}</arg>
+<arg>msg=${n}: expected ${n_exp} BFD sessions up</arg>
+<doc>Verifies that the length of the given item is correct.</doc>
+<status status="PASS" start="2026-09-18T12:50:19.010117" elapsed="0.000446"/>
+</kw>
+<kw name="Vyos" owner="common">
+<kw name="Run Vyos Command" owner="LabLib">
+<msg time="2026-09-18T12:50:19.722396" level="INFO" html="true">&lt;pre&gt;10.3.0.11$ show isis neighbor detail
+Area VyOS:
+ p1                  
+    Interface: eth1, Level: 2, State: Up, Expires in 30s
+    Adjacency flaps: 1, Last: 5h30m37s ago
+    Circuit type: L2, Speaks: IPv4, IPv6
+    SNPA: 2020.2020.2020
+    Area Address(es):
+      49.0001
+    IPv6 Address(es):
+      fe80::5054:ff:fec6:503
+    Global IPv6 Address(es):
+      fd00:b:0:101::1
+    BFD is active, status Up
+    IPv6 Adjacency-SID: 15001
+
+ p2                  
+    Interface: eth2, Level: 2, State: Up, Expires in 28s
+    Adjacency flaps: 1, Last: 5h30m37s ago
+    Circuit type: L2, Speaks: IPv4, IPv6
+    SNPA: 2020.2020.2020
+    Area Address(es):
+      49.0001
+    IPv6 Address(es):
+      fe80::5054:ff:fec6:603
+    Global IPv6 Address(es):
+      fd00:b:0:201::1
+    BFD is active, status Up
+    IPv6 Adjacency-SID: 15000
+&lt;/pre&gt;</msg>
+<msg time="2026-09-18T12:50:19.722555" level="INFO">${out} = Area VyOS:
+ p1                  
+    Interface: eth1, Level: 2, State: Up, Expires in 30s
+    Adjacency flaps: 1, Last: 5h30m37s ago
+    Circuit type: L2, Speaks: IPv4, IPv6
+    SNPA: 2020.2020.2020
+ ...</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<arg>${timeout}</arg>
+<doc>Run an operational-mode command on a VyOS node and return its output.</doc>
+<status status="PASS" start="2026-09-18T12:50:19.010981" elapsed="0.711603"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-18T12:50:19.722692" elapsed="0.000073"/>
+</return>
+<msg time="2026-09-18T12:50:19.722915" level="INFO">${nb} = Area VyOS:
+ p1                  
+    Interface: eth1, Level: 2, State: Up, Expires in 30s
+    Adjacency flaps: 1, Last: 5h30m37s ago
+    Circuit type: L2, Speaks: IPv4, IPv6
+    SNPA: 2020.2020.2020
+ ...</msg>
+<var>${nb}</var>
+<arg>${n}</arg>
+<arg>show isis neighbor detail</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="PASS" start="2026-09-18T12:50:19.010732" elapsed="0.712206"/>
+</kw>
+<kw name="Get Count" owner="BuiltIn">
+<msg time="2026-09-18T12:50:19.723383" level="INFO">Item found from container 2 times.</msg>
+<msg time="2026-09-18T12:50:19.723441" level="INFO">${active} = 2</msg>
+<var>${active}</var>
+<arg>${nb}</arg>
+<arg>BFD is active, status Up</arg>
+<doc>Returns and logs how many times the `item` is found from the `container`.</doc>
+<status status="PASS" start="2026-09-18T12:50:19.723084" elapsed="0.000375"/>
+</kw>
+<kw name="Should Be Equal As Integers" owner="BuiltIn">
+<arg>${active}</arg>
+<arg>${n_exp}</arg>
+<arg>msg=${n}: every IS-IS adjacency must be BFD-protected</arg>
+<doc>Fails if objects are unequal after converting them to integers.</doc>
+<status status="PASS" start="2026-09-18T12:50:19.723552" elapsed="0.000328"/>
+</kw>
+<var name="${n}">pe1</var>
+<status status="PASS" start="2026-09-18T12:50:11.236542" elapsed="8.487370"/>
+</iter>
+<iter>
+<kw name="Vyos" owner="common">
+<kw name="Run Vyos Command" owner="LabLib">
+<msg time="2026-09-18T12:50:27.489532" level="INFO" html="true">&lt;pre&gt;10.3.0.12$ show bfd peers brief
+Session count: 2
+SessionId  LocalAddress                             PeerAddress                             Status          Profile             
+=========  ============                             ===========                             ======          =======             
+1716421580 fe80::5054:ff:fec6:201                   fe80::5054:ff:fec6:504                  up              -                   
+1286017593 fe80::5054:ff:fec6:202                   fe80::5054:ff:fec6:604                  up              -                   &lt;/pre&gt;</msg>
+<msg time="2026-09-18T12:50:27.489692" level="INFO">${out} = Session count: 2
+SessionId  LocalAddress                             PeerAddress                             Status          Profile             
+=========  ============                             ==...</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<arg>${timeout}</arg>
+<doc>Run an operational-mode command on a VyOS node and return its output.</doc>
+<status status="PASS" start="2026-09-18T12:50:19.724331" elapsed="7.765385"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-18T12:50:27.489783" elapsed="0.000041"/>
+</return>
+<msg time="2026-09-18T12:50:27.489931" level="INFO">${bfd} = Session count: 2
+SessionId  LocalAddress                             PeerAddress                             Status          Profile             
+=========  ============                             ==...</msg>
+<var>${bfd}</var>
+<arg>${n}</arg>
+<arg>show bfd peers brief</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="PASS" start="2026-09-18T12:50:19.724114" elapsed="7.765836"/>
+</kw>
+<kw name="Regex Findall" owner="LabLib">
+<msg time="2026-09-18T12:50:27.490252" level="INFO">${up} = ['1716421580 fe80::5054:ff:fec6:201                   fe80::5054:ff:fec6:504                  up', '1286017593 fe80::5054:ff:fec6:202                   fe80::5054:ff:fec6:604                  up']</msg>
+<var>${up}</var>
+<arg>${bfd}</arg>
+<arg>(?m)^\\d+\\s+fe80\\S+\\s+fe80\\S+\\s+up\\b</arg>
+<status status="PASS" start="2026-09-18T12:50:27.490089" elapsed="0.000182"/>
+</kw>
+<kw name="Get Length" owner="BuiltIn">
+<msg time="2026-09-18T12:50:27.490638" level="INFO">Length is 2.</msg>
+<msg time="2026-09-18T12:50:27.490693" level="INFO">${n_exp} = 2</msg>
+<var>${n_exp}</var>
+<arg>${ISIS_NEIGHBORS}[${n}]</arg>
+<doc>Returns and logs the length of the given item as an integer.</doc>
+<status status="PASS" start="2026-09-18T12:50:27.490355" elapsed="0.000354"/>
+</kw>
+<kw name="Length Should Be" owner="BuiltIn">
+<msg time="2026-09-18T12:50:27.491029" level="INFO">Length is 2.</msg>
+<arg>${up}</arg>
+<arg>${n_exp}</arg>
+<arg>msg=${n}: expected ${n_exp} BFD sessions up</arg>
+<doc>Verifies that the length of the given item is correct.</doc>
+<status status="PASS" start="2026-09-18T12:50:27.490781" elapsed="0.000282"/>
+</kw>
+<kw name="Vyos" owner="common">
+<kw name="Run Vyos Command" owner="LabLib">
+<msg time="2026-09-18T12:50:28.202713" level="INFO" html="true">&lt;pre&gt;10.3.0.12$ show isis neighbor detail
+Area VyOS:
+ p1                  
+    Interface: eth1, Level: 2, State: Up, Expires in 28s
+    Adjacency flaps: 1, Last: 5h30m45s ago
+    Circuit type: L2, Speaks: IPv4, IPv6
+    SNPA: 2020.2020.2020
+    Area Address(es):
+      49.0001
+    IPv6 Address(es):
+      fe80::5054:ff:fec6:504
+    Global IPv6 Address(es):
+      fd00:b:0:102::1
+    BFD is active, status Up
+    IPv6 Adjacency-SID: 15000
+
+ p2                  
+    Interface: eth2, Level: 2, State: Up, Expires in 28s
+    Adjacency flaps: 1, Last: 5h30m45s ago
+    Circuit type: L2, Speaks: IPv4, IPv6
+    SNPA: 2020.2020.2020
+    Area Address(es):
+      49.0001
+    IPv6 Address(es):
+      fe80::5054:ff:fec6:604
+    Global IPv6 Address(es):
+      fd00:b:0:202::1
+    BFD is active, status Up
+    IPv6 Adjacency-SID: 15001
+&lt;/pre&gt;</msg>
+<msg time="2026-09-18T12:50:28.202871" level="INFO">${out} = Area VyOS:
+ p1                  
+    Interface: eth1, Level: 2, State: Up, Expires in 28s
+    Adjacency flaps: 1, Last: 5h30m45s ago
+    Circuit type: L2, Speaks: IPv4, IPv6
+    SNPA: 2020.2020.2020
+ ...</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<arg>${timeout}</arg>
+<doc>Run an operational-mode command on a VyOS node and return its output.</doc>
+<status status="PASS" start="2026-09-18T12:50:27.491387" elapsed="0.711512"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-18T12:50:28.202974" elapsed="0.000058"/>
+</return>
+<msg time="2026-09-18T12:50:28.203168" level="INFO">${nb} = Area VyOS:
+ p1                  
+    Interface: eth1, Level: 2, State: Up, Expires in 28s
+    Adjacency flaps: 1, Last: 5h30m45s ago
+    Circuit type: L2, Speaks: IPv4, IPv6
+    SNPA: 2020.2020.2020
+ ...</msg>
+<var>${nb}</var>
+<arg>${n}</arg>
+<arg>show isis neighbor detail</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="PASS" start="2026-09-18T12:50:27.491179" elapsed="0.712012"/>
+</kw>
+<kw name="Get Count" owner="BuiltIn">
+<msg time="2026-09-18T12:50:28.203589" level="INFO">Item found from container 2 times.</msg>
+<msg time="2026-09-18T12:50:28.203671" level="INFO">${active} = 2</msg>
+<var>${active}</var>
+<arg>${nb}</arg>
+<arg>BFD is active, status Up</arg>
+<doc>Returns and logs how many times the `item` is found from the `container`.</doc>
+<status status="PASS" start="2026-09-18T12:50:28.203311" elapsed="0.000377"/>
+</kw>
+<kw name="Should Be Equal As Integers" owner="BuiltIn">
+<arg>${active}</arg>
+<arg>${n_exp}</arg>
+<arg>msg=${n}: every IS-IS adjacency must be BFD-protected</arg>
+<doc>Fails if objects are unequal after converting them to integers.</doc>
+<status status="PASS" start="2026-09-18T12:50:28.203783" elapsed="0.000255"/>
+</kw>
+<var name="${n}">pe2</var>
+<status status="PASS" start="2026-09-18T12:50:19.724013" elapsed="8.480055"/>
+</iter>
+<iter>
+<kw name="Vyos" owner="common">
+<kw name="Run Vyos Command" owner="LabLib">
+<msg time="2026-09-18T12:50:35.965102" level="INFO" html="true">&lt;pre&gt;10.3.0.13$ show bfd peers brief
+Session count: 2
+SessionId  LocalAddress                             PeerAddress                             Status          Profile             
+=========  ============                             ===========                             ======          =======             
+3011268472 fe80::5054:ff:fec6:302                   fe80::5054:ff:fec6:703                  up              -                   
+3614994045 fe80::5054:ff:fec6:301                   fe80::5054:ff:fec6:605                  up              -                   &lt;/pre&gt;</msg>
+<msg time="2026-09-18T12:50:35.965285" level="INFO">${out} = Session count: 2
+SessionId  LocalAddress                             PeerAddress                             Status          Profile             
+=========  ============                             ==...</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<arg>${timeout}</arg>
+<doc>Run an operational-mode command on a VyOS node and return its output.</doc>
+<status status="PASS" start="2026-09-18T12:50:28.204458" elapsed="7.760857"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-18T12:50:35.965392" elapsed="0.000040"/>
+</return>
+<msg time="2026-09-18T12:50:35.965548" level="INFO">${bfd} = Session count: 2
+SessionId  LocalAddress                             PeerAddress                             Status          Profile             
+=========  ============                             ==...</msg>
+<var>${bfd}</var>
+<arg>${n}</arg>
+<arg>show bfd peers brief</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="PASS" start="2026-09-18T12:50:28.204255" elapsed="7.761312"/>
+</kw>
+<kw name="Regex Findall" owner="LabLib">
+<msg time="2026-09-18T12:50:35.965879" level="INFO">${up} = ['3011268472 fe80::5054:ff:fec6:302                   fe80::5054:ff:fec6:703                  up', '3614994045 fe80::5054:ff:fec6:301                   fe80::5054:ff:fec6:605                  up']</msg>
+<var>${up}</var>
+<arg>${bfd}</arg>
+<arg>(?m)^\\d+\\s+fe80\\S+\\s+fe80\\S+\\s+up\\b</arg>
+<status status="PASS" start="2026-09-18T12:50:35.965721" elapsed="0.000178"/>
+</kw>
+<kw name="Get Length" owner="BuiltIn">
+<msg time="2026-09-18T12:50:35.966244" level="INFO">Length is 2.</msg>
+<msg time="2026-09-18T12:50:35.966298" level="INFO">${n_exp} = 2</msg>
+<var>${n_exp}</var>
+<arg>${ISIS_NEIGHBORS}[${n}]</arg>
+<doc>Returns and logs the length of the given item as an integer.</doc>
+<status status="PASS" start="2026-09-18T12:50:35.965981" elapsed="0.000333"/>
+</kw>
+<kw name="Length Should Be" owner="BuiltIn">
+<msg time="2026-09-18T12:50:35.966636" level="INFO">Length is 2.</msg>
+<arg>${up}</arg>
+<arg>${n_exp}</arg>
+<arg>msg=${n}: expected ${n_exp} BFD sessions up</arg>
+<doc>Verifies that the length of the given item is correct.</doc>
+<status status="PASS" start="2026-09-18T12:50:35.966386" elapsed="0.000297"/>
+</kw>
+<kw name="Vyos" owner="common">
+<kw name="Run Vyos Command" owner="LabLib">
+<msg time="2026-09-18T12:50:36.678300" level="INFO" html="true">&lt;pre&gt;10.3.0.13$ show isis neighbor detail
+Area VyOS:
+ p2                  
+    Interface: eth1, Level: 2, State: Up, Expires in 30s
+    Adjacency flaps: 1, Last: 33m23s ago
+    Circuit type: L2, Speaks: IPv4, IPv6
+    SNPA: 2020.2020.2020
+    Area Address(es):
+      49.0001
+    IPv6 Address(es):
+      fe80::5054:ff:fec6:605
+    Global IPv6 Address(es):
+      fd00:b:0:203::1
+    BFD is active, status Up
+    IPv6 Adjacency-SID: 15001
+
+ p3                  
+    Interface: eth2, Level: 2, State: Up, Expires in 29s
+    Adjacency flaps: 1, Last: 5h30m52s ago
+    Circuit type: L2, Speaks: IPv4, IPv6
+    SNPA: 2020.2020.2020
+    Area Address(es):
+      49.0001
+    IPv6 Address(es):
+      fe80::5054:ff:fec6:703
+    Global IPv6 Address(es):
+      fd00:b:0:303::1
+    BFD is active, status Up
+    IPv6 Adjacency-SID: 15000
+&lt;/pre&gt;</msg>
+<msg time="2026-09-18T12:50:36.678507" level="INFO">${out} = Area VyOS:
+ p2                  
+    Interface: eth1, Level: 2, State: Up, Expires in 30s
+    Adjacency flaps: 1, Last: 33m23s ago
+    Circuit type: L2, Speaks: IPv4, IPv6
+    SNPA: 2020.2020.2020
+   ...</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<arg>${timeout}</arg>
+<doc>Run an operational-mode command on a VyOS node and return its output.</doc>
+<status status="PASS" start="2026-09-18T12:50:35.967032" elapsed="0.711516"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-18T12:50:36.678644" elapsed="0.000046"/>
+</return>
+<msg time="2026-09-18T12:50:36.678802" level="INFO">${nb} = Area VyOS:
+ p2                  
+    Interface: eth1, Level: 2, State: Up, Expires in 30s
+    Adjacency flaps: 1, Last: 33m23s ago
+    Circuit type: L2, Speaks: IPv4, IPv6
+    SNPA: 2020.2020.2020
+   ...</msg>
+<var>${nb}</var>
+<arg>${n}</arg>
+<arg>show isis neighbor detail</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="PASS" start="2026-09-18T12:50:35.966821" elapsed="0.712001"/>
+</kw>
+<kw name="Get Count" owner="BuiltIn">
+<msg time="2026-09-18T12:50:36.679207" level="INFO">Item found from container 2 times.</msg>
+<msg time="2026-09-18T12:50:36.679261" level="INFO">${active} = 2</msg>
+<var>${active}</var>
+<arg>${nb}</arg>
+<arg>BFD is active, status Up</arg>
+<doc>Returns and logs how many times the `item` is found from the `container`.</doc>
+<status status="PASS" start="2026-09-18T12:50:36.678934" elapsed="0.000343"/>
+</kw>
+<kw name="Should Be Equal As Integers" owner="BuiltIn">
+<arg>${active}</arg>
+<arg>${n_exp}</arg>
+<arg>msg=${n}: every IS-IS adjacency must be BFD-protected</arg>
+<doc>Fails if objects are unequal after converting them to integers.</doc>
+<status status="PASS" start="2026-09-18T12:50:36.679368" elapsed="0.000260"/>
+</kw>
+<var name="${n}">pe3</var>
+<status status="PASS" start="2026-09-18T12:50:28.204156" elapsed="8.475502"/>
+</iter>
+<iter>
+<kw name="Vyos" owner="common">
+<kw name="Run Vyos Command" owner="LabLib">
+<msg time="2026-09-18T12:50:44.440997" level="INFO" html="true">&lt;pre&gt;10.3.0.14$ show bfd peers brief
+Session count: 2
+SessionId  LocalAddress                             PeerAddress                             Status          Profile             
+=========  ============                             ===========                             ======          =======             
+1014692127 fe80::5054:ff:fec6:401                   fe80::5054:ff:fec6:606                  up              -                   
+1821629186 fe80::5054:ff:fec6:402                   fe80::5054:ff:fec6:704                  up              -                   &lt;/pre&gt;</msg>
+<msg time="2026-09-18T12:50:44.441142" level="INFO">${out} = Session count: 2
+SessionId  LocalAddress                             PeerAddress                             Status          Profile             
+=========  ============                             ==...</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<arg>${timeout}</arg>
+<doc>Run an operational-mode command on a VyOS node and return its output.</doc>
+<status status="PASS" start="2026-09-18T12:50:36.680052" elapsed="7.761113"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-18T12:50:44.441230" elapsed="0.000042"/>
+</return>
+<msg time="2026-09-18T12:50:44.441400" level="INFO">${bfd} = Session count: 2
+SessionId  LocalAddress                             PeerAddress                             Status          Profile             
+=========  ============                             ==...</msg>
+<var>${bfd}</var>
+<arg>${n}</arg>
+<arg>show bfd peers brief</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="PASS" start="2026-09-18T12:50:36.679839" elapsed="7.761585"/>
+</kw>
+<kw name="Regex Findall" owner="LabLib">
+<msg time="2026-09-18T12:50:44.441764" level="INFO">${up} = ['1014692127 fe80::5054:ff:fec6:401                   fe80::5054:ff:fec6:606                  up', '1821629186 fe80::5054:ff:fec6:402                   fe80::5054:ff:fec6:704                  up']</msg>
+<var>${up}</var>
+<arg>${bfd}</arg>
+<arg>(?m)^\\d+\\s+fe80\\S+\\s+fe80\\S+\\s+up\\b</arg>
+<status status="PASS" start="2026-09-18T12:50:44.441558" elapsed="0.000225"/>
+</kw>
+<kw name="Get Length" owner="BuiltIn">
+<msg time="2026-09-18T12:50:44.442130" level="INFO">Length is 2.</msg>
+<msg time="2026-09-18T12:50:44.442184" level="INFO">${n_exp} = 2</msg>
+<var>${n_exp}</var>
+<arg>${ISIS_NEIGHBORS}[${n}]</arg>
+<doc>Returns and logs the length of the given item as an integer.</doc>
+<status status="PASS" start="2026-09-18T12:50:44.441873" elapsed="0.000328"/>
+</kw>
+<kw name="Length Should Be" owner="BuiltIn">
+<msg time="2026-09-18T12:50:44.442547" level="INFO">Length is 2.</msg>
+<arg>${up}</arg>
+<arg>${n_exp}</arg>
+<arg>msg=${n}: expected ${n_exp} BFD sessions up</arg>
+<doc>Verifies that the length of the given item is correct.</doc>
+<status status="PASS" start="2026-09-18T12:50:44.442276" elapsed="0.000305"/>
+</kw>
+<kw name="Vyos" owner="common">
+<kw name="Run Vyos Command" owner="LabLib">
+<msg time="2026-09-18T12:50:45.154306" level="INFO" html="true">&lt;pre&gt;10.3.0.14$ show isis neighbor detail
+Area VyOS:
+ p2                  
+    Interface: eth1, Level: 2, State: Up, Expires in 30s
+    Adjacency flaps: 1, Last: 5h52m35s ago
+    Circuit type: L2, Speaks: IPv4, IPv6
+    SNPA: 2020.2020.2020
+    Area Address(es):
+      49.0001
+    IPv6 Address(es):
+      fe80::5054:ff:fec6:606
+    Global IPv6 Address(es):
+      fd00:b:0:204::1
+    BFD is active, status Up
+    IPv6 Adjacency-SID: 15001
+
+ p3                  
+    Interface: eth2, Level: 2, State: Up, Expires in 29s
+    Adjacency flaps: 1, Last: 5h52m35s ago
+    Circuit type: L2, Speaks: IPv4, IPv6
+    SNPA: 2020.2020.2020
+    Area Address(es):
+      49.0001
+    IPv6 Address(es):
+      fe80::5054:ff:fec6:704
+    Global IPv6 Address(es):
+      fd00:b:0:304::1
+    BFD is active, status Up
+    IPv6 Adjacency-SID: 15000
+&lt;/pre&gt;</msg>
+<msg time="2026-09-18T12:50:45.154465" level="INFO">${out} = Area VyOS:
+ p2                  
+    Interface: eth1, Level: 2, State: Up, Expires in 30s
+    Adjacency flaps: 1, Last: 5h52m35s ago
+    Circuit type: L2, Speaks: IPv4, IPv6
+    SNPA: 2020.2020.2020
+ ...</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<arg>${timeout}</arg>
+<doc>Run an operational-mode command on a VyOS node and return its output.</doc>
+<status status="PASS" start="2026-09-18T12:50:44.442949" elapsed="0.711538"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-18T12:50:45.154551" elapsed="0.000039"/>
+</return>
+<msg time="2026-09-18T12:50:45.154724" level="INFO">${nb} = Area VyOS:
+ p2                  
+    Interface: eth1, Level: 2, State: Up, Expires in 30s
+    Adjacency flaps: 1, Last: 5h52m35s ago
+    Circuit type: L2, Speaks: IPv4, IPv6
+    SNPA: 2020.2020.2020
+ ...</msg>
+<var>${nb}</var>
+<arg>${n}</arg>
+<arg>show isis neighbor detail</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="PASS" start="2026-09-18T12:50:44.442727" elapsed="0.712015"/>
+</kw>
+<kw name="Get Count" owner="BuiltIn">
+<msg time="2026-09-18T12:50:45.155227" level="INFO">Item found from container 2 times.</msg>
+<msg time="2026-09-18T12:50:45.155293" level="INFO">${active} = 2</msg>
+<var>${active}</var>
+<arg>${nb}</arg>
+<arg>BFD is active, status Up</arg>
+<doc>Returns and logs how many times the `item` is found from the `container`.</doc>
+<status status="PASS" start="2026-09-18T12:50:45.154885" elapsed="0.000424"/>
+</kw>
+<kw name="Should Be Equal As Integers" owner="BuiltIn">
+<arg>${active}</arg>
+<arg>${n_exp}</arg>
+<arg>msg=${n}: every IS-IS adjacency must be BFD-protected</arg>
+<doc>Fails if objects are unequal after converting them to integers.</doc>
+<status status="PASS" start="2026-09-18T12:50:45.155420" elapsed="0.000257"/>
+</kw>
+<var name="${n}">pe4</var>
+<status status="PASS" start="2026-09-18T12:50:36.679742" elapsed="8.475964"/>
+</iter>
+<iter>
+<kw name="Vyos" owner="common">
+<kw name="Run Vyos Command" owner="LabLib">
+<msg time="2026-09-18T12:50:53.014692" level="INFO" html="true">&lt;pre&gt;10.3.0.21$ show bfd peers brief
+Session count: 4
+SessionId  LocalAddress                             PeerAddress                             Status          Profile             
+=========  ============                             ===========                             ======          =======             
+1387133297 fe80::5054:ff:fec6:501                   fe80::5054:ff:fec6:601                  up              -                   
+2518816838 fe80::5054:ff:fec6:503                   fe80::5054:ff:fec6:101                  up              -                   
+2506677780 fe80::5054:ff:fec6:502                   fe80::5054:ff:fec6:701                  up              -                   
+3742724404 fe80::5054:ff:fec6:504                   fe80::5054:ff:fec6:201                  up              -                   &lt;/pre&gt;</msg>
+<msg time="2026-09-18T12:50:53.014840" level="INFO">${out} = Session count: 4
+SessionId  LocalAddress                             PeerAddress                             Status          Profile             
+=========  ============                             ==...</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<arg>${timeout}</arg>
+<doc>Run an operational-mode command on a VyOS node and return its output.</doc>
+<status status="PASS" start="2026-09-18T12:50:45.156131" elapsed="7.858733"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-18T12:50:53.014931" elapsed="0.000041"/>
+</return>
+<msg time="2026-09-18T12:50:53.015092" level="INFO">${bfd} = Session count: 4
+SessionId  LocalAddress                             PeerAddress                             Status          Profile             
+=========  ============                             ==...</msg>
+<var>${bfd}</var>
+<arg>${n}</arg>
+<arg>show bfd peers brief</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="PASS" start="2026-09-18T12:50:45.155911" elapsed="7.859200"/>
+</kw>
+<kw name="Regex Findall" owner="LabLib">
+<msg time="2026-09-18T12:50:53.015462" level="INFO">${up} = ['1387133297 fe80::5054:ff:fec6:501                   fe80::5054:ff:fec6:601                  up', '2518816838 fe80::5054:ff:fec6:503                   fe80::5054:ff:fec6:101                  up', '25...</msg>
+<var>${up}</var>
+<arg>${bfd}</arg>
+<arg>(?m)^\\d+\\s+fe80\\S+\\s+fe80\\S+\\s+up\\b</arg>
+<status status="PASS" start="2026-09-18T12:50:53.015246" elapsed="0.000252"/>
+</kw>
+<kw name="Get Length" owner="BuiltIn">
+<msg time="2026-09-18T12:50:53.015909" level="INFO">Length is 4.</msg>
+<msg time="2026-09-18T12:50:53.015966" level="INFO">${n_exp} = 4</msg>
+<var>${n_exp}</var>
+<arg>${ISIS_NEIGHBORS}[${n}]</arg>
+<doc>Returns and logs the length of the given item as an integer.</doc>
+<status status="PASS" start="2026-09-18T12:50:53.015629" elapsed="0.000353"/>
+</kw>
+<kw name="Length Should Be" owner="BuiltIn">
+<msg time="2026-09-18T12:50:53.016331" level="INFO">Length is 4.</msg>
+<arg>${up}</arg>
+<arg>${n_exp}</arg>
+<arg>msg=${n}: expected ${n_exp} BFD sessions up</arg>
+<doc>Verifies that the length of the given item is correct.</doc>
+<status status="PASS" start="2026-09-18T12:50:53.016067" elapsed="0.000299"/>
+</kw>
+<kw name="Vyos" owner="common">
+<kw name="Run Vyos Command" owner="LabLib">
+<msg time="2026-09-18T12:50:53.728060" level="INFO" html="true">&lt;pre&gt;10.3.0.21$ show isis neighbor detail
+Area VyOS:
+ p2                  
+    Interface: eth1, Level: 2, State: Up, Expires in 30s
+    Adjacency flaps: 1, Last: 5h52m43s ago
+    Circuit type: L2, Speaks: IPv4, IPv6
+    SNPA: 2020.2020.2020
+    Area Address(es):
+      49.0001
+    IPv6 Address(es):
+      fe80::5054:ff:fec6:601
+    Global IPv6 Address(es):
+      fd00:b:0:12::2
+    BFD is active, status Up
+    IPv6 Adjacency-SID: 15002
+
+ p3                  
+    Interface: eth2, Level: 2, State: Up, Expires in 30s
+    Adjacency flaps: 1, Last: 5h52m44s ago
+    Circuit type: L2, Speaks: IPv4, IPv6
+    SNPA: 2020.2020.2020
+    Area Address(es):
+      49.0001
+    IPv6 Address(es):
+      fe80::5054:ff:fec6:701
+    Global IPv6 Address(es):
+      fd00:b:0:13::2
+    BFD is active, status Up
+    IPv6 Adjacency-SID: 15001
+
+ pe1                 
+    Interface: eth3, Level: 2, State: Up, Expires in 28s
+    Adjacency flaps: 1, Last: 5h31m11s ago
+    Circuit type: L2, Speaks: IPv4, IPv6
+    SNPA: 2020.2020.2020
+    Area Address(es):
+      49.0001
+    IPv6 Address(es):
+      fe80::5054:ff:fec6:101
+    Global IPv6 Address(es):
+      fd00:b:0:101::2
+    BFD is active, status Up
+    IPv6 Adjacency-SID: 15000
+
+ pe2                 
+    Interface: eth4, Level: 2, State: Up, Expires in 27s
+    Adjacency flaps: 1, Last: 5h31m10s ago
+    Circuit type: L2, Speaks: IPv4, IPv6
+    SNPA: 2020.2020.2020
+    Area Address(es):
+      49.0001
+    IPv6 Address(es):
+      fe80::5054:ff:fec6:201
+    Global IPv6 Address(es):
+      fd00:b:0:102::2
+    BFD is active, status Up
+    IPv6 Adjacency-SID: 15003
+&lt;/pre&gt;</msg>
+<msg time="2026-09-18T12:50:53.728228" level="INFO">${out} = Area VyOS:
+ p2                  
+    Interface: eth1, Level: 2, State: Up, Expires in 30s
+    Adjacency flaps: 1, Last: 5h52m43s ago
+    Circuit type: L2, Speaks: IPv4, IPv6
+    SNPA: 2020.2020.2020
+ ...</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<arg>${timeout}</arg>
+<doc>Run an operational-mode command on a VyOS node and return its output.</doc>
+<status status="PASS" start="2026-09-18T12:50:53.016804" elapsed="0.711478"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-18T12:50:53.728359" elapsed="0.000042"/>
+</return>
+<msg time="2026-09-18T12:50:53.728522" level="INFO">${nb} = Area VyOS:
+ p2                  
+    Interface: eth1, Level: 2, State: Up, Expires in 30s
+    Adjacency flaps: 1, Last: 5h52m43s ago
+    Circuit type: L2, Speaks: IPv4, IPv6
+    SNPA: 2020.2020.2020
+ ...</msg>
+<var>${nb}</var>
+<arg>${n}</arg>
+<arg>show isis neighbor detail</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="PASS" start="2026-09-18T12:50:53.016518" elapsed="0.712025"/>
+</kw>
+<kw name="Get Count" owner="BuiltIn">
+<msg time="2026-09-18T12:50:53.729006" level="INFO">Item found from container 4 times.</msg>
+<msg time="2026-09-18T12:50:53.729067" level="INFO">${active} = 4</msg>
+<var>${active}</var>
+<arg>${nb}</arg>
+<arg>BFD is active, status Up</arg>
+<doc>Returns and logs how many times the `item` is found from the `container`.</doc>
+<status status="PASS" start="2026-09-18T12:50:53.728703" elapsed="0.000381"/>
+</kw>
+<kw name="Should Be Equal As Integers" owner="BuiltIn">
+<arg>${active}</arg>
+<arg>${n_exp}</arg>
+<arg>msg=${n}: every IS-IS adjacency must be BFD-protected</arg>
+<doc>Fails if objects are unequal after converting them to integers.</doc>
+<status status="PASS" start="2026-09-18T12:50:53.729186" elapsed="0.000262"/>
+</kw>
+<var name="${n}">p1</var>
+<status status="PASS" start="2026-09-18T12:50:45.155796" elapsed="8.573681"/>
+</iter>
+<iter>
+<kw name="Vyos" owner="common">
+<kw name="Run Vyos Command" owner="LabLib">
+<msg time="2026-09-18T12:51:01.581048" level="INFO" html="true">&lt;pre&gt;10.3.0.22$ show bfd peers brief
+Session count: 6
+SessionId  LocalAddress                             PeerAddress                             Status          Profile             
+=========  ============                             ===========                             ======          =======             
+1394471285 fe80::5054:ff:fec6:602                   fe80::5054:ff:fec6:702                  up              -                   
+1186878074 fe80::5054:ff:fec6:601                   fe80::5054:ff:fec6:501                  up              -                   
+60388289   fe80::5054:ff:fec6:606                   fe80::5054:ff:fec6:401                  up              -                   
+1413536520 fe80::5054:ff:fec6:603                   fe80::5054:ff:fec6:102                  up              -                   
+726293184  fe80::5054:ff:fec6:605                   fe80::5054:ff:fec6:301                  up              -                   
+2773755543 fe80::5054:ff:fec6:604                   fe80::5054:ff:fec6:202                  up              -                   &lt;/pre&gt;</msg>
+<msg time="2026-09-18T12:51:01.581289" level="INFO">${out} = Session count: 6
+SessionId  LocalAddress                             PeerAddress                             Status          Profile             
+=========  ============                             ==...</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<arg>${timeout}</arg>
+<doc>Run an operational-mode command on a VyOS node and return its output.</doc>
+<status status="PASS" start="2026-09-18T12:50:53.729947" elapsed="7.851386"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-18T12:51:01.581431" elapsed="0.000057"/>
+</return>
+<msg time="2026-09-18T12:51:01.581657" level="INFO">${bfd} = Session count: 6
+SessionId  LocalAddress                             PeerAddress                             Status          Profile             
+=========  ============                             ==...</msg>
+<var>${bfd}</var>
+<arg>${n}</arg>
+<arg>show bfd peers brief</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="PASS" start="2026-09-18T12:50:53.729709" elapsed="7.851978"/>
+</kw>
+<kw name="Regex Findall" owner="LabLib">
+<msg time="2026-09-18T12:51:01.582059" level="INFO">${up} = ['1394471285 fe80::5054:ff:fec6:602                   fe80::5054:ff:fec6:702                  up', '1186878074 fe80::5054:ff:fec6:601                   fe80::5054:ff:fec6:501                  up', '60...</msg>
+<var>${up}</var>
+<arg>${bfd}</arg>
+<arg>(?m)^\\d+\\s+fe80\\S+\\s+fe80\\S+\\s+up\\b</arg>
+<status status="PASS" start="2026-09-18T12:51:01.581843" elapsed="0.000243"/>
+</kw>
+<kw name="Get Length" owner="BuiltIn">
+<msg time="2026-09-18T12:51:01.582625" level="INFO">Length is 6.</msg>
+<msg time="2026-09-18T12:51:01.582708" level="INFO">${n_exp} = 6</msg>
+<var>${n_exp}</var>
+<arg>${ISIS_NEIGHBORS}[${n}]</arg>
+<doc>Returns and logs the length of the given item as an integer.</doc>
+<status status="PASS" start="2026-09-18T12:51:01.582218" elapsed="0.000514"/>
+</kw>
+<kw name="Length Should Be" owner="BuiltIn">
+<msg time="2026-09-18T12:51:01.583261" level="INFO">Length is 6.</msg>
+<arg>${up}</arg>
+<arg>${n_exp}</arg>
+<arg>msg=${n}: expected ${n_exp} BFD sessions up</arg>
+<doc>Verifies that the length of the given item is correct.</doc>
+<status status="PASS" start="2026-09-18T12:51:01.582858" elapsed="0.000454"/>
+</kw>
+<kw name="Vyos" owner="common">
+<kw name="Run Vyos Command" owner="LabLib">
+<msg time="2026-09-18T12:51:02.295317" level="INFO" html="true">&lt;pre&gt;10.3.0.22$ show isis neighbor detail
+Area VyOS:
+ p1                  
+    Interface: eth1, Level: 2, State: Up, Expires in 27s
+    Adjacency flaps: 1, Last: 5h52m52s ago
+    Circuit type: L2, Speaks: IPv4, IPv6
+    SNPA: 2020.2020.2020
+    Area Address(es):
+      49.0001
+    IPv6 Address(es):
+      fe80::5054:ff:fec6:501
+    Global IPv6 Address(es):
+      fd00:b:0:12::1
+    BFD is active, status Up
+    IPv6 Adjacency-SID: 15000
+
+ p3                  
+    Interface: eth2, Level: 2, State: Up, Expires in 28s
+    Adjacency flaps: 1, Last: 5h52m52s ago
+    Circuit type: L2, Speaks: IPv4, IPv6
+    SNPA: 2020.2020.2020
+    Area Address(es):
+      49.0001
+    IPv6 Address(es):
+      fe80::5054:ff:fec6:702
+    Global IPv6 Address(es):
+      fd00:b:0:23::2
+    BFD is active, status Up
+    IPv6 Adjacency-SID: 15001
+
+ pe1                 
+    Interface: eth3, Level: 2, State: Up, Expires in 28s
+    Adjacency flaps: 1, Last: 5h31m20s ago
+    Circuit type: L2, Speaks: IPv4, IPv6
+    SNPA: 2020.2020.2020
+    Area Address(es):
+      49.0001
+    IPv6 Address(es):
+      fe80::5054:ff:fec6:102
+    Global IPv6 Address(es):
+      fd00:b:0:201::2
+    BFD is active, status Up
+    IPv6 Adjacency-SID: 15003
+
+ pe2                 
+    Interface: eth4, Level: 2, State: Up, Expires in 29s
+    Adjacency flaps: 1, Last: 5h31m19s ago
+    Circuit type: L2, Speaks: IPv4, IPv6
+    SNPA: 2020.2020.2020
+    Area Address(es):
+      49.0001
+    IPv6 Address(es):
+      fe80::5054:ff:fec6:202
+    Global IPv6 Address(es):
+      fd00:b:0:202::2
+    BFD is active, status Up
+    IPv6 Adjacency-SID: 15004
+
+ pe3                 
+    Interface: eth5, Level: 2, State: Up, Expires in 28s
+    Adjacency flaps: 1, Last: 33m49s ago
+    Circuit type: L2, Speaks: IPv4, IPv6
+    SNPA: 2020.2020.2020
+    Area Address(es):
+      49.0001
+    IPv6 Address(es):
+      fe80::5054:ff:fec6:301
+    Global IPv6 Address(es):
+      fd00:b:0:203::2
+    BFD is active, status Up
+    IPv6 Adjacency-SID: 15005
+
+ pe4                 
+    Interface: eth6, Level: 2, State: Up, Expires in 29s
+    Adjacency flaps: 1, Last: 5h52m52s ago
+    Circuit type: L2, Speaks: IPv4, IPv6
+    SNPA: 2020.2020.2020
+    Area Address(es):
+      49.0001
+    IPv6 Address(es):
+      fe80::5054:ff:fec6:401
+    Global IPv6 Address(es):
+      fd00:b:0:204::2
+    BFD is active, status Up
+    IPv6 Adjacency-SID: 15002
+&lt;/pre&gt;</msg>
+<msg time="2026-09-18T12:51:02.295493" level="INFO">${out} = Area VyOS:
+ p1                  
+    Interface: eth1, Level: 2, State: Up, Expires in 27s
+    Adjacency flaps: 1, Last: 5h52m52s ago
+    Circuit type: L2, Speaks: IPv4, IPv6
+    SNPA: 2020.2020.2020
+ ...</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<arg>${timeout}</arg>
+<doc>Run an operational-mode command on a VyOS node and return its output.</doc>
+<status status="PASS" start="2026-09-18T12:51:01.583834" elapsed="0.711689"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-18T12:51:02.295582" elapsed="0.000069"/>
+</return>
+<msg time="2026-09-18T12:51:02.295766" level="INFO">${nb} = Area VyOS:
+ p1                  
+    Interface: eth1, Level: 2, State: Up, Expires in 27s
+    Adjacency flaps: 1, Last: 5h52m52s ago
+    Circuit type: L2, Speaks: IPv4, IPv6
+    SNPA: 2020.2020.2020
+ ...</msg>
+<var>${nb}</var>
+<arg>${n}</arg>
+<arg>show isis neighbor detail</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="PASS" start="2026-09-18T12:51:01.583501" elapsed="0.712283"/>
+</kw>
+<kw name="Get Count" owner="BuiltIn">
+<msg time="2026-09-18T12:51:02.296181" level="INFO">Item found from container 6 times.</msg>
+<msg time="2026-09-18T12:51:02.296255" level="INFO">${active} = 6</msg>
+<var>${active}</var>
+<arg>${nb}</arg>
+<arg>BFD is active, status Up</arg>
+<doc>Returns and logs how many times the `item` is found from the `container`.</doc>
+<status status="PASS" start="2026-09-18T12:51:02.295897" elapsed="0.000380"/>
+</kw>
+<kw name="Should Be Equal As Integers" owner="BuiltIn">
+<arg>${active}</arg>
+<arg>${n_exp}</arg>
+<arg>msg=${n}: every IS-IS adjacency must be BFD-protected</arg>
+<doc>Fails if objects are unequal after converting them to integers.</doc>
+<status status="PASS" start="2026-09-18T12:51:02.296384" elapsed="0.000295"/>
+</kw>
+<var name="${n}">p2</var>
+<status status="PASS" start="2026-09-18T12:50:53.729567" elapsed="8.567141"/>
+</iter>
+<iter>
+<kw name="Vyos" owner="common">
+<kw name="Run Vyos Command" owner="LabLib">
+<msg time="2026-09-18T12:51:10.166955" level="INFO" html="true">&lt;pre&gt;10.3.0.23$ show bfd peers brief
+Session count: 4
+SessionId  LocalAddress                             PeerAddress                             Status          Profile             
+=========  ============                             ===========                             ======          =======             
+3152469043 fe80::5054:ff:fec6:704                   fe80::5054:ff:fec6:402                  up              -                   
+3868884201 fe80::5054:ff:fec6:701                   fe80::5054:ff:fec6:502                  up              -                   
+2763244980 fe80::5054:ff:fec6:702                   fe80::5054:ff:fec6:602                  up              -                   
+321376015  fe80::5054:ff:fec6:703                   fe80::5054:ff:fec6:302                  up              -                   &lt;/pre&gt;</msg>
+<msg time="2026-09-18T12:51:10.167118" level="INFO">${out} = Session count: 4
+SessionId  LocalAddress                             PeerAddress                             Status          Profile             
+=========  ============                             ==...</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<arg>${timeout}</arg>
+<doc>Run an operational-mode command on a VyOS node and return its output.</doc>
+<status status="PASS" start="2026-09-18T12:51:02.297113" elapsed="7.870029"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-18T12:51:10.167240" elapsed="0.000048"/>
+</return>
+<msg time="2026-09-18T12:51:10.167403" level="INFO">${bfd} = Session count: 4
+SessionId  LocalAddress                             PeerAddress                             Status          Profile             
+=========  ============                             ==...</msg>
+<var>${bfd}</var>
+<arg>${n}</arg>
+<arg>show bfd peers brief</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="PASS" start="2026-09-18T12:51:02.296901" elapsed="7.870520"/>
+</kw>
+<kw name="Regex Findall" owner="LabLib">
+<msg time="2026-09-18T12:51:10.167741" level="INFO">${up} = ['3152469043 fe80::5054:ff:fec6:704                   fe80::5054:ff:fec6:402                  up', '3868884201 fe80::5054:ff:fec6:701                   fe80::5054:ff:fec6:502                  up', '27...</msg>
+<var>${up}</var>
+<arg>${bfd}</arg>
+<arg>(?m)^\\d+\\s+fe80\\S+\\s+fe80\\S+\\s+up\\b</arg>
+<status status="PASS" start="2026-09-18T12:51:10.167547" elapsed="0.000214"/>
+</kw>
+<kw name="Get Length" owner="BuiltIn">
+<msg time="2026-09-18T12:51:10.168140" level="INFO">Length is 4.</msg>
+<msg time="2026-09-18T12:51:10.168194" level="INFO">${n_exp} = 4</msg>
+<var>${n_exp}</var>
+<arg>${ISIS_NEIGHBORS}[${n}]</arg>
+<doc>Returns and logs the length of the given item as an integer.</doc>
+<status status="PASS" start="2026-09-18T12:51:10.167849" elapsed="0.000364"/>
+</kw>
+<kw name="Length Should Be" owner="BuiltIn">
+<msg time="2026-09-18T12:51:10.168567" level="INFO">Length is 4.</msg>
+<arg>${up}</arg>
+<arg>${n_exp}</arg>
+<arg>msg=${n}: expected ${n_exp} BFD sessions up</arg>
+<doc>Verifies that the length of the given item is correct.</doc>
+<status status="PASS" start="2026-09-18T12:51:10.168308" elapsed="0.000292"/>
+</kw>
+<kw name="Vyos" owner="common">
+<kw name="Run Vyos Command" owner="LabLib">
+<msg time="2026-09-18T12:51:10.880288" level="INFO" html="true">&lt;pre&gt;10.3.0.23$ show isis neighbor detail
+Area VyOS:
+ p1                  
+    Interface: eth1, Level: 2, State: Up, Expires in 29s
+    Adjacency flaps: 1, Last: 5h53m ago
+    Circuit type: L2, Speaks: IPv4, IPv6
+    SNPA: 2020.2020.2020
+    Area Address(es):
+      49.0001
+    IPv6 Address(es):
+      fe80::5054:ff:fec6:502
+    Global IPv6 Address(es):
+      fd00:b:0:13::1
+    BFD is active, status Up
+    IPv6 Adjacency-SID: 15001
+
+ p2                  
+    Interface: eth2, Level: 2, State: Up, Expires in 30s
+    Adjacency flaps: 1, Last: 5h53m ago
+    Circuit type: L2, Speaks: IPv4, IPv6
+    SNPA: 2020.2020.2020
+    Area Address(es):
+      49.0001
+    IPv6 Address(es):
+      fe80::5054:ff:fec6:602
+    Global IPv6 Address(es):
+      fd00:b:0:23::1
+    BFD is active, status Up
+    IPv6 Adjacency-SID: 15003
+
+ pe3                 
+    Interface: eth3, Level: 2, State: Up, Expires in 30s
+    Adjacency flaps: 1, Last: 5h31m26s ago
+    Circuit type: L2, Speaks: IPv4, IPv6
+    SNPA: 2020.2020.2020
+    Area Address(es):
+      49.0001
+    IPv6 Address(es):
+      fe80::5054:ff:fec6:302
+    Global IPv6 Address(es):
+      fd00:b:0:303::2
+    BFD is active, status Up
+    IPv6 Adjacency-SID: 15000
+
+ pe4                 
+    Interface: eth4, Level: 2, State: Up, Expires in 30s
+    Adjacency flaps: 1, Last: 5h53m ago
+    Circuit type: L2, Speaks: IPv4, IPv6
+    SNPA: 2020.2020.2020
+    Area Address(es):
+      49.0001
+    IPv6 Address(es):
+      fe80::5054:ff:fec6:402
+    Global IPv6 Address(es):
+      fd00:b:0:304::2
+    BFD is active, status Up
+    IPv6 Adjacency-SID: 15002
+&lt;/pre&gt;</msg>
+<msg time="2026-09-18T12:51:10.880438" level="INFO">${out} = Area VyOS:
+ p1                  
+    Interface: eth1, Level: 2, State: Up, Expires in 29s
+    Adjacency flaps: 1, Last: 5h53m ago
+    Circuit type: L2, Speaks: IPv4, IPv6
+    SNPA: 2020.2020.2020
+    ...</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<arg>${timeout}</arg>
+<doc>Run an operational-mode command on a VyOS node and return its output.</doc>
+<status status="PASS" start="2026-09-18T12:51:10.168967" elapsed="0.711495"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-18T12:51:10.880522" elapsed="0.000040"/>
+</return>
+<msg time="2026-09-18T12:51:10.880694" level="INFO">${nb} = Area VyOS:
+ p1                  
+    Interface: eth1, Level: 2, State: Up, Expires in 29s
+    Adjacency flaps: 1, Last: 5h53m ago
+    Circuit type: L2, Speaks: IPv4, IPv6
+    SNPA: 2020.2020.2020
+    ...</msg>
+<var>${nb}</var>
+<arg>${n}</arg>
+<arg>show isis neighbor detail</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="PASS" start="2026-09-18T12:51:10.168752" elapsed="0.711962"/>
+</kw>
+<kw name="Get Count" owner="BuiltIn">
+<msg time="2026-09-18T12:51:10.881134" level="INFO">Item found from container 4 times.</msg>
+<msg time="2026-09-18T12:51:10.881192" level="INFO">${active} = 4</msg>
+<var>${active}</var>
+<arg>${nb}</arg>
+<arg>BFD is active, status Up</arg>
+<doc>Returns and logs how many times the `item` is found from the `container`.</doc>
+<status status="PASS" start="2026-09-18T12:51:10.880838" elapsed="0.000370"/>
+</kw>
+<kw name="Should Be Equal As Integers" owner="BuiltIn">
+<arg>${active}</arg>
+<arg>${n_exp}</arg>
+<arg>msg=${n}: every IS-IS adjacency must be BFD-protected</arg>
+<doc>Fails if objects are unequal after converting them to integers.</doc>
+<status status="PASS" start="2026-09-18T12:51:10.881305" elapsed="0.000243"/>
+</kw>
+<var name="${n}">p3</var>
+<status status="PASS" start="2026-09-18T12:51:02.296802" elapsed="8.584774"/>
+</iter>
+<var>${n}</var>
+<value>@{CORE}</value>
+<status status="PASS" start="2026-09-18T12:50:11.236357" elapsed="59.645255"/>
+</for>
+<status status="PASS" start="2026-09-18T12:50:11.236104" elapsed="59.645610"/>
+</test>
+<test id="s1-t2" name="A silent core link failure is detected by BFD and traffic reconverges in under two seconds" line="27">
+<kw name="Evaluate" owner="BuiltIn">
+<msg time="2026-09-18T12:51:10.882594" level="INFO">${if} = eth5</msg>
+<var>${if}</var>
+<arg>[i for i, peer in $ISIS_NEIGHBORS[$P].items() if peer == $PE][0]</arg>
+<doc>Evaluates the given expression in Python and returns the result.</doc>
+<status status="PASS" start="2026-09-18T12:51:10.882155" elapsed="0.000469"/>
+</kw>
+<kw name="Evaluate" owner="BuiltIn">
+<msg time="2026-09-18T12:51:10.883022" level="INFO">${alt} = eth2</msg>
+<var>${alt}</var>
+<arg>[i for i, peer in $ISIS_NEIGHBORS[$PE].items() if peer != $P][0]</arg>
+<doc>Evaluates the given expression in Python and returns the result.</doc>
+<status status="PASS" start="2026-09-18T12:51:10.882716" elapsed="0.000324"/>
+</kw>
+<kw name="Set Variable" owner="BuiltIn">
+<msg time="2026-09-18T12:51:10.883352" level="INFO">${src} = {'tenant': 'tenant-a', 'ce': 'ce1', 'pe': 'pe1', 'host': 'dc1-h1', 'lan': '172.20.1.0/24', 'host_ip': '172.20.1.2', 'ce_lan_ip': '172.20.1.1', 'pe_ce_prefix': '172.16.1.0/30', 'ce_wan_ip': '172.16.1.2...</msg>
+<var>${src}</var>
+<arg>${SITES}[tenant-a][dc1]</arg>
+<doc>Returns the given values which can then be assigned to a variable.</doc>
+<status status="PASS" start="2026-09-18T12:51:10.883113" elapsed="0.000259"/>
+</kw>
+<kw name="Set Variable" owner="BuiltIn">
+<msg time="2026-09-18T12:51:10.883651" level="INFO">${dst} = {'tenant': 'tenant-a', 'ce': 'ce3', 'pe': 'pe3', 'host': 'dc3-h1', 'lan': '172.20.3.0/24', 'host_ip': '172.20.3.2', 'ce_lan_ip': '172.20.3.1', 'pe_ce_prefix': '172.16.3.0/30', 'ce_wan_ip': '172.16.3.2...</msg>
+<var>${dst}</var>
+<arg>${SITES}[tenant-a][dc3]</arg>
+<doc>Returns the given values which can then be assigned to a variable.</doc>
+<status status="PASS" start="2026-09-18T12:51:10.883447" elapsed="0.000223"/>
+</kw>
+<kw name="Shell" owner="common">
+<kw name="Vyos Shell" owner="LabLib">
+<msg time="2026-09-18T12:51:11.617571" level="INFO" html="true">&lt;pre&gt;10.3.0.13# sudo ip -c=never route show vrf tenant-a 172.20.1.0/24
+rc=0
+172.20.1.0/24 nhid 96  encap seg6 mode encap segs 1 [ fd00:c:1:e000:: ] via inet6 fe80::5054:ff:fec6:605 dev eth1 proto bgp metric 20 
+&lt;/pre&gt;</msg>
+<msg time="2026-09-18T12:51:11.617812" level="INFO">${out} = 172.20.1.0/24 nhid 96  encap seg6 mode encap segs 1 [ fd00:c:1:e000:: ] via inet6 fe80::5054:ff:fec6:605 dev eth1 proto bgp metric 20 
+</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<doc>Run a Linux shell command on a VyOS node (e.g. `sudo ip -6 route`) and return stdout+stderr; fails on non-zero rc.</doc>
+<status status="PASS" start="2026-09-18T12:51:10.883994" elapsed="0.733848"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-18T12:51:11.617903" elapsed="0.000040"/>
+</return>
+<msg time="2026-09-18T12:51:11.618059" level="INFO">${rt} = 172.20.1.0/24 nhid 96  encap seg6 mode encap segs 1 [ fd00:c:1:e000:: ] via inet6 fe80::5054:ff:fec6:605 dev eth1 proto bgp metric 20 
+</msg>
+<var>${rt}</var>
+<arg>${PE}</arg>
+<arg>sudo ip -c=never route show vrf tenant-a ${src}[lan]</arg>
+<doc>Run a Linux shell command on a VyOS node by name (sudo allowed).</doc>
+<status status="PASS" start="2026-09-18T12:51:10.883779" elapsed="0.734299"/>
+</kw>
+<kw name="Should Not Contain" owner="BuiltIn">
+<arg>${rt}</arg>
+<arg>dev ${alt}</arg>
+<arg>msg=${PE}: ${src}[lan] already avoids ${P} before the failure</arg>
+<doc>Fails if the `container` contains the `item`.</doc>
+<status status="PASS" start="2026-09-18T12:51:11.618226" elapsed="0.000477"/>
+</kw>
+<kw name="Start Background" owner="LabLib">
+<msg time="2026-09-18T12:51:13.225811" level="INFO">${ping} = 10.3.0.41:1</msg>
+<var>${ping}</var>
+<arg>${MGMT}[${src}[host]]</arg>
+<arg>ping -c 400 -i 0.2 -W 1 ${dst}[host_ip]</arg>
+<arg>lab</arg>
+<arg>lab</arg>
+<doc>Start a command over SSH and return a handle; collect its output with `Finish Background`.</doc>
+<status status="PASS" start="2026-09-18T12:51:11.618806" elapsed="1.607061"/>
+</kw>
+<kw name="Grafana Annotate" owner="LabLib">
+<msg time="2026-09-18T12:51:13.257190" level="INFO">${ann} = 3</msg>
+<var>${ann}</var>
+<arg>srv6-core: failover test — silent cut of ${P} ${if} (${P}-${PE}), BFD must detect it</arg>
+<arg>failover</arg>
+<arg>${P}</arg>
+<arg>${PE}</arg>
+<doc>A Grafana annotation (point, or region with start/end epoch seconds) tagged srv6-core + test; returns its id.</doc>
+<status status="PASS" start="2026-09-18T12:51:13.226031" elapsed="0.031206"/>
+</kw>
+<kw name="Configure" owner="common">
+<kw name="Vyos Configure" owner="LabLib">
+<msg time="2026-09-18T12:51:31.906499" level="INFO" html="true">&lt;pre&gt;10.3.0.22# configure
+set firewall ipv6 input filter rule 10 inbound-interface name eth5
+set firewall ipv6 output filter rule 10 outbound-interface name eth5
+set firewall ipv6 forward filter rule 10 inbound-interface name eth5
+set firewall ipv6 forward filter rule 11 outbound-interface name eth5
+set firewall ipv6 input filter rule 10 action drop
+set firewall ipv6 output filter rule 10 action drop
+set firewall ipv6 forward filter rule 10 action drop
+set firewall ipv6 forward filter rule 11 action drop
+commit; save
+0',
+          'metric_style': 'wide',
+          'net': '49.0001.0000.0000.0012.00',
+          'segment_routing': {'srv6': {'interface': 'dum0',
+                                       'locator': 'main'}}},
+ 'policy': {},
+ 'segment_routing': {'interface': {'eth1': {'srv6': {'hmac': 'accept'}},
+                                   'eth2': {'srv6': {'hmac': 'accept'}},
+                                   'eth3': {'srv6': {'hmac': 'accept'}},
+                                   'eth4': {'srv6': {'hmac': 'accept'}},
+                                   'eth5': {'srv6': {'hmac': 'accept'}},
+                                   'eth6': {'srv6': {'hmac': 'accept'}}},
+                     'srv6': {'encapsulation': {'source_address': 'fd00:a::12'},
+                              'locator': {'main': {'behavior_usid': {},
+                                                   'block_len': '32',
+                                                   'format': 'usid-f3216',
+                                                   'func_bits': '16',
+                                                   'node_len': '16',
+                                                   'prefix': 'fd00:c:12::/48'}}}},
+ 'static': {'route': {'10.0.0.0/8': {'next_hop': {'10.3.0.1': {}}}}},
+ 'system_frr': {'descriptors': '1024',
+                'profile': 'traditional',
+                'watchfrr_timeout': '90'}}
+-----------------------------------
+FRR:        NO CHANGES DETECTED
+
+[edit]
+vyos@p2# save
+[edit]
+vyos@p2# exit
+exit
+vyos@p2:~$ &lt;/pre&gt;</msg>
+<msg time="2026-09-18T12:51:31.906822" level="INFO">${out} = configure
+[edit]set firewall ipv6 input filter rule 10 inbound-interface name eth5
+set firewall ipv6 output filter rule 10 outbound-interface name eth5
+[edit]
+vyos@p2# set firewall ipv6 output filter ...</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>@{lines}</arg>
+<doc>Apply `set`/`delete` lines on a VyOS node (configure, lines, commit, save). Used by tests that change the lab
+on purpose — they must restore it in their teardown so the pre/post configuration diff stays empty.</doc>
+<status status="PASS" start="2026-09-18T12:51:13.257795" elapsed="18.649063"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-18T12:51:31.906923" elapsed="0.000045"/>
+</return>
+<arg>${P}</arg>
+<arg>set firewall ipv6 input filter rule 10 inbound-interface name ${if}</arg>
+<arg>set firewall ipv6 output filter rule 10 outbound-interface name ${if}</arg>
+<arg>set firewall ipv6 forward filter rule 10 inbound-interface name ${if}</arg>
+<arg>set firewall ipv6 forward filter rule 11 outbound-interface name ${if}</arg>
+<arg>@{CUT}</arg>
+<doc>Apply configuration lines on a VyOS node by name (commit + save).</doc>
+<status status="PASS" start="2026-09-18T12:51:13.257426" elapsed="18.649642"/>
+</kw>
+<kw name="Wait Until Keyword Succeeds" owner="BuiltIn">
+<kw name="Route Should Use Interface">
+<kw name="Shell" owner="common">
+<kw name="Vyos Shell" owner="LabLib">
+<msg time="2026-09-18T12:51:32.646323" level="INFO" html="true">&lt;pre&gt;10.3.0.13# sudo ip -c=never route show vrf tenant-a 172.20.1.0/24
+rc=0
+172.20.1.0/24 nhid 282  encap seg6 mode encap segs 1 [ fd00:c:1:e000:: ] via inet6 fe80::5054:ff:fec6:703 dev eth2 proto bgp metric 20 
+&lt;/pre&gt;</msg>
+<msg time="2026-09-18T12:51:32.646518" level="INFO">${out} = 172.20.1.0/24 nhid 282  encap seg6 mode encap segs 1 [ fd00:c:1:e000:: ] via inet6 fe80::5054:ff:fec6:703 dev eth2 proto bgp metric 20 
+</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<doc>Run a Linux shell command on a VyOS node (e.g. `sudo ip -6 route`) and return stdout+stderr; fails on non-zero rc.</doc>
+<status status="PASS" start="2026-09-18T12:51:31.908554" elapsed="0.737991"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-18T12:51:32.646627" elapsed="0.000052"/>
+</return>
+<msg time="2026-09-18T12:51:32.646804" level="INFO">${rt} = 172.20.1.0/24 nhid 282  encap seg6 mode encap segs 1 [ fd00:c:1:e000:: ] via inet6 fe80::5054:ff:fec6:703 dev eth2 proto bgp metric 20 
+</msg>
+<var>${rt}</var>
+<arg>${node}</arg>
+<arg>sudo ip -c=never route show vrf ${vrf} ${prefix}</arg>
+<doc>Run a Linux shell command on a VyOS node by name (sudo allowed).</doc>
+<status status="PASS" start="2026-09-18T12:51:31.908241" elapsed="0.738582"/>
+</kw>
+<kw name="Should Match Regexp" owner="BuiltIn">
+<arg>${rt}</arg>
+<arg>dev ${iface}\\b</arg>
+<arg>msg=${node}: ${prefix} (${vrf}) is not via ${iface}: ${rt.strip()}</arg>
+<doc>Fails if the `string` does not match the regular expression `pattern`.</doc>
+<status status="PASS" start="2026-09-18T12:51:32.646963" elapsed="0.000570"/>
+</kw>
+<kw name="Regex Findall" owner="LabLib">
+<msg time="2026-09-18T12:51:32.647858" level="INFO">${others} = ['eth2']</msg>
+<var>${others}</var>
+<arg>${rt}</arg>
+<arg>dev (eth\\d+)</arg>
+<status status="PASS" start="2026-09-18T12:51:32.647655" elapsed="0.000222"/>
+</kw>
+<for flavor="IN">
+<iter>
+<kw name="Should Be Equal" owner="BuiltIn">
+<arg>${o}</arg>
+<arg>${iface}</arg>
+<arg>msg=${node}: ${prefix} (${vrf}) still has a next hop via ${o}</arg>
+<doc>Fails if the given objects are unequal.</doc>
+<status status="PASS" start="2026-09-18T12:51:32.648154" elapsed="0.000342"/>
+</kw>
+<var name="${o}">eth2</var>
+<status status="PASS" start="2026-09-18T12:51:32.648050" elapsed="0.000501"/>
+</iter>
+<var>${o}</var>
+<value>@{others}</value>
+<status status="PASS" start="2026-09-18T12:51:32.647927" elapsed="0.000650"/>
+</for>
+<arg>${PE}</arg>
+<arg>${src}[lan]</arg>
+<arg>${alt}</arg>
+<status status="PASS" start="2026-09-18T12:51:31.907898" elapsed="0.740756"/>
+</kw>
+<arg>20s</arg>
+<arg>2s</arg>
+<arg>Route Should Use Interface</arg>
+<arg>${PE}</arg>
+<arg>${src}[lan]</arg>
+<arg>${alt}</arg>
+<doc>Runs the specified keyword and retries if it fails.</doc>
+<status status="PASS" start="2026-09-18T12:51:31.907224" elapsed="0.741479"/>
+</kw>
+<kw name="Vyos" owner="common">
+<kw name="Run Vyos Command" owner="LabLib">
+<msg time="2026-09-18T12:51:33.360478" level="INFO" html="true">&lt;pre&gt;10.3.0.13$ show isis neighbor detail
+Area VyOS:
+ p2                  
+    Interface: eth1, Level: 2, State: Up, Expires in 28s
+    Adjacency flaps: 1, Last: 13s ago
+    Circuit type: L2, Speaks: IPv4, IPv6
+    SNPA: 2020.2020.2020
+    Area Address(es):
+      49.0001
+    IPv6 Address(es):
+      fe80::5054:ff:fec6:605
+    Global IPv6 Address(es):
+      fd00:b:0:203::1
+    BFD is active, status Down
+    IPv6 Adjacency-SID: 15001
+
+ p3                  
+    Interface: eth2, Level: 2, State: Up, Expires in 29s
+    Adjacency flaps: 1, Last: 5h31m49s ago
+    Circuit type: L2, Speaks: IPv4, IPv6
+    SNPA: 2020.2020.2020
+    Area Address(es):
+      49.0001
+    IPv6 Address(es):
+      fe80::5054:ff:fec6:703
+    Global IPv6 Address(es):
+      fd00:b:0:303::1
+    BFD is active, status Up
+    IPv6 Adjacency-SID: 15000
+&lt;/pre&gt;</msg>
+<msg time="2026-09-18T12:51:33.360639" level="INFO">${out} = Area VyOS:
+ p2                  
+    Interface: eth1, Level: 2, State: Up, Expires in 28s
+    Adjacency flaps: 1, Last: 13s ago
+    Circuit type: L2, Speaks: IPv4, IPv6
+    SNPA: 2020.2020.2020
+    Ar...</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<arg>${timeout}</arg>
+<doc>Run an operational-mode command on a VyOS node and return its output.</doc>
+<status status="PASS" start="2026-09-18T12:51:32.649066" elapsed="0.711600"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-18T12:51:33.360725" elapsed="0.000040"/>
+</return>
+<msg time="2026-09-18T12:51:33.360877" level="INFO">${nb} = Area VyOS:
+ p2                  
+    Interface: eth1, Level: 2, State: Up, Expires in 28s
+    Adjacency flaps: 1, Last: 13s ago
+    Circuit type: L2, Speaks: IPv4, IPv6
+    SNPA: 2020.2020.2020
+    Ar...</msg>
+<var>${nb}</var>
+<arg>${PE}</arg>
+<arg>show isis neighbor detail</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="PASS" start="2026-09-18T12:51:32.648827" elapsed="0.712070"/>
+</kw>
+<kw name="Should Match Regexp" owner="BuiltIn">
+<arg>${nb}</arg>
+<arg>(?s)${P}.*?BFD is active, status Down</arg>
+<arg>msg=${PE}: BFD to ${P} not reported Down</arg>
+<doc>Fails if the `string` does not match the regular expression `pattern`.</doc>
+<status status="PASS" start="2026-09-18T12:51:33.361026" elapsed="0.000400"/>
+</kw>
+<for flavor="IN">
+<iter>
+<for flavor="IN">
+<iter>
+<kw name="Set Variable" owner="BuiltIn">
+<msg time="2026-09-18T12:51:33.362185" level="INFO">${d} = {'tenant': 'tenant-a', 'ce': 'ce1', 'pe': 'pe1', 'host': 'dc1-h1', 'lan': '172.20.1.0/24', 'host_ip': '172.20.1.2', 'ce_lan_ip': '172.20.1.1', 'pe_ce_prefix': '172.16.1.0/30', 'ce_wan_ip': '172.16.1.2...</msg>
+<var>${d}</var>
+<arg>${SITES}[${t}][${dc}]</arg>
+<doc>Returns the given values which can then be assigned to a variable.</doc>
+<status status="PASS" start="2026-09-18T12:51:33.361948" elapsed="0.000258"/>
+</kw>
+<if>
+<branch type="IF" condition="'${d}[pe]' != '${PE}'">
+<kw name="Route Should Use Interface">
+<kw name="Shell" owner="common">
+<kw name="Vyos Shell" owner="LabLib">
+<msg time="2026-09-18T12:51:34.096125" level="INFO" html="true">&lt;pre&gt;10.3.0.13# sudo ip -c=never route show vrf tenant-a 172.20.1.0/24
+rc=0
+172.20.1.0/24 nhid 282  encap seg6 mode encap segs 1 [ fd00:c:1:e000:: ] via inet6 fe80::5054:ff:fec6:703 dev eth2 proto bgp metric 20 
+&lt;/pre&gt;</msg>
+<msg time="2026-09-18T12:51:34.096295" level="INFO">${out} = 172.20.1.0/24 nhid 282  encap seg6 mode encap segs 1 [ fd00:c:1:e000:: ] via inet6 fe80::5054:ff:fec6:703 dev eth2 proto bgp metric 20 
+</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<doc>Run a Linux shell command on a VyOS node (e.g. `sudo ip -6 route`) and return stdout+stderr; fails on non-zero rc.</doc>
+<status status="PASS" start="2026-09-18T12:51:33.363087" elapsed="0.733236"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-18T12:51:34.096381" elapsed="0.000040"/>
+</return>
+<msg time="2026-09-18T12:51:34.096545" level="INFO">${rt} = 172.20.1.0/24 nhid 282  encap seg6 mode encap segs 1 [ fd00:c:1:e000:: ] via inet6 fe80::5054:ff:fec6:703 dev eth2 proto bgp metric 20 
+</msg>
+<var>${rt}</var>
+<arg>${node}</arg>
+<arg>sudo ip -c=never route show vrf ${vrf} ${prefix}</arg>
+<doc>Run a Linux shell command on a VyOS node by name (sudo allowed).</doc>
+<status status="PASS" start="2026-09-18T12:51:33.362801" elapsed="0.733766"/>
+</kw>
+<kw name="Should Match Regexp" owner="BuiltIn">
+<arg>${rt}</arg>
+<arg>dev ${iface}\\b</arg>
+<arg>msg=${node}: ${prefix} (${vrf}) is not via ${iface}: ${rt.strip()}</arg>
+<doc>Fails if the `string` does not match the regular expression `pattern`.</doc>
+<status status="PASS" start="2026-09-18T12:51:34.096749" elapsed="0.000481"/>
+</kw>
+<kw name="Regex Findall" owner="LabLib">
+<msg time="2026-09-18T12:51:34.097454" level="INFO">${others} = ['eth2']</msg>
+<var>${others}</var>
+<arg>${rt}</arg>
+<arg>dev (eth\\d+)</arg>
+<status status="PASS" start="2026-09-18T12:51:34.097324" elapsed="0.000152"/>
+</kw>
+<for flavor="IN">
+<iter>
+<kw name="Should Be Equal" owner="BuiltIn">
+<arg>${o}</arg>
+<arg>${iface}</arg>
+<arg>msg=${node}: ${prefix} (${vrf}) still has a next hop via ${o}</arg>
+<doc>Fails if the given objects are unequal.</doc>
+<status status="PASS" start="2026-09-18T12:51:34.097740" elapsed="0.000299"/>
+</kw>
+<var name="${o}">eth2</var>
+<status status="PASS" start="2026-09-18T12:51:34.097629" elapsed="0.000438"/>
+</iter>
+<var>${o}</var>
+<value>@{others}</value>
+<status status="PASS" start="2026-09-18T12:51:34.097520" elapsed="0.000570"/>
+</for>
+<arg>${PE}</arg>
+<arg>${d}[lan]</arg>
+<arg>${alt}</arg>
+<arg>${t}</arg>
+<status status="PASS" start="2026-09-18T12:51:33.362488" elapsed="0.735647"/>
+</kw>
+<status status="PASS" start="2026-09-18T12:51:33.362276" elapsed="0.735883"/>
+</branch>
+<status status="PASS" start="2026-09-18T12:51:33.362254" elapsed="0.735927"/>
+</if>
+<var name="${dc}">dc1</var>
+<status status="PASS" start="2026-09-18T12:51:33.361856" elapsed="0.736348"/>
+</iter>
+<iter>
+<kw name="Set Variable" owner="BuiltIn">
+<msg time="2026-09-18T12:51:34.098595" level="INFO">${d} = {'tenant': 'tenant-a', 'ce': 'ce2', 'pe': 'pe2', 'host': 'dc2-h1', 'lan': '172.20.2.0/24', 'host_ip': '172.20.2.2', 'ce_lan_ip': '172.20.2.1', 'pe_ce_prefix': '172.16.2.0/30', 'ce_wan_ip': '172.16.2.2...</msg>
+<var>${d}</var>
+<arg>${SITES}[${t}][${dc}]</arg>
+<doc>Returns the given values which can then be assigned to a variable.</doc>
+<status status="PASS" start="2026-09-18T12:51:34.098371" elapsed="0.000257"/>
+</kw>
+<if>
+<branch type="IF" condition="'${d}[pe]' != '${PE}'">
+<kw name="Route Should Use Interface">
+<kw name="Shell" owner="common">
+<kw name="Vyos Shell" owner="LabLib">
+<msg time="2026-09-18T12:51:34.948532" level="INFO" html="true">&lt;pre&gt;10.3.0.13# sudo ip -c=never route show vrf tenant-a 172.20.2.0/24
+rc=0
+172.20.2.0/24 nhid 285  encap seg6 mode encap segs 1 [ fd00:c:2:e000:: ] via inet6 fe80::5054:ff:fec6:703 dev eth2 proto bgp metric 20 
+&lt;/pre&gt;</msg>
+<msg time="2026-09-18T12:51:34.948744" level="INFO">${out} = 172.20.2.0/24 nhid 285  encap seg6 mode encap segs 1 [ fd00:c:2:e000:: ] via inet6 fe80::5054:ff:fec6:703 dev eth2 proto bgp metric 20 
+</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<doc>Run a Linux shell command on a VyOS node (e.g. `sudo ip -6 route`) and return stdout+stderr; fails on non-zero rc.</doc>
+<status status="PASS" start="2026-09-18T12:51:34.099405" elapsed="0.849378"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-18T12:51:34.948880" elapsed="0.000042"/>
+</return>
+<msg time="2026-09-18T12:51:34.949046" level="INFO">${rt} = 172.20.2.0/24 nhid 285  encap seg6 mode encap segs 1 [ fd00:c:2:e000:: ] via inet6 fe80::5054:ff:fec6:703 dev eth2 proto bgp metric 20 
+</msg>
+<var>${rt}</var>
+<arg>${node}</arg>
+<arg>sudo ip -c=never route show vrf ${vrf} ${prefix}</arg>
+<doc>Run a Linux shell command on a VyOS node by name (sudo allowed).</doc>
+<status status="PASS" start="2026-09-18T12:51:34.099206" elapsed="0.849859"/>
+</kw>
+<kw name="Should Match Regexp" owner="BuiltIn">
+<arg>${rt}</arg>
+<arg>dev ${iface}\\b</arg>
+<arg>msg=${node}: ${prefix} (${vrf}) is not via ${iface}: ${rt.strip()}</arg>
+<doc>Fails if the `string` does not match the regular expression `pattern`.</doc>
+<status status="PASS" start="2026-09-18T12:51:34.949198" elapsed="0.000478"/>
+</kw>
+<kw name="Regex Findall" owner="LabLib">
+<msg time="2026-09-18T12:51:34.949921" level="INFO">${others} = ['eth2']</msg>
+<var>${others}</var>
+<arg>${rt}</arg>
+<arg>dev (eth\\d+)</arg>
+<status status="PASS" start="2026-09-18T12:51:34.949780" elapsed="0.000161"/>
+</kw>
+<for flavor="IN">
+<iter>
+<kw name="Should Be Equal" owner="BuiltIn">
+<arg>${o}</arg>
+<arg>${iface}</arg>
+<arg>msg=${node}: ${prefix} (${vrf}) still has a next hop via ${o}</arg>
+<doc>Fails if the given objects are unequal.</doc>
+<status status="PASS" start="2026-09-18T12:51:34.950158" elapsed="0.000294"/>
+</kw>
+<var name="${o}">eth2</var>
+<status status="PASS" start="2026-09-18T12:51:34.950074" elapsed="0.000407"/>
+</iter>
+<var>${o}</var>
+<value>@{others}</value>
+<status status="PASS" start="2026-09-18T12:51:34.949984" elapsed="0.000521"/>
+</for>
+<arg>${PE}</arg>
+<arg>${d}[lan]</arg>
+<arg>${alt}</arg>
+<arg>${t}</arg>
+<status status="PASS" start="2026-09-18T12:51:34.098898" elapsed="0.851652"/>
+</kw>
+<status status="PASS" start="2026-09-18T12:51:34.098705" elapsed="0.851871"/>
+</branch>
+<status status="PASS" start="2026-09-18T12:51:34.098683" elapsed="0.851931"/>
+</if>
+<var name="${dc}">dc2</var>
+<status status="PASS" start="2026-09-18T12:51:34.098299" elapsed="0.852340"/>
+</iter>
+<iter>
+<kw name="Set Variable" owner="BuiltIn">
+<msg time="2026-09-18T12:51:34.951059" level="INFO">${d} = {'tenant': 'tenant-a', 'ce': 'ce3', 'pe': 'pe3', 'host': 'dc3-h1', 'lan': '172.20.3.0/24', 'host_ip': '172.20.3.2', 'ce_lan_ip': '172.20.3.1', 'pe_ce_prefix': '172.16.3.0/30', 'ce_wan_ip': '172.16.3.2...</msg>
+<var>${d}</var>
+<arg>${SITES}[${t}][${dc}]</arg>
+<doc>Returns the given values which can then be assigned to a variable.</doc>
+<status status="PASS" start="2026-09-18T12:51:34.950834" elapsed="0.000245"/>
+</kw>
+<if>
+<branch type="IF" condition="'${d}[pe]' != '${PE}'">
+<kw name="Route Should Use Interface">
+<arg>${PE}</arg>
+<arg>${d}[lan]</arg>
+<arg>${alt}</arg>
+<arg>${t}</arg>
+<status status="NOT RUN" start="2026-09-18T12:51:34.951351" elapsed="0.000019"/>
+</kw>
+<status status="NOT RUN" start="2026-09-18T12:51:34.951131" elapsed="0.000263"/>
+</branch>
+<status status="PASS" start="2026-09-18T12:51:34.951117" elapsed="0.000295"/>
+</if>
+<var name="${dc}">dc3</var>
+<status status="PASS" start="2026-09-18T12:51:34.950737" elapsed="0.000692"/>
+</iter>
+<iter>
+<kw name="Set Variable" owner="BuiltIn">
+<msg time="2026-09-18T12:51:34.951876" level="INFO">${d} = {'tenant': 'tenant-a', 'ce': 'ce4', 'pe': 'pe4', 'host': 'dc4-h1', 'lan': '172.20.4.0/24', 'host_ip': '172.20.4.2', 'ce_lan_ip': '172.20.4.1', 'pe_ce_prefix': '172.16.4.0/30', 'ce_wan_ip': '172.16.4.2...</msg>
+<var>${d}</var>
+<arg>${SITES}[${t}][${dc}]</arg>
+<doc>Returns the given values which can then be assigned to a variable.</doc>
+<status status="PASS" start="2026-09-18T12:51:34.951584" elapsed="0.000316"/>
+</kw>
+<if>
+<branch type="IF" condition="'${d}[pe]' != '${PE}'">
+<kw name="Route Should Use Interface">
+<kw name="Shell" owner="common">
+<kw name="Vyos Shell" owner="LabLib">
+<msg time="2026-09-18T12:51:36.189494" level="INFO" html="true">&lt;pre&gt;10.3.0.13# sudo ip -c=never route show vrf tenant-a 172.20.4.0/24
+rc=0
+172.20.4.0/24 nhid 288  encap seg6 mode encap segs 1 [ fd00:c:4:e000:: ] via inet6 fe80::5054:ff:fec6:703 dev eth2 proto bgp metric 20 
+&lt;/pre&gt;</msg>
+<msg time="2026-09-18T12:51:36.189685" level="INFO">${out} = 172.20.4.0/24 nhid 288  encap seg6 mode encap segs 1 [ fd00:c:4:e000:: ] via inet6 fe80::5054:ff:fec6:703 dev eth2 proto bgp metric 20 
+</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<doc>Run a Linux shell command on a VyOS node (e.g. `sudo ip -6 route`) and return stdout+stderr; fails on non-zero rc.</doc>
+<status status="PASS" start="2026-09-18T12:51:34.952654" elapsed="1.237058"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-18T12:51:36.189795" elapsed="0.000046"/>
+</return>
+<msg time="2026-09-18T12:51:36.189958" level="INFO">${rt} = 172.20.4.0/24 nhid 288  encap seg6 mode encap segs 1 [ fd00:c:4:e000:: ] via inet6 fe80::5054:ff:fec6:703 dev eth2 proto bgp metric 20 
+</msg>
+<var>${rt}</var>
+<arg>${node}</arg>
+<arg>sudo ip -c=never route show vrf ${vrf} ${prefix}</arg>
+<doc>Run a Linux shell command on a VyOS node by name (sudo allowed).</doc>
+<status status="PASS" start="2026-09-18T12:51:34.952427" elapsed="1.237550"/>
+</kw>
+<kw name="Should Match Regexp" owner="BuiltIn">
+<arg>${rt}</arg>
+<arg>dev ${iface}\\b</arg>
+<arg>msg=${node}: ${prefix} (${vrf}) is not via ${iface}: ${rt.strip()}</arg>
+<doc>Fails if the `string` does not match the regular expression `pattern`.</doc>
+<status status="PASS" start="2026-09-18T12:51:36.190144" elapsed="0.000451"/>
+</kw>
+<kw name="Regex Findall" owner="LabLib">
+<msg time="2026-09-18T12:51:36.190848" level="INFO">${others} = ['eth2']</msg>
+<var>${others}</var>
+<arg>${rt}</arg>
+<arg>dev (eth\\d+)</arg>
+<status status="PASS" start="2026-09-18T12:51:36.190700" elapsed="0.000167"/>
+</kw>
+<for flavor="IN">
+<iter>
+<kw name="Should Be Equal" owner="BuiltIn">
+<arg>${o}</arg>
+<arg>${iface}</arg>
+<arg>msg=${node}: ${prefix} (${vrf}) still has a next hop via ${o}</arg>
+<doc>Fails if the given objects are unequal.</doc>
+<status status="PASS" start="2026-09-18T12:51:36.191128" elapsed="0.000356"/>
+</kw>
+<var name="${o}">eth2</var>
+<status status="PASS" start="2026-09-18T12:51:36.191015" elapsed="0.000513"/>
+</iter>
+<var>${o}</var>
+<value>@{others}</value>
+<status status="PASS" start="2026-09-18T12:51:36.190910" elapsed="0.000652"/>
+</for>
+<arg>${PE}</arg>
+<arg>${d}[lan]</arg>
+<arg>${alt}</arg>
+<arg>${t}</arg>
+<status status="PASS" start="2026-09-18T12:51:34.952120" elapsed="1.239522"/>
+</kw>
+<status status="PASS" start="2026-09-18T12:51:34.951949" elapsed="1.239730"/>
+</branch>
+<status status="PASS" start="2026-09-18T12:51:34.951935" elapsed="1.239774"/>
+</if>
+<var name="${dc}">dc4</var>
+<status status="PASS" start="2026-09-18T12:51:34.951510" elapsed="1.240230"/>
+</iter>
+<var>${dc}</var>
+<value>@{SITES}[${t}]</value>
+<status status="PASS" start="2026-09-18T12:51:33.361692" elapsed="2.830078"/>
+</for>
+<var name="${t}">tenant-a</var>
+<status status="PASS" start="2026-09-18T12:51:33.361667" elapsed="2.830138"/>
+</iter>
+<iter>
+<for flavor="IN">
+<iter>
+<kw name="Set Variable" owner="BuiltIn">
+<msg time="2026-09-18T12:51:36.192508" level="INFO">${d} = {'tenant': 'tenant-b', 'ce': 'ce1', 'pe': 'pe1', 'host': 'dc1-h2', 'lan': '172.21.1.0/24', 'host_ip': '172.21.1.2', 'ce_lan_ip': '172.21.1.1', 'pe_ce_prefix': '172.18.1.0/30', 'ce_wan_ip': '172.18.1.2...</msg>
+<var>${d}</var>
+<arg>${SITES}[${t}][${dc}]</arg>
+<doc>Returns the given values which can then be assigned to a variable.</doc>
+<status status="PASS" start="2026-09-18T12:51:36.192219" elapsed="0.000316"/>
+</kw>
+<if>
+<branch type="IF" condition="'${d}[pe]' != '${PE}'">
+<kw name="Route Should Use Interface">
+<kw name="Shell" owner="common">
+<kw name="Vyos Shell" owner="LabLib">
+<msg time="2026-09-18T12:51:37.419196" level="INFO" html="true">&lt;pre&gt;10.3.0.13# sudo ip -c=never route show vrf tenant-b 172.21.1.0/24
+rc=0
+172.21.1.0/24 nhid 290  encap seg6 mode encap segs 1 [ fd00:c:1:e001:: ] via inet6 fe80::5054:ff:fec6:703 dev eth2 proto bgp metric 20 
+&lt;/pre&gt;</msg>
+<msg time="2026-09-18T12:51:37.419398" level="INFO">${out} = 172.21.1.0/24 nhid 290  encap seg6 mode encap segs 1 [ fd00:c:1:e001:: ] via inet6 fe80::5054:ff:fec6:703 dev eth2 proto bgp metric 20 
+</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<doc>Run a Linux shell command on a VyOS node (e.g. `sudo ip -6 route`) and return stdout+stderr; fails on non-zero rc.</doc>
+<status status="PASS" start="2026-09-18T12:51:36.193424" elapsed="1.226006"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-18T12:51:37.419492" elapsed="0.000049"/>
+</return>
+<msg time="2026-09-18T12:51:37.419700" level="INFO">${rt} = 172.21.1.0/24 nhid 290  encap seg6 mode encap segs 1 [ fd00:c:1:e001:: ] via inet6 fe80::5054:ff:fec6:703 dev eth2 proto bgp metric 20 
+</msg>
+<var>${rt}</var>
+<arg>${node}</arg>
+<arg>sudo ip -c=never route show vrf ${vrf} ${prefix}</arg>
+<doc>Run a Linux shell command on a VyOS node by name (sudo allowed).</doc>
+<status status="PASS" start="2026-09-18T12:51:36.193186" elapsed="1.226541"/>
+</kw>
+<kw name="Should Match Regexp" owner="BuiltIn">
+<arg>${rt}</arg>
+<arg>dev ${iface}\\b</arg>
+<arg>msg=${node}: ${prefix} (${vrf}) is not via ${iface}: ${rt.strip()}</arg>
+<doc>Fails if the `string` does not match the regular expression `pattern`.</doc>
+<status status="PASS" start="2026-09-18T12:51:37.419923" elapsed="0.000449"/>
+</kw>
+<kw name="Regex Findall" owner="LabLib">
+<msg time="2026-09-18T12:51:37.420613" level="INFO">${others} = ['eth2']</msg>
+<var>${others}</var>
+<arg>${rt}</arg>
+<arg>dev (eth\\d+)</arg>
+<status status="PASS" start="2026-09-18T12:51:37.420475" elapsed="0.000158"/>
+</kw>
+<for flavor="IN">
+<iter>
+<kw name="Should Be Equal" owner="BuiltIn">
+<arg>${o}</arg>
+<arg>${iface}</arg>
+<arg>msg=${node}: ${prefix} (${vrf}) still has a next hop via ${o}</arg>
+<doc>Fails if the given objects are unequal.</doc>
+<status status="PASS" start="2026-09-18T12:51:37.420861" elapsed="0.000283"/>
+</kw>
+<var name="${o}">eth2</var>
+<status status="PASS" start="2026-09-18T12:51:37.420771" elapsed="0.000400"/>
+</iter>
+<var>${o}</var>
+<value>@{others}</value>
+<status status="PASS" start="2026-09-18T12:51:37.420676" elapsed="0.000517"/>
+</for>
+<arg>${PE}</arg>
+<arg>${d}[lan]</arg>
+<arg>${alt}</arg>
+<arg>${t}</arg>
+<status status="PASS" start="2026-09-18T12:51:36.192855" elapsed="1.228382"/>
+</kw>
+<status status="PASS" start="2026-09-18T12:51:36.192590" elapsed="1.228671"/>
+</branch>
+<status status="PASS" start="2026-09-18T12:51:36.192575" elapsed="1.228705"/>
+</if>
+<var name="${dc}">dc1</var>
+<status status="PASS" start="2026-09-18T12:51:36.192112" elapsed="1.229186"/>
+</iter>
+<iter>
+<kw name="Set Variable" owner="BuiltIn">
+<msg time="2026-09-18T12:51:37.421691" level="INFO">${d} = {'tenant': 'tenant-b', 'ce': 'ce2', 'pe': 'pe2', 'host': 'dc2-h2', 'lan': '172.21.2.0/24', 'host_ip': '172.21.2.2', 'ce_lan_ip': '172.21.2.1', 'pe_ce_prefix': '172.18.2.0/30', 'ce_wan_ip': '172.18.2.2...</msg>
+<var>${d}</var>
+<arg>${SITES}[${t}][${dc}]</arg>
+<doc>Returns the given values which can then be assigned to a variable.</doc>
+<status status="PASS" start="2026-09-18T12:51:37.421467" elapsed="0.000244"/>
+</kw>
+<if>
+<branch type="IF" condition="'${d}[pe]' != '${PE}'">
+<kw name="Route Should Use Interface">
+<kw name="Shell" owner="common">
+<kw name="Vyos Shell" owner="LabLib">
+<msg time="2026-09-18T12:51:38.156344" level="INFO" html="true">&lt;pre&gt;10.3.0.13# sudo ip -c=never route show vrf tenant-b 172.21.2.0/24
+rc=0
+172.21.2.0/24 nhid 293  encap seg6 mode encap segs 1 [ fd00:c:2:e001:: ] via inet6 fe80::5054:ff:fec6:703 dev eth2 proto bgp metric 20 
+&lt;/pre&gt;</msg>
+<msg time="2026-09-18T12:51:38.156507" level="INFO">${out} = 172.21.2.0/24 nhid 293  encap seg6 mode encap segs 1 [ fd00:c:2:e001:: ] via inet6 fe80::5054:ff:fec6:703 dev eth2 proto bgp metric 20 
+</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<doc>Run a Linux shell command on a VyOS node (e.g. `sudo ip -6 route`) and return stdout+stderr; fails on non-zero rc.</doc>
+<status status="PASS" start="2026-09-18T12:51:37.422397" elapsed="0.734136"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-18T12:51:38.156593" elapsed="0.000050"/>
+</return>
+<msg time="2026-09-18T12:51:38.156761" level="INFO">${rt} = 172.21.2.0/24 nhid 293  encap seg6 mode encap segs 1 [ fd00:c:2:e001:: ] via inet6 fe80::5054:ff:fec6:703 dev eth2 proto bgp metric 20 
+</msg>
+<var>${rt}</var>
+<arg>${node}</arg>
+<arg>sudo ip -c=never route show vrf ${vrf} ${prefix}</arg>
+<doc>Run a Linux shell command on a VyOS node by name (sudo allowed).</doc>
+<status status="PASS" start="2026-09-18T12:51:37.422200" elapsed="0.734579"/>
+</kw>
+<kw name="Should Match Regexp" owner="BuiltIn">
+<arg>${rt}</arg>
+<arg>dev ${iface}\\b</arg>
+<arg>msg=${node}: ${prefix} (${vrf}) is not via ${iface}: ${rt.strip()}</arg>
+<doc>Fails if the `string` does not match the regular expression `pattern`.</doc>
+<status status="PASS" start="2026-09-18T12:51:38.156906" elapsed="0.000421"/>
+</kw>
+<kw name="Regex Findall" owner="LabLib">
+<msg time="2026-09-18T12:51:38.157544" level="INFO">${others} = ['eth2']</msg>
+<var>${others}</var>
+<arg>${rt}</arg>
+<arg>dev (eth\\d+)</arg>
+<status status="PASS" start="2026-09-18T12:51:38.157420" elapsed="0.000142"/>
+</kw>
+<for flavor="IN">
+<iter>
+<kw name="Should Be Equal" owner="BuiltIn">
+<arg>${o}</arg>
+<arg>${iface}</arg>
+<arg>msg=${node}: ${prefix} (${vrf}) still has a next hop via ${o}</arg>
+<doc>Fails if the given objects are unequal.</doc>
+<status status="PASS" start="2026-09-18T12:51:38.157814" elapsed="0.000321"/>
+</kw>
+<var name="${o}">eth2</var>
+<status status="PASS" start="2026-09-18T12:51:38.157723" elapsed="0.000443"/>
+</iter>
+<var>${o}</var>
+<value>@{others}</value>
+<status status="PASS" start="2026-09-18T12:51:38.157620" elapsed="0.000571"/>
+</for>
+<arg>${PE}</arg>
+<arg>${d}[lan]</arg>
+<arg>${alt}</arg>
+<arg>${t}</arg>
+<status status="PASS" start="2026-09-18T12:51:37.421936" elapsed="0.736300"/>
+</kw>
+<status status="PASS" start="2026-09-18T12:51:37.421760" elapsed="0.736506"/>
+</branch>
+<status status="PASS" start="2026-09-18T12:51:37.421747" elapsed="0.736542"/>
+</if>
+<var name="${dc}">dc2</var>
+<status status="PASS" start="2026-09-18T12:51:37.421397" elapsed="0.736910"/>
+</iter>
+<iter>
+<kw name="Set Variable" owner="BuiltIn">
+<msg time="2026-09-18T12:51:38.158805" level="INFO">${d} = {'tenant': 'tenant-b', 'ce': 'ce3', 'pe': 'pe3', 'host': 'dc3-h2', 'lan': '172.21.3.0/24', 'host_ip': '172.21.3.2', 'ce_lan_ip': '172.21.3.1', 'pe_ce_prefix': '172.18.3.0/30', 'ce_wan_ip': '172.18.3.2...</msg>
+<var>${d}</var>
+<arg>${SITES}[${t}][${dc}]</arg>
+<doc>Returns the given values which can then be assigned to a variable.</doc>
+<status status="PASS" start="2026-09-18T12:51:38.158491" elapsed="0.000338"/>
+</kw>
+<if>
+<branch type="IF" condition="'${d}[pe]' != '${PE}'">
+<kw name="Route Should Use Interface">
+<arg>${PE}</arg>
+<arg>${d}[lan]</arg>
+<arg>${alt}</arg>
+<arg>${t}</arg>
+<status status="NOT RUN" start="2026-09-18T12:51:38.159107" elapsed="0.000023"/>
+</kw>
+<status status="NOT RUN" start="2026-09-18T12:51:38.158883" elapsed="0.000274"/>
+</branch>
+<status status="PASS" start="2026-09-18T12:51:38.158870" elapsed="0.000305"/>
+</if>
+<var name="${dc}">dc3</var>
+<status status="PASS" start="2026-09-18T12:51:38.158408" elapsed="0.000784"/>
+</iter>
+<iter>
+<kw name="Set Variable" owner="BuiltIn">
+<msg time="2026-09-18T12:51:38.159641" level="INFO">${d} = {'tenant': 'tenant-b', 'ce': 'ce4', 'pe': 'pe4', 'host': 'dc4-h2', 'lan': '172.21.4.0/24', 'host_ip': '172.21.4.2', 'ce_lan_ip': '172.21.4.1', 'pe_ce_prefix': '172.18.4.0/30', 'ce_wan_ip': '172.18.4.2...</msg>
+<var>${d}</var>
+<arg>${SITES}[${t}][${dc}]</arg>
+<doc>Returns the given values which can then be assigned to a variable.</doc>
+<status status="PASS" start="2026-09-18T12:51:38.159352" elapsed="0.000314"/>
+</kw>
+<if>
+<branch type="IF" condition="'${d}[pe]' != '${PE}'">
+<kw name="Route Should Use Interface">
+<kw name="Shell" owner="common">
+<kw name="Vyos Shell" owner="LabLib">
+<msg time="2026-09-18T12:51:38.891720" level="INFO" html="true">&lt;pre&gt;10.3.0.13# sudo ip -c=never route show vrf tenant-b 172.21.4.0/24
+rc=0
+172.21.4.0/24 nhid 296  encap seg6 mode encap segs 1 [ fd00:c:4:e001:: ] via inet6 fe80::5054:ff:fec6:703 dev eth2 proto bgp metric 20 
+&lt;/pre&gt;</msg>
+<msg time="2026-09-18T12:51:38.891929" level="INFO">${out} = 172.21.4.0/24 nhid 296  encap seg6 mode encap segs 1 [ fd00:c:4:e001:: ] via inet6 fe80::5054:ff:fec6:703 dev eth2 proto bgp metric 20 
+</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<doc>Run a Linux shell command on a VyOS node (e.g. `sudo ip -6 route`) and return stdout+stderr; fails on non-zero rc.</doc>
+<status status="PASS" start="2026-09-18T12:51:38.160404" elapsed="0.731554"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-18T12:51:38.892022" elapsed="0.000040"/>
+</return>
+<msg time="2026-09-18T12:51:38.892195" level="INFO">${rt} = 172.21.4.0/24 nhid 296  encap seg6 mode encap segs 1 [ fd00:c:4:e001:: ] via inet6 fe80::5054:ff:fec6:703 dev eth2 proto bgp metric 20 
+</msg>
+<var>${rt}</var>
+<arg>${node}</arg>
+<arg>sudo ip -c=never route show vrf ${vrf} ${prefix}</arg>
+<doc>Run a Linux shell command on a VyOS node by name (sudo allowed).</doc>
+<status status="PASS" start="2026-09-18T12:51:38.160207" elapsed="0.732006"/>
+</kw>
+<kw name="Should Match Regexp" owner="BuiltIn">
+<arg>${rt}</arg>
+<arg>dev ${iface}\\b</arg>
+<arg>msg=${node}: ${prefix} (${vrf}) is not via ${iface}: ${rt.strip()}</arg>
+<doc>Fails if the `string` does not match the regular expression `pattern`.</doc>
+<status status="PASS" start="2026-09-18T12:51:38.892364" elapsed="0.000534"/>
+</kw>
+<kw name="Regex Findall" owner="LabLib">
+<msg time="2026-09-18T12:51:38.893127" level="INFO">${others} = ['eth2']</msg>
+<var>${others}</var>
+<arg>${rt}</arg>
+<arg>dev (eth\\d+)</arg>
+<status status="PASS" start="2026-09-18T12:51:38.892999" elapsed="0.000146"/>
+</kw>
+<for flavor="IN">
+<iter>
+<kw name="Should Be Equal" owner="BuiltIn">
+<arg>${o}</arg>
+<arg>${iface}</arg>
+<arg>msg=${node}: ${prefix} (${vrf}) still has a next hop via ${o}</arg>
+<doc>Fails if the given objects are unequal.</doc>
+<status status="PASS" start="2026-09-18T12:51:38.893384" elapsed="0.000311"/>
+</kw>
+<var name="${o}">eth2</var>
+<status status="PASS" start="2026-09-18T12:51:38.893293" elapsed="0.000433"/>
+</iter>
+<var>${o}</var>
+<value>@{others}</value>
+<status status="PASS" start="2026-09-18T12:51:38.893193" elapsed="0.000557"/>
+</for>
+<arg>${PE}</arg>
+<arg>${d}[lan]</arg>
+<arg>${alt}</arg>
+<arg>${t}</arg>
+<status status="PASS" start="2026-09-18T12:51:38.159922" elapsed="0.733874"/>
+</kw>
+<status status="PASS" start="2026-09-18T12:51:38.159730" elapsed="0.734093"/>
+</branch>
+<status status="PASS" start="2026-09-18T12:51:38.159712" elapsed="0.734132"/>
+</if>
+<var name="${dc}">dc4</var>
+<status status="PASS" start="2026-09-18T12:51:38.159273" elapsed="0.734589"/>
+</iter>
+<var>${dc}</var>
+<value>@{SITES}[${t}]</value>
+<status status="PASS" start="2026-09-18T12:51:36.191964" elapsed="2.701916"/>
+</for>
+<var name="${t}">tenant-b</var>
+<status status="PASS" start="2026-09-18T12:51:36.191939" elapsed="2.701964"/>
+</iter>
+<var>${t}</var>
+<value>@{TENANTS}</value>
+<status status="PASS" start="2026-09-18T12:51:33.361482" elapsed="5.532438"/>
+</for>
+<kw name="Configure" owner="common">
+<kw name="Vyos Configure" owner="LabLib">
+<msg time="2026-09-18T12:51:54.850898" level="INFO" html="true">&lt;pre&gt;10.3.0.22# configure
+delete firewall
+commit; save
+0',
+          'metric_style': 'wide',
+          'net': '49.0001.0000.0000.0012.00',
+          'segment_routing': {'srv6': {'interface': 'dum0',
+                                       'locator': 'main'}}},
+ 'policy': {},
+ 'segment_routing': {'interface': {'eth1': {'srv6': {'hmac': 'accept'}},
+                                   'eth2': {'srv6': {'hmac': 'accept'}},
+                                   'eth3': {'srv6': {'hmac': 'accept'}},
+                                   'eth4': {'srv6': {'hmac': 'accept'}},
+                                   'eth5': {'srv6': {'hmac': 'accept'}},
+                                   'eth6': {'srv6': {'hmac': 'accept'}}},
+                     'srv6': {'encapsulation': {'source_address': 'fd00:a::12'},
+                              'locator': {'main': {'behavior_usid': {},
+                                                   'block_len': '32',
+                                                   'format': 'usid-f3216',
+                                                   'func_bits': '16',
+                                                   'node_len': '16',
+                                                   'prefix': 'fd00:c:12::/48'}}}},
+ 'static': {'route': {'10.0.0.0/8': {'next_hop': {'10.3.0.1': {}}}}},
+ 'system_frr': {'descriptors': '1024',
+                'profile': 'traditional',
+                'watchfrr_timeout': '90'}}
+-----------------------------------
+FRR:        NO CHANGES DETECTED
+
+[edit]
+vyos@p2# save
+[edit]
+vyos@p2# exit
+exit
+vyos@p2:~$ &lt;/pre&gt;</msg>
+<msg time="2026-09-18T12:51:54.851074" level="INFO">${out} = configure
+[edit]delete firewall
+[edit]
+vyos@p2# commit
+save
+[ firewall ]
+---- get_frrender_dict(&lt;vyos.config.Config object at 0x7f152dc37290&gt;) ----
+{'ip': {'afi': 'ip', 'arp': {'table_size': '8192'}},...</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>@{lines}</arg>
+<doc>Apply `set`/`delete` lines on a VyOS node (configure, lines, commit, save). Used by tests that change the lab
+on purpose — they must restore it in their teardown so the pre/post configuration diff stays empty.</doc>
+<status status="PASS" start="2026-09-18T12:51:38.894249" elapsed="15.956853"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-18T12:51:54.851169" elapsed="0.000041"/>
+</return>
+<arg>${P}</arg>
+<arg>delete firewall</arg>
+<doc>Apply configuration lines on a VyOS node by name (commit + save).</doc>
+<status status="PASS" start="2026-09-18T12:51:38.894032" elapsed="15.957268"/>
+</kw>
+<kw name="Grafana Annotation End" owner="LabLib">
+<arg>${ann}</arg>
+<arg>srv6-core: failover test — ${P} ${if} cut and repaired; ${PE} moved every tenant route to ${alt} and back</arg>
+<doc>Close a region annotation now (optionally replacing its text).</doc>
+<status status="PASS" start="2026-09-18T12:51:54.851408" elapsed="0.030982"/>
+</kw>
+<kw name="Wait Until Keyword Succeeds" owner="BuiltIn">
+<kw name="Route Should Use Interface">
+<kw name="Shell" owner="common">
+<kw name="Vyos Shell" owner="LabLib">
+<msg time="2026-09-18T12:51:55.622513" level="INFO" html="true">&lt;pre&gt;10.3.0.13# sudo ip -c=never route show vrf tenant-a 172.20.1.0/24
+rc=0
+172.20.1.0/24 nhid 96  encap seg6 mode encap segs 1 [ fd00:c:1:e000:: ] via inet6 fe80::5054:ff:fec6:605 dev eth1 proto bgp metric 20 
+&lt;/pre&gt;</msg>
+<msg time="2026-09-18T12:51:55.622752" level="INFO">${out} = 172.20.1.0/24 nhid 96  encap seg6 mode encap segs 1 [ fd00:c:1:e000:: ] via inet6 fe80::5054:ff:fec6:605 dev eth1 proto bgp metric 20 
+</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<doc>Run a Linux shell command on a VyOS node (e.g. `sudo ip -6 route`) and return stdout+stderr; fails on non-zero rc.</doc>
+<status status="PASS" start="2026-09-18T12:51:54.883633" elapsed="0.739168"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-18T12:51:55.622885" elapsed="0.000055"/>
+</return>
+<msg time="2026-09-18T12:51:55.623094" level="INFO">${rt} = 172.20.1.0/24 nhid 96  encap seg6 mode encap segs 1 [ fd00:c:1:e000:: ] via inet6 fe80::5054:ff:fec6:605 dev eth1 proto bgp metric 20 
+</msg>
+<var>${rt}</var>
+<arg>${node}</arg>
+<arg>sudo ip -c=never route show vrf ${vrf} ${prefix}</arg>
+<doc>Run a Linux shell command on a VyOS node by name (sudo allowed).</doc>
+<status status="PASS" start="2026-09-18T12:51:54.883403" elapsed="0.739718"/>
+</kw>
+<kw name="Should Match Regexp" owner="BuiltIn">
+<arg>${rt}</arg>
+<arg>dev ${iface}\\b</arg>
+<arg>msg=${node}: ${prefix} (${vrf}) is not via ${iface}: ${rt.strip()}</arg>
+<doc>Fails if the `string` does not match the regular expression `pattern`.</doc>
+<status status="PASS" start="2026-09-18T12:51:55.623322" elapsed="0.000706"/>
+</kw>
+<kw name="Regex Findall" owner="LabLib">
+<msg time="2026-09-18T12:51:55.624340" level="INFO">${others} = ['eth1']</msg>
+<var>${others}</var>
+<arg>${rt}</arg>
+<arg>dev (eth\\d+)</arg>
+<status status="PASS" start="2026-09-18T12:51:55.624165" elapsed="0.000202"/>
+</kw>
+<for flavor="IN">
+<iter>
+<kw name="Should Be Equal" owner="BuiltIn">
+<arg>${o}</arg>
+<arg>${iface}</arg>
+<arg>msg=${node}: ${prefix} (${vrf}) still has a next hop via ${o}</arg>
+<doc>Fails if the given objects are unequal.</doc>
+<status status="PASS" start="2026-09-18T12:51:55.624753" elapsed="0.000416"/>
+</kw>
+<var name="${o}">eth1</var>
+<status status="PASS" start="2026-09-18T12:51:55.624592" elapsed="0.000621"/>
+</iter>
+<var>${o}</var>
+<value>@{others}</value>
+<status status="PASS" start="2026-09-18T12:51:55.624463" elapsed="0.000785"/>
+</for>
+<arg>${PE}</arg>
+<arg>${src}[lan]</arg>
+<arg>eth1</arg>
+<status status="PASS" start="2026-09-18T12:51:54.883087" elapsed="0.742228"/>
+</kw>
+<arg>60s</arg>
+<arg>3s</arg>
+<arg>Route Should Use Interface</arg>
+<arg>${PE}</arg>
+<arg>${src}[lan]</arg>
+<arg>eth1</arg>
+<doc>Runs the specified keyword and retries if it fails.</doc>
+<status status="PASS" start="2026-09-18T12:51:54.882583" elapsed="0.742784"/>
+</kw>
+<kw name="Finish Background" owner="LabLib">
+<msg time="2026-09-18T12:52:32.579358" level="INFO" html="true">&lt;pre&gt;[background 10.3.0.41:1] ping -c 400 -i 0.2 -W 1 172.20.3.2
+PING 172.20.3.2 (172.20.3.2): 56 data bytes
+64 bytes from 172.20.3.2: seq=0 ttl=42 time=2.208 ms
+64 bytes from 172.20.3.2: seq=1 ttl=42 time=2.324 ms
+64 bytes from 172.20.3.2: seq=2 ttl=42 time=2.488 ms
+64 bytes from 172.20.3.2: seq=3 ttl=42 time=2.251 ms
+64 bytes from 172.20.3.2: seq=4 ttl=42 time=2.124 ms
+64 bytes from 172.20.3.2: seq=5 ttl=42 time=2.174 ms
+64 bytes from 172.20.3.2: seq=6 ttl=42 time=2.258 ms
+64 bytes from 172.20.3.2: seq=7 ttl=42 time=2.118 ms
+64 bytes from 172.20.3.2: seq=8 ttl=42 time=2.113 ms
+64 bytes from 172.20.3.2: seq=9 ttl=42 time=2.286 ms
+64 bytes from 172.20.3.2: seq=10 ttl=42 time=2.236 ms
+64 bytes from 172.20.3.2: seq=11 ttl=42 time=2.296 ms
+64 bytes from 172.20.3.2: seq=12 ttl=42 time=2.151 ms
+64 bytes from 172.20.3.2: seq=13 ttl=42 time=2.117 ms
+64 bytes from 172.20.3.2: seq=14 ttl=42 time=2.226 ms
+64 bytes from 172.20.3.2: seq=15 ttl=42 time=2.288 ms
+64 bytes from 172.20.3.2: seq=16 ttl=42 time=2.257 ms
+64 bytes from 172.20.3.2: seq=17 ttl=42 time=2.186 ms
+64 bytes from 172.20.3.2: seq=18 ttl=42 time=2.242 ms
+64 bytes from 172.20.3.2: seq=19 ttl=42 time=2.179 ms
+64 bytes from 172.20.3.2: seq=20 ttl=42 time=2.207 ms
+64 bytes from 172.20.3.2: seq=21 ttl=42 time=2.281 ms
+64 bytes from 172.20.3.2: seq=22 ttl=42 time=2.154 ms
+64 bytes from 172.20.3.2: seq=23 ttl=42 time=2.151 ms
+64 bytes from 172.20.3.2: seq=24 ttl=42 time=2.255 ms
+64 bytes from 172.20.3.2: seq=25 ttl=42 time=2.271 ms
+64 bytes from 172.20.3.2: seq=26 ttl=42 time=2.609 ms
+64 bytes from 172.20.3.2: seq=27 ttl=42 time=2.294 ms
+64 bytes from 172.20.3.2: seq=28 ttl=42 time=2.226 ms
+64 bytes from 172.20.3.2: seq=29 ttl=42 time=2.374 ms
+64 bytes from 172.20.3.2: seq=30 ttl=42 time=2.183 ms
+64 bytes from 172.20.3.2: seq=31 ttl=42 time=2.205 ms
+64 bytes from 172.20.3.2: seq=32 ttl=42 time=2.135 ms
+64 bytes from 172.20.3.2: seq=33 ttl=42 time=2.192 ms
+64 bytes from 172.20.3.2: seq=34 ttl=42 time=2.179 ms
+64 bytes from 172.20.3.2: seq=35 ttl=42 time=2.111 ms
+64 bytes from 172.20.3.2: seq=36 ttl=42 time=2.402 ms
+64 bytes from 172.20.3.2: seq=37 ttl=42 time=2.175 ms
+64 bytes from 172.20.3.2: seq=42 ttl=42 time=2.609 ms
+64 bytes from 172.20.3.2: seq=43 ttl=42 time=2.592 ms
+64 bytes from 172.20.3.2: seq=44 ttl=42 time=2.667 ms
+64 bytes from 172.20.3.2: seq=45 ttl=42 time=2.628 ms
+64 bytes from 172.20.3.2: seq=46 ttl=42 time=2.483 ms
+64 bytes from 172.20.3.2: seq=47 ttl=42 time=2.484 ms
+64 bytes from 172.20.3.2: seq=48 ttl=42 time=2.540 ms
+64 bytes from 172.20.3.2: seq=49 ttl=42 time=2.688 ms
+64 bytes from 172.20.3.2: seq=50 ttl=42 time=2.708 ms
+64 bytes from 172.20.3.2: seq=51 ttl=42 time=2.574 ms
+64 bytes from 172.20.3.2: seq=52 ttl=42 time=2.486 ms
+64 bytes from 172.20.3.2: seq=53 ttl=42 time=2.423 ms
+64 bytes from 172.20.3.2: seq=54 ttl=42 time=2.598 ms
+64 bytes from 172.20.3.2: seq=55 ttl=42 time=2.536 ms
+64 bytes from 172.20.3.2: seq=56 ttl=42 time=2.458 ms
+64 bytes from 172.20.3.2: seq=57 ttl=42 time=2.440 ms
+64 bytes from 172.20.3.2: seq=58 ttl=42 time=2.570 ms
+64 bytes from 172.20.3.2: seq=59 ttl=42 time=2.562 ms
+64 bytes from 172.20.3.2: seq=60 ttl=42 time=2.654 ms
+64 bytes from 172.20.3.2: seq=61 ttl=42 time=2.566 ms
+64 bytes from 172.20.3.2: seq=62 ttl=42 time=2.567 ms
+64 bytes from 172.20.3.2: seq=63 ttl=42 time=2.735 ms
+64 bytes from 172.20.3.2: seq=64 ttl=42 time=2.652 ms
+64 bytes from 172.20.3.2: seq=65 ttl=42 time=2.286 ms
+64 bytes from 172.20.3.2: seq=66 ttl=42 time=2.730 ms
+64 bytes from 172.20.3.2: seq=67 ttl=42 time=2.341 ms
+64 bytes from 172.20.3.2: seq=68 ttl=42 time=2.612 ms
+64 bytes from 172.20.3.2: seq=69 ttl=42 time=2.590 ms
+64 bytes from 172.20.3.2: seq=70 ttl=42 time=2.570 ms
+64 bytes from 172.20.3.2: seq=71 ttl=42 time=2.434 ms
+64 bytes from 172.20.3.2: seq=72 ttl=42 time=2.448 ms
+64 bytes from 172.20.3.2: seq=73 ttl=42 time=2.493 ms
+64 bytes from 172.20.3.2: seq=74 ttl=42 time=2.386 ms
+64 bytes from 172.20.3.2: seq=75 ttl=42 time=2.702 ms
+64 bytes from 172.20.3.2: seq=76 ttl=42 time=2.586 ms
+64 bytes from 172.20.3.2: seq=77 ttl=42 time=2.508 ms
+64 bytes from 172.20.3.2: seq=78 ttl=42 time=2.588 ms
+64 bytes from 172.20.3.2: seq=79 ttl=42 time=2.524 ms
+64 bytes from 172.20.3.2: seq=80 ttl=42 time=2.661 ms
+64 bytes from 172.20.3.2: seq=81 ttl=42 time=2.529 ms
+64 bytes from 172.20.3.2: seq=82 ttl=42 time=2.416 ms
+64 bytes from 172.20.3.2: seq=83 ttl=42 time=2.606 ms
+64 bytes from 172.20.3.2: seq=84 ttl=42 time=2.648 ms
+64 bytes from 172.20.3.2: seq=85 ttl=42 time=2.632 ms
+64 bytes from 172.20.3.2: seq=86 ttl=42 time=2.755 ms
+64 bytes from 172.20.3.2: seq=87 ttl=42 time=2.627 ms
+64 bytes from 172.20.3.2: seq=88 ttl=42 time=2.447 ms
+64 bytes from 172.20.3.2: seq=89 ttl=42 time=2.502 ms
+64 bytes from 172.20.3.2: seq=90 ttl=42 time=2.689 ms
+64 bytes from 172.20.3.2: seq=91 ttl=42 time=2.560 ms
+64 bytes from 172.20.3.2: seq=92 ttl=42 time=2.559 ms
+64 bytes from 172.20.3.2: seq=93 ttl=42 time=2.401 ms
+64 bytes from 172.20.3.2: seq=94 ttl=42 time=2.517 ms
+64 bytes from 172.20.3.2: seq=95 ttl=42 time=2.617 ms
+64 bytes from 172.20.3.2: seq=96 ttl=42 time=2.708 ms
+64 bytes from 172.20.3.2: seq=97 ttl=42 time=2.479 ms
+64 bytes from 172.20.3.2: seq=98 ttl=42 time=2.625 ms
+64 bytes from 172.20.3.2: seq=99 ttl=42 time=2.700 ms
+64 bytes from 172.20.3.2: seq=100 ttl=42 time=2.575 ms
+64 bytes from 172.20.3.2: seq=101 ttl=42 time=2.677 ms
+64 bytes from 172.20.3.2: seq=102 ttl=42 time=2.713 ms
+64 bytes from 172.20.3.2: seq=103 ttl=42 time=2.840 ms
+64 bytes from 172.20.3.2: seq=104 ttl=42 time=2.815 ms
+64 bytes from 172.20.3.2: seq=105 ttl=42 time=2.624 ms
+64 bytes from 172.20.3.2: seq=106 ttl=42 time=3.032 ms
+64 bytes from 172.20.3.2: seq=107 ttl=42 time=3.073 ms
+64 bytes from 172.20.3.2: seq=108 ttl=42 time=2.941 ms
+64 bytes from 172.20.3.2: seq=109 ttl=42 time=2.888 ms
+64 bytes from 172.20.3.2: seq=110 ttl=42 time=3.004 ms
+64 bytes from 172.20.3.2: seq=111 ttl=42 time=2.870 ms
+64 bytes from 172.20.3.2: seq=112 ttl=42 time=2.874 ms
+64 bytes from 172.20.3.2: seq=113 ttl=42 time=2.740 ms
+64 bytes from 172.20.3.2: seq=114 ttl=42 time=2.819 ms
+64 bytes from 172.20.3.2: seq=115 ttl=42 time=2.849 ms
+64 bytes from 172.20.3.2: seq=116 ttl=42 time=2.888 ms
+64 bytes from 172.20.3.2: seq=117 ttl=42 time=3.086 ms
+64 bytes from 172.20.3.2: seq=118 ttl=42 time=2.838 ms
+64 bytes from 172.20.3.2: seq=119 ttl=42 time=2.529 ms
+64 bytes from 172.20.3.2: seq=120 ttl=42 time=3.241 ms
+64 bytes from 172.20.3.2: seq=121 ttl=42 time=2.545 ms
+64 bytes from 172.20.3.2: seq=122 ttl=42 time=2.419 ms
+64 bytes from 172.20.3.2: seq=123 ttl=42 time=2.426 ms
+64 bytes from 172.20.3.2: seq=124 ttl=42 time=2.413 ms
+64 bytes from 172.20.3.2: seq=125 ttl=42 time=2.520 ms
+64 bytes from 172.20.3.2: seq=126 ttl=42 time=2.636 ms
+64 bytes from 172.20.3.2: seq=127 ttl=42 time=2.381 ms
+64 bytes from 172.20.3.2: seq=128 ttl=42 time=2.475 ms
+64 bytes from 172.20.3.2: seq=129 ttl=42 time=2.403 ms
+64 bytes from 172.20.3.2: seq=130 ttl=42 time=2.523 ms
+64 bytes from 172.20.3.2: seq=131 ttl=42 time=2.409 ms
+64 bytes from 172.20.3.2: seq=132 ttl=42 time=2.441 ms
+64 bytes from 172.20.3.2: seq=133 ttl=42 time=2.519 ms
+64 bytes from 172.20.3.2: seq=134 ttl=42 time=2.573 ms
+64 bytes from 172.20.3.2: seq=135 ttl=42 time=2.686 ms
+64 bytes from 172.20.3.2: seq=136 ttl=42 time=2.608 ms
+64 bytes from 172.20.3.2: seq=137 ttl=42 time=2.450 ms
+64 bytes from 172.20.3.2: seq=138 ttl=42 time=2.533 ms
+64 bytes from 172.20.3.2: seq=139 ttl=42 time=2.484 ms
+64 bytes from 172.20.3.2: seq=140 ttl=42 time=2.556 ms
+64 bytes from 172.20.3.2: seq=141 ttl=42 time=2.601 ms
+64 bytes from 172.20.3.2: seq=142 ttl=42 time=2.558 ms
+64 bytes from 172.20.3.2: seq=143 ttl=42 time=2.503 ms
+64 bytes from 172.20.3.2: seq=144 ttl=42 time=2.630 ms
+64 bytes from 172.20.3.2: seq=145 ttl=42 time=2.660 ms
+64 bytes from 172.20.3.2: seq=146 ttl=42 time=2.816 ms
+64 bytes from 172.20.3.2: seq=147 ttl=42 time=2.571 ms
+64 bytes from 172.20.3.2: seq=148 ttl=42 time=2.568 ms
+64 bytes from 172.20.3.2: seq=149 ttl=42 time=2.689 ms
+64 bytes from 172.20.3.2: seq=150 ttl=42 time=2.665 ms
+64 bytes from 172.20.3.2: seq=151 ttl=42 time=2.519 ms
+64 bytes from 172.20.3.2: seq=152 ttl=42 time=2.636 ms
+64 bytes from 172.20.3.2: seq=153 ttl=42 time=2.455 ms
+64 bytes from 172.20.3.2: seq=154 ttl=42 time=3.045 ms
+64 bytes from 172.20.3.2: seq=155 ttl=42 time=2.709 ms
+64 bytes from 172.20.3.2: seq=156 ttl=42 time=2.603 ms
+64 bytes from 172.20.3.2: seq=157 ttl=42 time=2.556 ms
+64 bytes from 172.20.3.2: seq=158 ttl=42 time=2.558 ms
+64 bytes from 172.20.3.2: seq=159 ttl=42 time=2.618 ms
+64 bytes from 172.20.3.2: seq=160 ttl=42 time=2.477 ms
+64 bytes from 172.20.3.2: seq=161 ttl=42 time=2.580 ms
+64 bytes from 172.20.3.2: seq=162 ttl=42 time=2.487 ms
+64 bytes from 172.20.3.2: seq=163 ttl=42 time=2.481 ms
+64 bytes from 172.20.3.2: seq=164 ttl=42 time=2.565 ms
+64 bytes from 172.20.3.2: seq=165 ttl=42 time=2.670 ms
+64 bytes from 172.20.3.2: seq=166 ttl=42 time=2.507 ms
+64 bytes from 172.20.3.2: seq=167 ttl=42 time=2.681 ms
+64 bytes from 172.20.3.2: seq=168 ttl=42 time=3.195 ms
+64 bytes from 172.20.3.2: seq=169 ttl=42 time=2.459 ms
+64 bytes from 172.20.3.2: seq=170 ttl=42 time=2.625 ms
+64 bytes from 172.20.3.2: seq=171 ttl=42 time=2.752 ms
+64 bytes from 172.20.3.2: seq=172 ttl=42 time=2.564 ms
+64 bytes from 172.20.3.2: seq=173 ttl=42 time=2.615 ms
+64 bytes from 172.20.3.2: seq=174 ttl=42 time=2.798 ms
+64 bytes from 172.20.3.2: seq=175 ttl=42 time=2.452 ms
+64 bytes from 172.20.3.2: seq=176 ttl=42 time=2.579 ms
+64 bytes from 172.20.3.2: seq=177 ttl=42 time=2.562 ms
+64 bytes from 172.20.3.2: seq=178 ttl=42 time=2.543 ms
+64 bytes from 172.20.3.2: seq=179 ttl=42 time=2.688 ms
+64 bytes from 172.20.3.2: seq=180 ttl=42 time=2.695 ms
+64 bytes from 172.20.3.2: seq=181 ttl=42 time=2.605 ms
+64 bytes from 172.20.3.2: seq=182 ttl=42 time=2.668 ms
+64 bytes from 172.20.3.2: seq=183 ttl=42 time=2.781 ms
+64 bytes from 172.20.3.2: seq=184 ttl=42 time=2.775 ms
+64 bytes from 172.20.3.2: seq=185 ttl=42 time=2.611 ms
+64 bytes from 172.20.3.2: seq=186 ttl=42 time=2.601 ms
+64 bytes from 172.20.3.2: seq=187 ttl=42 time=2.700 ms
+64 bytes from 172.20.3.2: seq=188 ttl=42 time=2.659 ms
+64 bytes from 172.20.3.2: seq=189 ttl=42 time=2.539 ms
+64 bytes from 172.20.3.2: seq=190 ttl=42 time=2.597 ms
+64 bytes from 172.20.3.2: seq=191 ttl=42 time=2.565 ms
+64 bytes from 172.20.3.2: seq=192 ttl=42 time=2.484 ms
+64 bytes from 172.20.3.2: seq=193 ttl=42 time=2.459 ms
+64 bytes from 172.20.3.2: seq=194 ttl=42 time=2.375 ms
+64 bytes from 172.20.3.2: seq=195 ttl=42 time=2.298 ms
+64 bytes from 172.20.3.2: seq=196 ttl=42 time=2.274 ms
+64 bytes from 172.20.3.2: seq=197 ttl=42 time=2.192 ms
+64 bytes from 172.20.3.2: seq=198 ttl=42 time=2.157 ms
+64 bytes from 172.20.3.2: seq=199 ttl=42 time=2.258 ms
+64 bytes from 172.20.3.2: seq=200 ttl=42 time=2.047 ms
+64 bytes from 172.20.3.2: seq=201 ttl=42 time=2.081 ms
+64 bytes from 172.20.3.2: seq=202 ttl=42 time=2.012 ms
+64 bytes from 172.20.3.2: seq=203 ttl=42 time=2.043 ms
+64 bytes from 172.20.3.2: seq=204 ttl=42 time=2.374 ms
+64 bytes from 172.20.3.2: seq=205 ttl=42 time=2.217 ms
+64 bytes from 172.20.3.2: seq=206 ttl=42 time=2.381 ms
+64 bytes from 172.20.3.2: seq=207 ttl=42 time=2.177 ms
+64 bytes from 172.20.3.2: seq=208 ttl=42 time=2.110 ms
+64 bytes from 172.20.3.2: seq=209 ttl=42 time=2.362 ms
+64 bytes from 172.20.3.2: seq=210 ttl=42 time=2.030 ms
+64 bytes from 172.20.3.2: seq=211 ttl=42 time=2.197 ms
+64 bytes from 172.20.3.2: seq=212 ttl=42 time=2.147 ms
+64 bytes from 172.20.3.2: seq=213 ttl=42 time=2.041 ms
+64 bytes from 172.20.3.2: seq=214 ttl=42 time=2.216 ms
+64 bytes from 172.20.3.2: seq=215 ttl=42 time=2.215 ms
+64 bytes from 172.20.3.2: seq=216 ttl=42 time=2.202 ms
+64 bytes from 172.20.3.2: seq=217 ttl=42 time=2.151 ms
+64 bytes from 172.20.3.2: seq=218 ttl=42 time=2.264 ms
+64 bytes from 172.20.3.2: seq=219 ttl=42 time=2.177 ms
+64 bytes from 172.20.3.2: seq=220 ttl=42 time=2.321 ms
+64 bytes from 172.20.3.2: seq=221 ttl=42 time=2.490 ms
+64 bytes from 172.20.3.2: seq=222 ttl=42 time=2.245 ms
+64 bytes from 172.20.3.2: seq=223 ttl=42 time=2.188 ms
+64 bytes from 172.20.3.2: seq=224 ttl=42 time=2.358 ms
+64 bytes from 172.20.3.2: seq=225 ttl=42 time=2.469 ms
+64 bytes from 172.20.3.2: seq=226 ttl=42 time=2.401 ms
+64 bytes from 172.20.3.2: seq=227 ttl=42 time=2.605 ms
+64 bytes from 172.20.3.2: seq=228 ttl=42 time=2.498 ms
+64 bytes from 172.20.3.2: seq=229 ttl=42 time=2.309 ms
+64 bytes from 172.20.3.2: seq=230 ttl=42 time=2.459 ms
+64 bytes from 172.20.3.2: seq=231 ttl=42 time=2.348 ms
+64 bytes from 172.20.3.2: seq=232 ttl=42 time=2.323 ms
+64 bytes from 172.20.3.2: seq=233 ttl=42 time=2.176 ms
+64 bytes from 172.20.3.2: seq=234 ttl=42 time=2.330 ms
+64 bytes from 172.20.3.2: seq=235 ttl=42 time=2.254 ms
+64 bytes from 172.20.3.2: seq=236 ttl=42 time=2.305 ms
+64 bytes from 172.20.3.2: seq=237 ttl=42 time=2.221 ms
+64 bytes from 172.20.3.2: seq=238 ttl=42 time=2.208 ms
+64 bytes from 172.20.3.2: seq=239 ttl=42 time=2.268 ms
+64 bytes from 172.20.3.2: seq=240 ttl=42 time=2.139 ms
+64 bytes from 172.20.3.2: seq=241 ttl=42 time=2.244 ms
+64 bytes from 172.20.3.2: seq=242 ttl=42 time=2.194 ms
+64 bytes from 172.20.3.2: seq=243 ttl=42 time=2.212 ms
+64 bytes from 172.20.3.2: seq=244 ttl=42 time=2.174 ms
+64 bytes from 172.20.3.2: seq=245 ttl=42 time=2.177 ms
+64 bytes from 172.20.3.2: seq=246 ttl=42 time=2.124 ms
+64 bytes from 172.20.3.2: seq=247 ttl=42 time=2.141 ms
+64 bytes from 172.20.3.2: seq=248 ttl=42 time=2.114 ms
+64 bytes from 172.20.3.2: seq=249 ttl=42 time=2.152 ms
+64 bytes from 172.20.3.2: seq=250 ttl=42 time=2.131 ms
+64 bytes from 172.20.3.2: seq=251 ttl=42 time=2.060 ms
+64 bytes from 172.20.3.2: seq=252 ttl=42 time=2.370 ms
+64 bytes from 172.20.3.2: seq=253 ttl=42 time=2.513 ms
+64 bytes from 172.20.3.2: seq=254 ttl=42 time=2.412 ms
+64 bytes from 172.20.3.2: seq=255 ttl=42 time=2.120 ms
+64 bytes from 172.20.3.2: seq=256 ttl=42 time=2.330 ms
+64 bytes from 172.20.3.2: seq=257 ttl=42 time=2.445 ms
+64 bytes from 172.20.3.2: seq=258 ttl=42 time=2.562 ms
+64 bytes from 172.20.3.2: seq=259 ttl=42 time=2.487 ms
+64 bytes from 172.20.3.2: seq=260 ttl=42 time=2.201 ms
+64 bytes from 172.20.3.2: seq=261 ttl=42 time=2.201 ms
+64 bytes from 172.20.3.2: seq=262 ttl=42 time=2.167 ms
+64 bytes from 172.20.3.2: seq=263 ttl=42 time=2.098 ms
+64 bytes from 172.20.3.2: seq=264 ttl=42 time=2.139 ms
+64 bytes from 172.20.3.2: seq=265 ttl=42 time=2.159 ms
+64 bytes from 172.20.3.2: seq=266 ttl=42 time=2.104 ms
+64 bytes from 172.20.3.2: seq=267 ttl=42 time=2.125 ms
+64 bytes from 172.20.3.2: seq=268 ttl=42 time=2.138 ms
+64 bytes from 172.20.3.2: seq=269 ttl=42 time=2.125 ms
+64 bytes from 172.20.3.2: seq=270 ttl=42 time=2.127 ms
+64 bytes from 172.20.3.2: seq=271 ttl=42 time=2.091 ms
+64 bytes from 172.20.3.2: seq=272 ttl=42 time=2.144 ms
+64 bytes from 172.20.3.2: seq=273 ttl=42 time=2.280 ms
+64 bytes from 172.20.3.2: seq=274 ttl=42 time=2.406 ms
+64 bytes from 172.20.3.2: seq=275 ttl=42 time=2.126 ms
+64 bytes from 172.20.3.2: seq=276 ttl=42 time=2.177 ms
+64 bytes from 172.20.3.2: seq=277 ttl=42 time=2.107 ms
+64 bytes from 172.20.3.2: seq=278 ttl=42 time=2.089 ms
+64 bytes from 172.20.3.2: seq=279 ttl=42 time=2.196 ms
+64 bytes from 172.20.3.2: seq=280 ttl=42 time=2.345 ms
+64 bytes from 172.20.3.2: seq=281 ttl=42 time=2.184 ms
+64 bytes from 172.20.3.2: seq=282 ttl=42 time=2.239 ms
+64 bytes from 172.20.3.2: seq=283 ttl=42 time=2.343 ms
+64 bytes from 172.20.3.2: seq=284 ttl=42 time=2.277 ms
+64 bytes from 172.20.3.2: seq=285 ttl=42 time=2.213 ms
+64 bytes from 172.20.3.2: seq=286 ttl=42 time=2.101 ms
+64 bytes from 172.20.3.2: seq=287 ttl=42 time=1.991 ms
+64 bytes from 172.20.3.2: seq=288 ttl=42 time=2.145 ms
+64 bytes from 172.20.3.2: seq=289 ttl=42 time=2.208 ms
+64 bytes from 172.20.3.2: seq=290 ttl=42 time=2.207 ms
+64 bytes from 172.20.3.2: seq=291 ttl=42 time=2.116 ms
+64 bytes from 172.20.3.2: seq=292 ttl=42 time=2.022 ms
+64 bytes from 172.20.3.2: seq=293 ttl=42 time=2.228 ms
+64 bytes from 172.20.3.2: seq=294 ttl=42 time=2.285 ms
+64 bytes from 172.20.3.2: seq=295 ttl=42 time=2.164 ms
+64 bytes from 172.20.3.2: seq=296 ttl=42 time=2.235 ms
+64 bytes from 172.20.3.2: seq=297 ttl=42 time=2.222 ms
+64 bytes from 172.20.3.2: seq=298 ttl=42 time=2.194 ms
+64 bytes from 172.20.3.2: seq=299 ttl=42 time=2.241 ms
+64 bytes from 172.20.3.2: seq=300 ttl=42 time=2.189 ms
+64 bytes from 172.20.3.2: seq=301 ttl=42 time=2.237 ms
+64 bytes from 172.20.3.2: seq=302 ttl=42 time=2.236 ms
+64 bytes from 172.20.3.2: seq=303 ttl=42 time=2.187 ms
+64 bytes from 172.20.3.2: seq=304 ttl=42 time=2.240 ms
+64 bytes from 172.20.3.2: seq=305 ttl=42 time=2.296 ms
+64 bytes from 172.20.3.2: seq=306 ttl=42 time=2.152 ms
+64 bytes from 172.20.3.2: seq=307 ttl=42 time=2.093 ms
+64 bytes from 172.20.3.2: seq=308 ttl=42 time=2.074 ms
+64 bytes from 172.20.3.2: seq=309 ttl=42 time=2.207 ms
+64 bytes from 172.20.3.2: seq=310 ttl=42 time=2.137 ms
+64 bytes from 172.20.3.2: seq=311 ttl=42 time=2.344 ms
+64 bytes from 172.20.3.2: seq=312 ttl=42 time=2.030 ms
+64 bytes from 172.20.3.2: seq=313 ttl=42 time=2.142 ms
+64 bytes from 172.20.3.2: seq=314 ttl=42 time=2.050 ms
+64 bytes from 172.20.3.2: seq=315 ttl=42 time=2.281 ms
+64 bytes from 172.20.3.2: seq=316 ttl=42 time=2.252 ms
+64 bytes from 172.20.3.2: seq=317 ttl=42 time=2.181 ms
+64 bytes from 172.20.3.2: seq=318 ttl=42 time=2.136 ms
+64 bytes from 172.20.3.2: seq=319 ttl=42 time=2.153 ms
+64 bytes from 172.20.3.2: seq=320 ttl=42 time=2.215 ms
+64 bytes from 172.20.3.2: seq=321 ttl=42 time=2.435 ms
+64 bytes from 172.20.3.2: seq=322 ttl=42 time=2.120 ms
+64 bytes from 172.20.3.2: seq=323 ttl=42 time=2.130 ms
+64 bytes from 172.20.3.2: seq=324 ttl=42 time=2.117 ms
+64 bytes from 172.20.3.2: seq=325 ttl=42 time=1.974 ms
+64 bytes from 172.20.3.2: seq=326 ttl=42 time=2.179 ms
+64 bytes from 172.20.3.2: seq=327 ttl=42 time=2.229 ms
+64 bytes from 172.20.3.2: seq=328 ttl=42 time=2.119 ms
+64 bytes from 172.20.3.2: seq=329 ttl=42 time=2.142 ms
+64 bytes from 172.20.3.2: seq=330 ttl=42 time=2.356 ms
+64 bytes from 172.20.3.2: seq=331 ttl=42 time=2.157 ms
+64 bytes from 172.20.3.2: seq=332 ttl=42 time=1.954 ms
+64 bytes from 172.20.3.2: seq=333 ttl=42 time=2.129 ms
+64 bytes from 172.20.3.2: seq=334 ttl=42 time=2.184 ms
+64 bytes from 172.20.3.2: seq=335 ttl=42 time=2.204 ms
+64 bytes from 172.20.3.2: seq=336 ttl=42 time=2.247 ms
+64 bytes from 172.20.3.2: seq=337 ttl=42 time=2.686 ms
+64 bytes from 172.20.3.2: seq=338 ttl=42 time=2.413 ms
+64 bytes from 172.20.3.2: seq=339 ttl=42 time=2.183 ms
+64 bytes from 172.20.3.2: seq=340 ttl=42 time=2.175 ms
+64 bytes from 172.20.3.2: seq=341 ttl=42 time=2.140 ms
+64 bytes from 172.20.3.2: seq=342 ttl=42 time=2.226 ms
+64 bytes from 172.20.3.2: seq=343 ttl=42 time=2.161 ms
+64 bytes from 172.20.3.2: seq=344 ttl=42 time=2.339 ms
+64 bytes from 172.20.3.2: seq=345 ttl=42 time=2.308 ms
+64 bytes from 172.20.3.2: seq=346 ttl=42 time=2.259 ms
+64 bytes from 172.20.3.2: seq=347 ttl=42 time=2.273 ms
+64 bytes from 172.20.3.2: seq=348 ttl=42 time=2.248 ms
+64 bytes from 172.20.3.2: seq=349 ttl=42 time=2.423 ms
+64 bytes from 172.20.3.2: seq=350 ttl=42 time=2.250 ms
+64 bytes from 172.20.3.2: seq=351 ttl=42 time=2.257 ms
+64 bytes from 172.20.3.2: seq=352 ttl=42 time=2.140 ms
+64 bytes from 172.20.3.2: seq=353 ttl=42 time=2.198 ms
+64 bytes from 172.20.3.2: seq=354 ttl=42 time=2.190 ms
+64 bytes from 172.20.3.2: seq=355 ttl=42 time=2.241 ms
+64 bytes from 172.20.3.2: seq=356 ttl=42 time=2.249 ms
+64 bytes from 172.20.3.2: seq=357 ttl=42 time=2.088 ms
+64 bytes from 172.20.3.2: seq=358 ttl=42 time=2.223 ms
+64 bytes from 172.20.3.2: seq=359 ttl=42 time=2.088 ms
+64 bytes from 172.20.3.2: seq=360 ttl=42 time=2.384 ms
+64 bytes from 172.20.3.2: seq=361 ttl=42 time=2.336 ms
+64 bytes from 172.20.3.2: seq=362 ttl=42 time=1.968 ms
+64 bytes from 172.20.3.2: seq=363 ttl=42 time=1.954 ms
+64 bytes from 172.20.3.2: seq=364 ttl=42 time=2.243 ms
+64 bytes from 172.20.3.2: seq=365 ttl=42 time=2.073 ms
+64 bytes from 172.20.3.2: seq=366 ttl=42 time=2.162 ms
+64 bytes from 172.20.3.2: seq=367 ttl=42 time=2.216 ms
+64 bytes from 172.20.3.2: seq=368 ttl=42 time=2.175 ms
+64 bytes from 172.20.3.2: seq=369 ttl=42 time=2.270 ms
+64 bytes from 172.20.3.2: seq=370 ttl=42 time=2.371 ms
+64 bytes from 172.20.3.2: seq=371 ttl=42 time=2.396 ms
+64 bytes from 172.20.3.2: seq=372 ttl=42 time=2.327 ms
+64 bytes from 172.20.3.2: seq=373 ttl=42 time=2.299 ms
+64 bytes from 172.20.3.2: seq=374 ttl=42 time=2.167 ms
+64 bytes from 172.20.3.2: seq=375 ttl=42 time=2.194 ms
+64 bytes from 172.20.3.2: seq=376 ttl=42 time=2.343 ms
+64 bytes from 172.20.3.2: seq=377 ttl=42 time=2.117 ms
+64 bytes from 172.20.3.2: seq=378 ttl=42 time=2.305 ms
+64 bytes from 172.20.3.2: seq=379 ttl=42 time=2.339 ms
+64 bytes from 172.20.3.2: seq=380 ttl=42 time=2.225 ms
+64 bytes from 172.20.3.2: seq=381 ttl=42 time=2.220 ms
+64 bytes from 172.20.3.2: seq=382 ttl=42 time=2.143 ms
+64 bytes from 172.20.3.2: seq=383 ttl=42 time=2.291 ms
+64 bytes from 172.20.3.2: seq=384 ttl=42 time=2.283 ms
+64 bytes from 172.20.3.2: seq=385 ttl=42 time=2.318 ms
+64 bytes from 172.20.3.2: seq=386 ttl=42 time=2.439 ms
+64 bytes from 172.20.3.2: seq=387 ttl=42 time=2.146 ms
+64 bytes from 172.20.3.2: seq=388 ttl=42 time=2.096 ms
+64 bytes from 172.20.3.2: seq=389 ttl=42 time=2.252 ms
+64 bytes from 172.20.3.2: seq=390 ttl=42 time=2.425 ms
+64 bytes from 172.20.3.2: seq=391 ttl=42 time=2.289 ms
+64 bytes from 172.20.3.2: seq=392 ttl=42 time=2.159 ms
+64 bytes from 172.20.3.2: seq=393 ttl=42 time=2.130 ms
+64 bytes from 172.20.3.2: seq=394 ttl=42 time=2.193 ms
+64 bytes from 172.20.3.2: seq=395 ttl=42 time=2.188 ms
+64 bytes from 172.20.3.2: seq=396 ttl=42 time=2.178 ms
+64 bytes from 172.20.3.2: seq=397 ttl=42 time=2.072 ms
+64 bytes from 172.20.3.2: seq=398 ttl=42 time=2.112 ms
+64 bytes from 172.20.3.2: seq=399 ttl=42 time=2.218 ms
+
+--- 172.20.3.2 ping statistics ---
+400 packets transmitted, 396 packets received, 1% packet loss
+round-trip min/avg/max = 1.954/2.373/3.241 ms
+&lt;/pre&gt;</msg>
+<msg time="2026-09-18T12:52:32.579694" level="INFO">${out} = PING 172.20.3.2 (172.20.3.2): 56 data bytes
+64 bytes from 172.20.3.2: seq=0 ttl=42 time=2.208 ms
+64 bytes from 172.20.3.2: seq=1 ttl=42 time=2.324 ms
+64 bytes from 172.20.3.2: seq=2 ttl=42 time=2.488 ...</msg>
+<var>${out}</var>
+<arg>${ping}</arg>
+<arg>120</arg>
+<status status="PASS" start="2026-09-18T12:51:55.625488" elapsed="36.954244"/>
+</kw>
+<kw name="Ping Loss" owner="LabLib">
+<msg time="2026-09-18T12:52:32.580520" level="INFO">${lost} = 4</msg>
+<var>${lost}</var>
+<arg>${out}</arg>
+<doc>Packets lost according to a ping summary line ('N packets transmitted, M received, ...').</doc>
+<status status="PASS" start="2026-09-18T12:52:32.579866" elapsed="0.000681"/>
+</kw>
+<kw name="Should Be True" owner="BuiltIn">
+<arg>${lost} &lt;= 10</arg>
+<arg>msg=${src}[host] -&gt; ${dst}[host] lost ${lost} packets (0.2 s apart) across the failure and the repair — more than 2 s of outage</arg>
+<doc>Fails if the given condition is not true.</doc>
+<status status="PASS" start="2026-09-18T12:52:32.580725" elapsed="0.000470"/>
+</kw>
+<kw name="Log" owner="BuiltIn">
+<msg time="2026-09-18T12:52:32.581599" level="INFO">dc1-h1 -&gt; dc3-h1: 4 packets lost across the link failure and its repair</msg>
+<arg>${src}[host] -&gt; ${dst}[host]: ${lost} packets lost across the link failure and its repair</arg>
+<arg>console=True</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="PASS" start="2026-09-18T12:52:32.581323" elapsed="0.000354"/>
+</kw>
+<status status="PASS" start="2026-09-18T12:51:10.881885" elapsed="81.699901"/>
+</test>
+<test id="s1-t3" name="After the repair every BFD session and IS-IS adjacency is back" line="57">
+<for flavor="IN">
+<iter>
+<kw name="Wait Until Keyword Succeeds" owner="BuiltIn">
+<kw name="All Sessions Up">
+<kw name="Vyos" owner="common">
+<kw name="Run Vyos Command" owner="LabLib">
+<msg time="2026-09-18T12:52:33.294479" level="INFO" html="true">&lt;pre&gt;10.3.0.22$ show bfd peers brief
+Session count: 6
+SessionId  LocalAddress                             PeerAddress                             Status          Profile             
+=========  ============                             ===========                             ======          =======             
+1394471285 fe80::5054:ff:fec6:602                   fe80::5054:ff:fec6:702                  up              -                   
+1186878074 fe80::5054:ff:fec6:601                   fe80::5054:ff:fec6:501                  up              -                   
+60388289   fe80::5054:ff:fec6:606                   fe80::5054:ff:fec6:401                  up              -                   
+1167587425 fe80::5054:ff:fec6:605                   fe80::5054:ff:fec6:301                  up              -                   
+1413536520 fe80::5054:ff:fec6:603                   fe80::5054:ff:fec6:102                  up              -                   
+2773755543 fe80::5054:ff:fec6:604                   fe80::5054:ff:fec6:202                  up              -                   &lt;/pre&gt;</msg>
+<msg time="2026-09-18T12:52:33.294658" level="INFO">${out} = Session count: 6
+SessionId  LocalAddress                             PeerAddress                             Status          Profile             
+=========  ============                             ==...</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<arg>${timeout}</arg>
+<doc>Run an operational-mode command on a VyOS node and return its output.</doc>
+<status status="PASS" start="2026-09-18T12:52:32.583173" elapsed="0.711521"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-18T12:52:33.294769" elapsed="0.000043"/>
+</return>
+<msg time="2026-09-18T12:52:33.294925" level="INFO">${bfd} = Session count: 6
+SessionId  LocalAddress                             PeerAddress                             Status          Profile             
+=========  ============                             ==...</msg>
+<var>${bfd}</var>
+<arg>${n}</arg>
+<arg>show bfd peers brief</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="PASS" start="2026-09-18T12:52:32.582969" elapsed="0.711975"/>
+</kw>
+<kw name="Regex Findall" owner="LabLib">
+<msg time="2026-09-18T12:52:33.295222" level="INFO">${up} = ['1394471285 fe80::5054:ff:fec6:602                   fe80::5054:ff:fec6:702                  up', '1186878074 fe80::5054:ff:fec6:601                   fe80::5054:ff:fec6:501                  up', '60...</msg>
+<var>${up}</var>
+<arg>${bfd}</arg>
+<arg>(?m)^\\d+\\s+fe80\\S+\\s+fe80\\S+\\s+up\\b</arg>
+<status status="PASS" start="2026-09-18T12:52:33.295052" elapsed="0.000196"/>
+</kw>
+<kw name="Get Length" owner="BuiltIn">
+<msg time="2026-09-18T12:52:33.295655" level="INFO">Length is 6.</msg>
+<msg time="2026-09-18T12:52:33.295729" level="INFO">${n_exp} = 6</msg>
+<var>${n_exp}</var>
+<arg>${ISIS_NEIGHBORS}[${n}]</arg>
+<doc>Returns and logs the length of the given item as an integer.</doc>
+<status status="PASS" start="2026-09-18T12:52:33.295338" elapsed="0.000411"/>
+</kw>
+<kw name="Length Should Be" owner="BuiltIn">
+<msg time="2026-09-18T12:52:33.296060" level="INFO">Length is 6.</msg>
+<arg>${up}</arg>
+<arg>${n_exp}</arg>
+<arg>msg=${n}: not every BFD session is up again</arg>
+<doc>Verifies that the length of the given item is correct.</doc>
+<status status="PASS" start="2026-09-18T12:52:33.295824" elapsed="0.000269"/>
+</kw>
+<kw name="Vyos" owner="common">
+<kw name="Run Vyos Command" owner="LabLib">
+<msg time="2026-09-18T12:52:34.007986" level="INFO" html="true">&lt;pre&gt;10.3.0.22$ show isis neighbor
+Area VyOS:
+ System Id           Interface   L  State         Holdtime SNPA
+ p1                  eth1        2  Up            29       2020.2020.2020
+ p3                  eth2        2  Up            28       2020.2020.2020
+ pe1                 eth3        2  Up            27       2020.2020.2020
+ pe2                 eth4        2  Up            28       2020.2020.2020
+ pe3                 eth5        2  Up            28       2020.2020.2020
+ pe4                 eth6        2  Up            28       2020.2020.2020&lt;/pre&gt;</msg>
+<msg time="2026-09-18T12:52:34.008151" level="INFO">${out} = Area VyOS:
+ System Id           Interface   L  State         Holdtime SNPA
+ p1                  eth1        2  Up            29       2020.2020.2020
+ p3                  eth2        2  Up            2...</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<arg>${timeout}</arg>
+<doc>Run an operational-mode command on a VyOS node and return its output.</doc>
+<status status="PASS" start="2026-09-18T12:52:33.296469" elapsed="0.711708"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-18T12:52:34.008240" elapsed="0.000043"/>
+</return>
+<msg time="2026-09-18T12:52:34.008401" level="INFO">${nb} = Area VyOS:
+ System Id           Interface   L  State         Holdtime SNPA
+ p1                  eth1        2  Up            29       2020.2020.2020
+ p3                  eth2        2  Up            2...</msg>
+<var>${nb}</var>
+<arg>${n}</arg>
+<arg>show isis neighbor</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="PASS" start="2026-09-18T12:52:33.296228" elapsed="0.712198"/>
+</kw>
+<kw name="Regex Findall" owner="LabLib">
+<msg time="2026-09-18T12:52:34.008843" level="INFO">${adj} = ['eth1', 'eth2', 'eth3', 'eth4', 'eth5', 'eth6']</msg>
+<var>${adj}</var>
+<arg>${nb}</arg>
+<arg>(?m)^\\s*\\S+\\s+(eth\\d+)\\s+2\\s+Up</arg>
+<status status="PASS" start="2026-09-18T12:52:34.008532" elapsed="0.000332"/>
+</kw>
+<kw name="Length Should Be" owner="BuiltIn">
+<msg time="2026-09-18T12:52:34.009252" level="INFO">Length is 6.</msg>
+<arg>${adj}</arg>
+<arg>${n_exp}</arg>
+<doc>Verifies that the length of the given item is correct.</doc>
+<status status="PASS" start="2026-09-18T12:52:34.008955" elapsed="0.000333"/>
+</kw>
+<arg>${n}</arg>
+<status status="PASS" start="2026-09-18T12:52:32.582743" elapsed="1.426600"/>
+</kw>
+<arg>30s</arg>
+<arg>3s</arg>
+<arg>All Sessions Up</arg>
+<arg>${n}</arg>
+<doc>Runs the specified keyword and retries if it fails.</doc>
+<status status="PASS" start="2026-09-18T12:52:32.582334" elapsed="1.427045"/>
+</kw>
+<var name="${n}">p2</var>
+<status status="PASS" start="2026-09-18T12:52:32.582248" elapsed="1.427169"/>
+</iter>
+<iter>
+<kw name="Wait Until Keyword Succeeds" owner="BuiltIn">
+<kw name="All Sessions Up">
+<kw name="Vyos" owner="common">
+<kw name="Run Vyos Command" owner="LabLib">
+<msg time="2026-09-18T12:52:34.721654" level="INFO" html="true">&lt;pre&gt;10.3.0.13$ show bfd peers brief
+Session count: 2
+SessionId  LocalAddress                             PeerAddress                             Status          Profile             
+=========  ============                             ===========                             ======          =======             
+3011268472 fe80::5054:ff:fec6:302                   fe80::5054:ff:fec6:703                  up              -                   
+2457938864 fe80::5054:ff:fec6:301                   fe80::5054:ff:fec6:605                  up              -                   &lt;/pre&gt;</msg>
+<msg time="2026-09-18T12:52:34.721811" level="INFO">${out} = Session count: 2
+SessionId  LocalAddress                             PeerAddress                             Status          Profile             
+=========  ============                             ==...</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<arg>${timeout}</arg>
+<doc>Run an operational-mode command on a VyOS node and return its output.</doc>
+<status status="PASS" start="2026-09-18T12:52:34.010413" elapsed="0.711425"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-18T12:52:34.721904" elapsed="0.000040"/>
+</return>
+<msg time="2026-09-18T12:52:34.722089" level="INFO">${bfd} = Session count: 2
+SessionId  LocalAddress                             PeerAddress                             Status          Profile             
+=========  ============                             ==...</msg>
+<var>${bfd}</var>
+<arg>${n}</arg>
+<arg>show bfd peers brief</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="PASS" start="2026-09-18T12:52:34.010217" elapsed="0.711902"/>
+</kw>
+<kw name="Regex Findall" owner="LabLib">
+<msg time="2026-09-18T12:52:34.722485" level="INFO">${up} = ['3011268472 fe80::5054:ff:fec6:302                   fe80::5054:ff:fec6:703                  up', '2457938864 fe80::5054:ff:fec6:301                   fe80::5054:ff:fec6:605                  up']</msg>
+<var>${up}</var>
+<arg>${bfd}</arg>
+<arg>(?m)^\\d+\\s+fe80\\S+\\s+fe80\\S+\\s+up\\b</arg>
+<status status="PASS" start="2026-09-18T12:52:34.722266" elapsed="0.000244"/>
+</kw>
+<kw name="Get Length" owner="BuiltIn">
+<msg time="2026-09-18T12:52:34.722938" level="INFO">Length is 2.</msg>
+<msg time="2026-09-18T12:52:34.722996" level="INFO">${n_exp} = 2</msg>
+<var>${n_exp}</var>
+<arg>${ISIS_NEIGHBORS}[${n}]</arg>
+<doc>Returns and logs the length of the given item as an integer.</doc>
+<status status="PASS" start="2026-09-18T12:52:34.722651" elapsed="0.000360"/>
+</kw>
+<kw name="Length Should Be" owner="BuiltIn">
+<msg time="2026-09-18T12:52:34.723364" level="INFO">Length is 2.</msg>
+<arg>${up}</arg>
+<arg>${n_exp}</arg>
+<arg>msg=${n}: not every BFD session is up again</arg>
+<doc>Verifies that the length of the given item is correct.</doc>
+<status status="PASS" start="2026-09-18T12:52:34.723098" elapsed="0.000300"/>
+</kw>
+<kw name="Vyos" owner="common">
+<kw name="Run Vyos Command" owner="LabLib">
+<msg time="2026-09-18T12:52:35.435115" level="INFO" html="true">&lt;pre&gt;10.3.0.13$ show isis neighbor
+Area VyOS:
+ System Id           Interface   L  State         Holdtime SNPA
+ p2                  eth1        2  Up            29       2020.2020.2020
+ p3                  eth2        2  Up            30       2020.2020.2020&lt;/pre&gt;</msg>
+<msg time="2026-09-18T12:52:35.435279" level="INFO">${out} = Area VyOS:
+ System Id           Interface   L  State         Holdtime SNPA
+ p2                  eth1        2  Up            29       2020.2020.2020
+ p3                  eth2        2  Up            3...</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<arg>${timeout}</arg>
+<doc>Run an operational-mode command on a VyOS node and return its output.</doc>
+<status status="PASS" start="2026-09-18T12:52:34.723858" elapsed="0.711447"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-18T12:52:35.435366" elapsed="0.000044"/>
+</return>
+<msg time="2026-09-18T12:52:35.435546" level="INFO">${nb} = Area VyOS:
+ System Id           Interface   L  State         Holdtime SNPA
+ p2                  eth1        2  Up            29       2020.2020.2020
+ p3                  eth2        2  Up            3...</msg>
+<var>${nb}</var>
+<arg>${n}</arg>
+<arg>show isis neighbor</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="PASS" start="2026-09-18T12:52:34.723553" elapsed="0.712013"/>
+</kw>
+<kw name="Regex Findall" owner="LabLib">
+<msg time="2026-09-18T12:52:35.435896" level="INFO">${adj} = ['eth1', 'eth2']</msg>
+<var>${adj}</var>
+<arg>${nb}</arg>
+<arg>(?m)^\\s*\\S+\\s+(eth\\d+)\\s+2\\s+Up</arg>
+<status status="PASS" start="2026-09-18T12:52:35.435718" elapsed="0.000198"/>
+</kw>
+<kw name="Length Should Be" owner="BuiltIn">
+<msg time="2026-09-18T12:52:35.436321" level="INFO">Length is 2.</msg>
+<arg>${adj}</arg>
+<arg>${n_exp}</arg>
+<doc>Verifies that the length of the given item is correct.</doc>
+<status status="PASS" start="2026-09-18T12:52:35.435998" elapsed="0.000362"/>
+</kw>
+<arg>${n}</arg>
+<status status="PASS" start="2026-09-18T12:52:34.009966" elapsed="1.426443"/>
+</kw>
+<arg>30s</arg>
+<arg>3s</arg>
+<arg>All Sessions Up</arg>
+<arg>${n}</arg>
+<doc>Runs the specified keyword and retries if it fails.</doc>
+<status status="PASS" start="2026-09-18T12:52:34.009610" elapsed="1.426836"/>
+</kw>
+<var name="${n}">pe3</var>
+<status status="PASS" start="2026-09-18T12:52:34.009486" elapsed="1.426984"/>
+</iter>
+<var>${n}</var>
+<value>${P}</value>
+<value>${PE}</value>
+<status status="PASS" start="2026-09-18T12:52:32.582151" elapsed="2.854342"/>
+</for>
+<status status="PASS" start="2026-09-18T12:52:32.581955" elapsed="2.854614"/>
+</test>
+<kw name="Restore The Link And Close Connections" type="TEARDOWN">
+<kw name="Run Keyword And Ignore Error" owner="BuiltIn">
+<kw name="Configure" owner="common">
+<kw name="Vyos Configure" owner="LabLib">
+<msg time="2026-09-18T12:52:51.284053" level="INFO" html="true">&lt;pre&gt;10.3.0.22# configure
+delete firewall
+commit; save
+configure
+[edit]delete firewall
+
+  Nothing to delete (the specified node does not exist)
+
+[edit]
+vyos@p2# commit
+No configuration changes to commit
+[edit]
+vyos@p2# save
+[edit]
+vyos@p2# exit
+exit
+vyos@p2:~$ &lt;/pre&gt;</msg>
+<msg time="2026-09-18T12:52:51.284218" level="INFO">${out} = configure
+[edit]delete firewall
+
+  Nothing to delete (the specified node does not exist)
+
+[edit]
+vyos@p2# commit
+No configuration changes to commit
+[edit]
+vyos@p2# save
+[edit]
+vyos@p2# exit
+exit
+vyos@...</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>@{lines}</arg>
+<doc>Apply `set`/`delete` lines on a VyOS node (configure, lines, commit, save). Used by tests that change the lab
+on purpose — they must restore it in their teardown so the pre/post configuration diff stays empty.</doc>
+<status status="PASS" start="2026-09-18T12:52:35.437583" elapsed="15.846664"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-18T12:52:51.284319" elapsed="0.000048"/>
+</return>
+<arg>${P}</arg>
+<arg>delete firewall</arg>
+<doc>Apply configuration lines on a VyOS node by name (commit + save).</doc>
+<status status="PASS" start="2026-09-18T12:52:35.437428" elapsed="15.847072"/>
+</kw>
+<arg>Configure</arg>
+<arg>${P}</arg>
+<arg>delete firewall</arg>
+<doc>Runs the given keyword with the given arguments and ignores possible errorw.</doc>
+<status status="PASS" start="2026-09-18T12:52:35.437146" elapsed="15.847415"/>
+</kw>
+<kw name="Close All Connections" owner="LabLib">
+<status status="PASS" start="2026-09-18T12:52:51.284747" elapsed="15.404904"/>
+</kw>
+<status status="PASS" start="2026-09-18T12:52:35.436985" elapsed="31.252759"/>
+</kw>
+<doc>Core link failure: the p2-pe3 link is cut silently (a firewall drop on p2's interface — carrier stays up,
+exactly like a UDP-tunnel link that has gone dead), BFD detects it in under a second, pe3 reroutes every
+tenant through p3, a continuous ping across the core loses at most a handful of packets, and everything
+returns to the shortest path once the link is restored. The suite always restores the link in its teardown.</doc>
+<status status="PASS" start="2026-09-18T12:50:08.821292" elapsed="177.868482"/>
+</suite>
+<statistics>
+<total>
+<stat pass="3" fail="0" skip="0">All Tests</stat>
+</total>
+<tag>
+</tag>
+<suite>
+<stat name="srv6 core lab" id="s1" pass="3" fail="0" skip="0">srv6 core lab</stat>
+</suite>
+</statistics>
+<errors>
+</errors>
+</robot>

@@ -10,7 +10,7 @@ Runs execute one at a time in a background thread; state is mirrored to runs/<id
 (uvicorn on 0.0.0.0:8091) or the systemd user unit srv6-webapp."""
 import json, os, subprocess, sys, time
 from pathlib import Path
-from labportal import RunBase, RunRegistry, install_runs_api
+from labportal import RunBase, RunRegistry, install_runs_api, grafana
 from fastapi import FastAPI, HTTPException, Query, Path as PathParam
 from fastapi.responses import FileResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -60,6 +60,7 @@ class RunRequest(BaseModel):
 
 
 class Run(RunBase):
+    LAB = "srv6-core"
     STEP_TITLES = STEP_TITLES
     EXTRA = {"tenant": "tenant", "spec": "spec", "removal": "removal"}
 
@@ -226,6 +227,7 @@ def steering_list(): return state.steering()
 def steering_add(spec: SteerSpec):
     r = subprocess.run([PY, str(LAB / "tools" / "steer.py"), "add", spec.pe, spec.tenant, spec.prefix, *spec.via], capture_output=True, text=True, timeout=300)
     if r.returncode != 0: raise HTTPException(422, (r.stderr or r.stdout).strip()[-500:])
+    grafana.annotate(f"srv6-core: steering {spec.tenant} {spec.prefix} on {spec.pe} via {' > '.join(spec.via)}", tags=["srv6-core", "steering", spec.tenant])
     state._cache = None; return {"output": r.stdout}
 
 
@@ -233,6 +235,7 @@ def steering_add(spec: SteerSpec):
 def steering_del(pe: str, tenant: str, prefix: str):
     r = subprocess.run([PY, str(LAB / "tools" / "steer.py"), "del", pe, tenant, prefix], capture_output=True, text=True, timeout=300)
     if r.returncode != 0: raise HTTPException(422, (r.stderr or r.stdout).strip()[-500:])
+    grafana.annotate(f"srv6-core: steering removed for {tenant} {prefix} on {pe}", tags=["srv6-core", "steering", tenant])
     state._cache = None; return {"output": r.stdout}
 
 

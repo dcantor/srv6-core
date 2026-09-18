@@ -93,6 +93,7 @@ set vrf name tenant-a protocols static route6 fd00:c::/32 next-hop fd00:a::13 vr
 # eBGP to the CE; export/import with an SRv6 End.DT4 SID (sid vpn export auto)
 set vrf name tenant-a protocols bgp system-as 65000
 set vrf name tenant-a protocols bgp parameters router-id 10.255.0.4
+set vrf name tenant-a protocols bgp parameters log-neighbor-changes
 set vrf name tenant-a protocols bgp neighbor 172.16.4.2 remote-as 65004
 set vrf name tenant-a protocols bgp neighbor 172.16.4.2 description 'ce4 (tenant-a)'
 set vrf name tenant-a protocols bgp neighbor 172.16.4.2 address-family ipv4-unicast
@@ -123,6 +124,7 @@ set vrf name tenant-b protocols static route6 fd00:c::/32 next-hop fd00:a::13 vr
 # eBGP to the CE; export/import with an SRv6 End.DT4 SID (sid vpn export auto)
 set vrf name tenant-b protocols bgp system-as 65000
 set vrf name tenant-b protocols bgp parameters router-id 10.255.0.4
+set vrf name tenant-b protocols bgp parameters log-neighbor-changes
 set vrf name tenant-b protocols bgp neighbor 172.18.4.2 remote-as 65004
 set vrf name tenant-b protocols bgp neighbor 172.18.4.2 description 'ce4 (tenant-b)'
 set vrf name tenant-b protocols bgp neighbor 172.18.4.2 address-family ipv4-unicast

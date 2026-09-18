@@ -246,8 +246,17 @@ Every device exports metrics on its OOB address and the NMS keeps them:
   unit state, tagged `lab` / `role` / `dc`. **Syslog** goes `system syslog remote 10.3.0.10 port 5514` into VictoriaLogs
   (streams by hostname / app_name; Grafana panels for the routing daemons and commits). Telegraf's Loki output was not
   used for logs: it ships every metric as a log line and VyOS cannot filter it. Dashboard **VyOS telemetry**.
+- **Log-derived alerts and event overlays**: `vmalert-logs` on the NMS evaluates LogsQL rules against the syslog every
+  minute — `%ADJCHANGE` neighbour Down (bgpd), IS-IS adjacency changes, BFD session changes, FRR daemon restarts, zebra
+  install failures, commits, SSH failures, a silent node — and writes their state into VictoriaMetrics. Every Grafana
+  dashboard shows them as annotations next to the portal's runs, the tests' own events (the failover cut, the reflector
+  shutdown: `Grafana Annotate` in suites 06 / 08) and steering changes, so a dip on a graph carries its cause. Getting
+  FRR to log state changes at all needed `tools/frr_logging.py` (VyOS renders `log syslog notifications`; the changes are
+  informational) and `log-neighbor-changes` in every VRF BGP instance — both are now part of `lab.sh configure`.
 - Test suite `11_monitoring` verifies the whole chain: exporters → Prometheus → VictoriaMetrics → Grafana, Telegraf push
-  from every node (fresh within 2 minutes, tags right, no FRR daemon down), and syslog from every node in VictoriaLogs.
+  from every node (fresh within 2 minutes, tags right, no FRR daemon down), syslog from every node in VictoriaLogs, the log
+  rules healthy, and — live — a BGP session reset that must appear in syslog and raise `BgpNeighborDownLogged` within
+  two minutes.
 
 ## Interconnect (optional): the IPsec lab as branches of tenant-a
 The [cat8000v-ipsec](https://github.com/dcantor/cat8000v-ipsec) lab (three C8000v headends behind VyOS firewalls, five
@@ -318,7 +327,7 @@ rendered line is on the routers — suite 09 asserts both plus the model itself.
 invisible to REST reads (verify through GraphQL), VRF prefixes go through `vrf-prefix-assignments`, GraphQL returns
 choice fields upper-cased, and new custom fields need a Nautobot restart before GraphQL sees them.
 
-## Tests (`./lab.sh test`, 61 cases)
+## Tests (`./lab.sh test`, 63 cases)
 | Suite | Checks |
 |---|---|
 | 01 management | every node on the OOB network with SSH, host names, host LAN addresses, MTU 9000 on all core links, config saved |
@@ -330,7 +339,7 @@ choice fields upper-cased, and new custom fields need a Nautobot restart before 
 | 08 failover | BFD up on all 24 adjacencies; silent cut of p2–pe3 with a live 0.2 s ping: pe3 moves every tenant route to p3 within seconds, BFD reports Down, ≤ 10 packets lost across cut and repair (measured: 4); all BFD sessions and adjacencies back afterwards |
 | 09 nautobot | every device/link/address/VRF/RD/peering in Nautobot matches the inventory; Nautobot's rendering == lab.conf's; every rendered line present on the routers |
 | 10 throughput | iperf3 dc1 → dc3: TCP above the floor, UDP at 20 Mbit/s with no loss, steered (uSID and uncompressed) within half of the shortest path |
-| 11 monitoring | node-exporter + frr-exporter on every VyOS node (every PE BGP session Established per the exporter), node-exporter on every host, the portal's `/api/sd` lists every exporter and `/metrics` reports every tenant up / core fully adjacent; Prometheus scrapes all 31 lab targets, the alert rules are loaded and none fires, VictoriaMetrics holds the remote-written series **and the Telegraf series every node pushes** (tags, freshness, no FRR daemon down), every node's syslog is in VictoriaLogs, Grafana serves the provisioned dashboards |
+| 11 monitoring | node-exporter + frr-exporter on every VyOS node (every PE BGP session Established per the exporter), node-exporter on every host, the portal's `/api/sd` lists every exporter and `/metrics` reports every tenant up / core fully adjacent; Prometheus scrapes all 31 lab targets, the alert rules are loaded and none fires, VictoriaMetrics holds the remote-written series **and the Telegraf series every node pushes** (tags, freshness, no FRR daemon down), every node's syslog is in VictoriaLogs, the log-derived alert rules are healthy and a live BGP reset raises one, Grafana serves the provisioned dashboards with the annotation layers |
 | 12 interconnect | the IPsec headends as tenant-a CEs: PE↔headend eBGP with the right AS, headend + branch LANs on every PE with a SID from the attaching PE's locator and under its RD at the reflectors, absent from tenant-b, dc host ↔ branch pings both ways, the path dc → PE → core → headend → IPsec tunnel → branch, SRv6 encapsulation on p2 (skipped without `EXT_NODES`) |
 | 05 end to end | every host reaches every host of its tenant (2 × 4×3 pings) and **none of the other tenant's**, not even at the same site; dc1→dc3 traffic transits p2 with `tcpdump` showing `IP6 fd00:a::1 > fd00:c:3:…` both ways; P routers hold no VRF and no tenant routes |
 
@@ -361,6 +370,7 @@ a terminal page; run it with the cat8000v-ipsec `webapp/.venv` python).
 | `tools/render.py` | the one config renderer (inventory → VyOS `set` lines), used by `gen_configs.py` and `nautobot/render.py` |
 | `tools/build_host_image.sh`, `tools/iperf.py` | the Alpine host base image (iperf3 etc.); throughput between hosts (`lab.sh iperf`) |
 | `tools/steer.py` | explicit-path SRv6 steering (`add / del / show / sid`; uSID carrier or `--uncompressed`) |
+| `tools/frr_logging.py` | FRR logs routing state changes to syslog (VyOS boot-hook flag + live vtysh; run by `configure`) |
 | `tools/backup_configs.py` | `lab.sh backup`: running + intended configs and routing tables → the local Gitea (`lab/srv6-core-configs`); also the last step of every portal run |
 | `webapp/` | the tenant provisioning portal (FastAPI + single page; `restart.sh`, `srv6-webapp.service`); `metrics.py` = `/metrics` and `/api/sd` for Prometheus |
 | `docs/demo/record.py` | records `docs/demo/srv6-demo.{gif,mp4}` from the live lab |

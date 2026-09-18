@@ -11,6 +11,8 @@ ${PROMETHEUS}       http://10.0.0.10:9090
 ${VICTORIAMETRICS}  http://10.0.0.10:8428
 ${GRAFANA}          http://10.0.0.10:3001
 ${VICTORIALOGS}     http://10.0.0.10:9428
+${VMALERT_LOGS}     http://10.0.0.10:8880
+${GRAFANA_ANN}      http://10.0.0.10:3001
 
 *** Test Cases ***
 Every VyOS node serves node-exporter and frr-exporter on its OOB address
@@ -101,6 +103,29 @@ Every VyOS node's syslog reaches VictoriaLogs
         Should Contain    ${hosts}    ${n}    msg=no syslog from ${n} in the last 15 minutes
     END
 
+The log-derived alert rules are loaded and healthy (vmalert against VictoriaLogs)
+    ${rules}=    Http Get    ${VMALERT_LOGS}/api/v1/rules
+    ${names}=    Evaluate    [r["name"] for g in $rules["data"]["groups"] for r in g["rules"]]
+    FOR    ${a}    IN    BgpNeighborDownLogged    IsisAdjacencyChangeLogged    BfdSessionChangeLogged    FrrDaemonRestarted    ConfigCommitted    NodeSyslogSilent
+        Should Contain    ${names}    ${a}    msg=log alert rule ${a} not loaded
+    END
+    ${bad}=    Evaluate    [(r["name"], r.get("lastError")) for g in $rules["data"]["groups"] for r in g["rules"] if r.get("health") != "ok"]
+    Should Be Empty    ${bad}    msg=unhealthy log rules: ${bad}
+
+A BGP session reset shows up in syslog and raises the log-derived alert within two minutes
+    [Documentation]    Resets the tenant-b PE-CE session at dc4 from the PE (it re-establishes in seconds; suites 04/05 cover
+    ...                the tenant afterwards). FRR's %ADJCHANGE line must reach VictoriaLogs and vmalert must fire
+    ...                BgpNeighborDownLogged for the PE — the whole chain router -> syslog -> LogsQL rule -> alert.
+    ${s}=    Set Variable    ${SITES}[tenant-b][dc4]
+    ${t0}=    Get Time    epoch
+    Run Vyos Command    ${MGMT}[${s}[pe]]    reset bgp vrf tenant-b ${s}[ce_wan_ip]
+    Wait Until Keyword Succeeds    2 min    10 s    Syslog Has Adjchange    ${s}[pe]    ${s}[ce_wan_ip]    Down
+    Wait Until Keyword Succeeds    2 min    10 s    Log Alert Firing    BgpNeighborDownLogged    ${s}[pe]
+    Wait Until Keyword Succeeds    90 s    10 s    Syslog Has Adjchange    ${s}[pe]    ${s}[ce_wan_ip]    Up
+    ${sum}=    Run Vyos Command    ${MGMT}[${s}[pe]]    show ip bgp vrf tenant-b summary
+    Should Match Regexp    ${sum}    (?m)^${s}[ce_wan_ip]\\s+4\\s+\\d+\\s+.*\\s\\d+\\s+\\d+\\s+${s}[ce]    msg=${s}[pe]: session to ${s}[ce] did not come back
+    Grafana Annotate    srv6-core: monitoring test — tenant-b session ${s}[pe]-${s}[ce] reset to prove syslog -> alert    monitoring    ${s}[pe]    start=${t0}
+
 Grafana is healthy and serves the provisioned dashboards
     ${health}=    Http Get    ${GRAFANA}/api/health
     Should Be Equal    ${health}[database]    ok
@@ -112,6 +137,9 @@ Grafana is healthy and serves the provisioned dashboards
     ${d}=    Http Get    ${GRAFANA}/api/dashboards/uid/srv6-core-overview
     ${panels}=    Evaluate    [p for p in $d["dashboard"]["panels"] if p["type"] != "row"]
     Should Be True    len($panels) >= 15
+    ${ann}=    Evaluate    [a["name"] for a in $d["dashboard"]["annotations"]["list"]]
+    Should Contain    ${ann}    Router syslog alerts (vmalert-logs)    msg=the overview has no syslog-alert annotation layer
+    Should Contain    ${ann}    Test events (failover, reflector)
 
 *** Keywords ***
 Portal Metrics Show Everything Up
@@ -140,6 +168,17 @@ Portal Metrics Show Everything Up
     FOR    ${h}    IN    @{hosts}
         Should Be Equal As Numbers    ${h}[value]    1    msg=${h}[labels][host] unreachable
     END
+
+Syslog Has Adjchange
+    [Arguments]    ${node}    ${peer}    ${state}
+    ${r}=    Http Get    ${VICTORIALOGS}/select/logsql/query    query=_time:5m hostname:${node} app_name:bgpd "%ADJCHANGE" "${peer}" "${state}" | limit 1
+    Should Be True    bool($r) and str($r).strip() != ""    msg=no %ADJCHANGE ${state} for ${peer} from ${node} in VictoriaLogs yet
+
+Log Alert Firing
+    [Arguments]    ${name}    ${host}
+    ${a}=    Http Get    ${VMALERT_LOGS}/api/v1/alerts
+    ${hit}=    Evaluate    [x for x in $a["data"]["alerts"] if x["name"] == "${name}" and x["labels"].get("hostname") == "${host}" and x["state"] == "firing"]
+    Should Not Be Empty    ${hit}    msg=${name} not firing for ${host}
 
 No Lab Alert Firing
     ${rules}=    Http Get    ${PROMETHEUS}/api/v1/rules
