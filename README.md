@@ -360,6 +360,13 @@ underlay, the SIDs in the kernel, the BGP Prefix-SID attribute, a packet walk wi
 shift-and-forward seen hop by hop on a steered path, and how the lab is operated. Every output is captured from the
 live lab by `docs/walkthrough_capture.py`; `docs/build_walkthrough.py` renders the HTML / PDF.
 
+## AI-assisted operations and troubleshooting drills
+[docs/ai-ops.md](docs/ai-ops.md) — `lab-mcp` exposes the lab to a Claude session (or any MCP client) as 19 read-only tools:
+state, show commands, the ping matrix, the portal, metrics, syslog, flows, alerts, Nautobot, config drift, tests
+(`.mcp.json` registers it for Claude Code in this directory). `tools/chaos.py` injects one of seven real misconfigurations
+(`inject` / `reveal` / `repair`) so an operator — human or AI — has something to find. The doc includes a drill diagnosed
+through the tools alone in six calls.
+
 ## Teaching / interview session
 [docs/session/](docs/session/README.md) — a 45–60 minute "whiteboard it, then prove it" session on this lab: facilitator
 guide with the three whiteboard drawings and timings, `tools/demo_live.py` (presenter mode: six acts of real commands, one
@@ -385,6 +392,7 @@ a terminal page; run it with the cat8000v-ipsec `webapp/.venv` python).
 | `tools/frr_logging.py` | FRR logs routing state changes to syslog (VyOS boot-hook flag + live vtysh; run by `configure`) |
 | `tools/backup_configs.py` | `lab.sh backup`: running + intended configs and routing tables → the local Gitea (`lab/srv6-core-configs`); also the last step of every portal run |
 | `webapp/` | the tenant provisioning portal (FastAPI + single page; `restart.sh`, `srv6-webapp.service`); `metrics.py` = `/metrics` and `/api/sd` for Prometheus |
+| `tools/chaos.py`, `.mcp.json`, `docs/ai-ops.md` | fault injection for drills; the MCP server registration; the AI-operator setup and a worked diagnosis |
 | `docs/session/`, `tools/demo_live.py` | the teaching / interview kit: guide, questions, exercises, slides; the presenter-mode demo |
 | `docs/demo/record.py` | records `docs/demo/srv6-demo.{gif,mp4}` from the live lab |
 | `docs/topology.pdf`, `docs/topology.py` | the topology as a two-page PDF (diagram, addressing, packet walk), drawn from `lab.sh inventory` — rerun the script after editing `lab.conf` |

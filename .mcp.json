@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "lab": {
+      "command": "webapp/.venv/bin/lab-mcp",
+      "env": {"LAB_MCP_ALLOW_WRITE": "0"}
+    }
+  }
+}

@@ -17,3 +17,4 @@ webapp/.venv/
 webapp/runs/
 .gitea-backup/
 nodes/*/network-config
+.chaos.json
