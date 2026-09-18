@@ -110,7 +110,7 @@ via p3→p1 half the time); per-locator entries keep the forwarding plane consis
 | pe*n*–ce*n* tenant-b | 172.18.*n*.0/30 | pe*n* eth4 | ce*n* eth3 |
 | ce*n*–dc*n*-h1 | 172.20.*n*.0/24 | ce*n* eth2 (gateway) | dc*n*-h1 eth1 |
 | ce*n*–dc*n*-h2 | 172.21.*n*.0/24 | ce*n* eth4 (gateway) | dc*n*-h2 eth1 |
-| headend–pe*n* tenant-a (external CE, IPsec lab) | 172.19.*n*.0/30 | east/central/west-headend GigabitEthernet3 | pe1/pe2/pe3 eth5 |
+| headend–pe*n* tenant-a (external CE, IPsec lab — when attached) | 172.19.*n*.0/30 | east/central/west-headend GigabitEthernet3 | pe1/pe2/pe3 eth5 |
 
 VRFs: `tenant-a` table 100, RT 65000:100, RD 65000:10*n*; `tenant-b` table 200, RT 65000:200, RD 65000:20*n* (*n* = PE
 number). OOB network `srv6-oob` 10.3.0.0/24, host 10.3.0.1; serial consoles 127.0.0.1:5301–5319.
@@ -242,10 +242,14 @@ Every device exports metrics on its OOB address and the NMS keeps them:
   lab-state alerts are gated on `lab_vm_running` so a powered-off lab does not page.
 - Test suite `11_monitoring` verifies the whole chain, exporter → Prometheus → VictoriaMetrics → Grafana.
 
-## Interconnect: the IPsec lab as branches of tenant-a
+## Interconnect (optional): the IPsec lab as branches of tenant-a
 The [cat8000v-ipsec](https://github.com/dcantor/cat8000v-ipsec) lab (three C8000v headends behind VyOS firewalls, five
-spokes over IKEv2/IPsec VTIs, eBGP) is attached to this core: **every headend is a CE of tenant-a** on its data centre's PE,
-so a branch reaches a data-centre host through IPsec → headend → PE → SRv6 → PE → CE → host, and back.
+spokes over IKEv2/IPsec VTIs, eBGP) can be attached to this core: **every headend becomes a CE of tenant-a** on its data
+centre's PE, so a branch reaches a data-centre host through IPsec → headend → PE → SRv6 → PE → CE → host, and back.
+**Currently detached** — the mechanism stays (`EXT_NODES`, empty), the exact `lab.conf` lines to re-attach are in a comment
+there, and suite 12 skips while it is empty. The attachment was built and proven end to end on 2026-09-18 (results
+`2026-09-18_01-43-48` … `03-13-20`); re-attaching is `lab.conf` + `rebuild pe1 pe2 pe3` + `configure` + `nautobot seed`
+here, then `nautobot seed` / `render` / `nac apply` on the IPsec side.
 
 ```
  branch (spoke5) ══ IPsec VTI ══ central-headend ── Gi3 172.19.2.1 ── eth5 pe2 ═══ SRv6 (uDT4 of pe1) ═══ pe1 ── ce1 ── dc1-h1
@@ -274,7 +278,7 @@ so a branch reaches a data-centre host through IPsec → headend → PE → SRv6
   two labs share one Nautobot namespace, and two seeds fighting over the same prefix objects was the first bug found.
 - Suite `12_interconnect` (10 cases) covers sessions, VPN routes with SIDs under the right RD, isolation, host ↔ branch
   reachability both ways, the path through the headend and tunnel, and the SRv6 encapsulation on p2. It is skipped when
-  `EXT_NODES` is empty, and needs the IPsec lab up. Resource note: both labs plus the NMS need ~52 GiB and the eight
+  `EXT_NODES` is empty (the current state), and needs the IPsec lab up. Resource note: both labs plus the NMS need ~52 GiB and the eight
   C8000v each keep a core busy — run the two labs' test suites one after the other.
 
 ## Nautobot: the source of truth

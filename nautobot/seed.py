@@ -328,6 +328,25 @@ for pe in [n for n in inv["nodes"] if n["role"] == "pe"]:
             ext = " - SRv6 core attachment" if ce["role"] == "ext-ce" else ""
             ensure_peering(pe["name"], pt["ip"], "pe", f"eBGP {ce['name']} ({t})", ce["name"], ce_ip, "ce", f"eBGP {pe['name']} ({t}){ext}", "ipv4_unicast", f"{pe['name']}<->{ce['name']} {t}")
 
+# stale peerings / prefixes: a detached external CE (no longer in lab.conf) leaves its eBGP peering on the PE, its attachment
+# prefix and its address on the other lab's port — remove what this seed created, hand the port back as unwired
+wanted_peers = {(pe["name"], N[pt["peer"]]["name"]) for pe in inv["nodes"] if pe["role"] == "pe" for pt in pe["ports"] if pt["peer"]}
+for pe in [n for n in inv["nodes"] if n["role"] == "pe"]:
+    for ep in list(bgp.peer_endpoints.filter(routing_instance=ri[pe["name"]].id)):
+        far = ep.peer and bgp.peer_endpoints.get(id=ep.peer.id); far_dev = far and far.routing_instance and nb.plugins.bgp.routing_instances.get(id=far.routing_instance.id).device.name
+        if far_dev and far_dev not in N and (pe["name"], far_dev) not in wanted_peers:
+            bgp.peerings.get(id=ep.peering.id).delete(); created.append(f"removed stale peering {pe['name']}<->{far_dev}")
+lab_links = {l["prefix"] for l in inv["links"]}
+for pf in [x for t in tenants for x in nb.ipam.prefixes.filter(tenant=tenants[t].id, role="attachment-circuit")]:
+    if str(pf.prefix) not in lab_links and str(getattr(pf.type, "value", pf.type)) != "container":
+        for ip in nb.ipam.ip_addresses.filter(parent=pf.id):
+            for x in nb.ipam.ip_address_to_interface.filter(ip_address=ip.id):
+                itf = nb.dcim.interfaces.get(id=x.interface.id)
+                if itf.device.name not in N: ensure(itf, description="unwired", enabled=False)   # the other lab's port, handed back
+                x.delete()
+            ip.delete()
+        pf.delete(); created.append(f"removed stale attachment prefix {pf.prefix}")
+
 # ---- config context ---------------------------------------------------------------------------------------------------
 CTX = {"domain_name": "lab.local", "oob": {"network": OOB["network"], "gateway": OOB["gateway"], "nms": "10.3.0.10"},
        "isis": {"area": SVC["isis_area"], "level": "level-2", "metric_style": "wide", "network": "point-to-point", "bfd": True},
