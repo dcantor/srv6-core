@@ -18,3 +18,5 @@ webapp/runs/
 .gitea-backup/
 nodes/*/network-config
 .chaos.json
+ansible/collections/
+ansible/facts/

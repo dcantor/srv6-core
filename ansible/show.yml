@@ -1,0 +1,15 @@
+---
+# Operational snapshot of the core: run with -e cmd="show bgp ipv6 vpn summary" for another command.
+- name: Show state on the VyOS nodes
+  hosts: vyos
+  gather_facts: false
+  vars:
+    cmd: "show ip bgp vrf tenant-a summary"
+  tasks:
+    - name: Run the command
+      vyos.vyos.vyos_command:
+        commands: ["{{ cmd }}"]
+      register: out
+    - name: Print
+      ansible.builtin.debug:
+        msg: "{{ out.stdout_lines[0] }}"

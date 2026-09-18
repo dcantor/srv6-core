@@ -442,6 +442,12 @@ cmd_verify() {     # a quick look at the control plane and the data plane end to
   "$PY" "$LAB_DIR/tools/host_cmd.py" matrix "${HOSTS[@]}" || true
 }
 
+cmd_ansible() {    # run a playbook from ansible/ with the lab's venv: ansible site.yml --check --diff | ansible show.yml -e cmd="show bfd peers"
+  [[ -x "$LAB_DIR/tests/.venv/bin/ansible-playbook" ]] || die "ansible-core is not installed in tests/.venv (tests/setup.sh installs it)"
+  [[ -d "$LAB_DIR/ansible/collections/ansible_collections/vyos" ]] || (cd "$LAB_DIR/ansible" && "$LAB_DIR/tests/.venv/bin/ansible-galaxy" collection install -p collections -r requirements.yml)
+  cd "$LAB_DIR/ansible" && exec "$LAB_DIR/tests/.venv/bin/ansible-playbook" "$@"
+}
+
 cmd_iperf() {      # throughput between two tenant hosts: iperf <src> <dst> [-t s] [-u -b RATE] | iperf --scenarios
   [[ -x "$LAB_DIR/tests/.venv/bin/python" ]] || "$LAB_DIR/tests/setup.sh"
   "$PY" "$LAB_DIR/tools/iperf.py" "$@"
@@ -474,6 +480,7 @@ usage: $(basename "$0") <command> [node...]
   nautobot render [--check|--live|--write]   render the VyOS configs from Nautobot; compare with lab.conf / the routers
   webapp             start the tenant provisioning portal on http://<host>:8091
   iperf <src> <dst> [-t s] [-u -b RATE] | iperf --scenarios   throughput between tenant hosts (iperf3 on the Alpine hosts)
+  ansible <playbook> [args]   Ansible (vyos.vyos) over the same rendered configs: site.yml [--check --diff] [-l pe1], show.yml, facts.yml
   backup [-m msg]    commit running + intended configs and routing tables to the local Gitea (http://<nms>:3000/lab/srv6-core-configs)
   wait [node..]      wait until SSH answers
   down [node..]      stop VMs (VyOS: ACPI shutdown)

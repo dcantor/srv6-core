@@ -405,10 +405,20 @@ a terminal page; run it with the cat8000v-ipsec `webapp/.venv` python).
 | `docs/topology.pdf`, `docs/topology.py` | the topology as a two-page PDF (diagram, addressing, packet walk), drawn from `lab.sh inventory` — rerun the script after editing `lab.conf` |
 | `tools/gen_configs.py` | renders `nodes/<n>/vyos_config.txt` (the day-0 `set` lines) from `lab.sh inventory` — run after editing `lab.conf` |
 | `tools/vyos_console.py`, `tools/vyos_push.py` | serial-console helper (first boot) and the SSH equivalent (`configure`) |
+| `ansible/` | the same rendered configs through `vyos.vyos` (`./lab.sh ansible site.yml --check --diff`, `show.yml`, `facts.yml`; dynamic inventory from `lab.sh inventory`) |
 | `tools/vyos_cmd.py`, `tools/host_cmd.py` | SSH helpers (netmiko for VyOS, paramiko for CirrOS; `host_cmd.py matrix` = the ping matrix) |
 | `nodes/<n>/` | per node: `vyos_config.txt` (committed), generated `domain.xml`, `disk.qcow2` overlay, `console.log`, `bootstrap.log`; hosts: `user-data`, `meta-data`, `seed.iso` |
 | `networks/srv6-oob.xml` | the isolated OOB bridge `virbr-srv6oob` 10.3.0.0/24 (host = 10.3.0.1) |
 | `tests/` | Robot Framework: `resources/lab_vars.py` (from `lab.sh inventory`), `resources/LabLib.py`, `suites/0*.robot`, `run.sh` |
+
+## How configuration reaches the routers
+Three ways, one source: `tools/render.py` renders `nodes/<node>/vyos_config.txt` from `lab.conf` (or from Nautobot — a
+test proves both renderings identical). (1) **First boot**: `./lab.sh bootstrap` types it over the serial console
+(`tools/vyos_console.py`) — the node has no address yet. (2) **Afterwards**: `./lab.sh configure` pushes it over SSH
+(`tools/vyos_push.py`), additive and idempotent; renumberings need explicit deletes first. (3) **Ansible**:
+`./lab.sh ansible site.yml --check --diff` / `site.yml` does the same through `vyos.vyos` with a proper dry-run diff —
+see [ansible/README.md](ansible/README.md). Every path ends in `commit` + `save`; `tools/frr_logging.py` adds the one
+setting the CLI cannot express. VyOS's own REST / GraphQL API (`service https api`) is the fourth option, unused so far.
 
 ## Design notes and quirks worth knowing
 - **Images are shared with the other labs**: the VyOS base image is `../cat8000v-ipsec/images/vyos-base.qcow2`
