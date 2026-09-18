@@ -7,6 +7,9 @@ set service lldp interface all
 set interfaces ethernet eth0 address 10.3.0.34/24
 set interfaces ethernet eth0 description 'OOB management'
 set protocols static route 10.0.0.0/8 next-hop 10.3.0.1
+# monitoring: Prometheus exporters on the OOB address (node-exporter :9100, frr-exporter :9342), scraped from the NMS
+set service monitoring prometheus node-exporter listen-address 10.3.0.34
+set service monitoring prometheus frr-exporter listen-address 10.3.0.34
 # VyOS/FRR insist on a default-VRF BGP instance while VRF instances exist: an empty one (no neighbours, no networks)
 set protocols bgp system-as 65004
 # tenant-a: VRF tenant-a on the CE holds the attachment circuit to pe4 and the dc4 LAN

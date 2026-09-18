@@ -167,6 +167,29 @@ class LabLib:
         import json as _j; return _j.loads(r.stdout)
 
     @keyword
+    @keyword
+    def http_get(self, url, timeout=30, **params):
+        """GET a URL; returns the parsed JSON, or the text for non-JSON answers (Prometheus exposition)."""
+        r = requests.get(url, params=params or None, timeout=timeout); r.raise_for_status()
+        return r.json() if "json" in r.headers.get("content-type", "") else r.text
+
+    @keyword
+    def prometheus_query(self, base, expr, timeout=30):
+        """Instant query against a Prometheus-compatible API (Prometheus or VictoriaMetrics); returns the result vector
+        as a list of {labels, value}."""
+        r = requests.get(f"{base}/api/v1/query", params={"query": expr}, timeout=timeout); r.raise_for_status(); d = r.json()
+        if d["status"] != "success": raise AssertionError(f"query failed: {d}")
+        return [{"labels": x["metric"], "value": float(x["value"][1])} for x in d["data"]["result"]]
+
+    @keyword
+    def metric_samples(self, text, name):
+        """Parse the samples of one metric from Prometheus text exposition: [{labels, value}]."""
+        out = []
+        for m in re.finditer(rf"^{re.escape(name)}(?:\{{([^}}]*)\}})?\s+(\S+)", text, re.M):
+            labels = dict(re.findall(r'(\w+)="([^"]*)"', m[1] or ""))
+            out.append({"labels": labels, "value": float(m[2])})
+        return out
+
     def ping_loss(self, text):
         """Packets lost according to a ping summary line ('N packets transmitted, M received, ...')."""
         m = re.search(r"(\d+) packets transmitted, (\d+) (?:packets )?received", text)

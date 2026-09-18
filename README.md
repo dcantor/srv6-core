@@ -213,6 +213,34 @@ Under the hood: `webapp/labconf.py` (structured edits of `lab.conf`), `webapp/te
 `webapp/state.py` (live state collector), `webapp/app.py` (FastAPI, runs), `webapp/static/index.html`, `tools/topology_svg.py`
 (the drawing, shared with the PDF), `nautobot/remove_tenant.py`.
 
+## Monitoring: Prometheus + VictoriaMetrics + Grafana
+Every device exports metrics on its OOB address and the NMS keeps them:
+
+```
+ VyOS pe/p/ce  ── node-exporter :9100 (CPU, memory, interface counters)        ┐
+               ── frr-exporter  :9342 (BGP peer state / prefixes, BFD, RIB/FIB)  │  scraped every 30 s by
+ Alpine hosts  ── node-exporter :9100                                            ├─ Prometheus (NMS :9090, 2-day buffer, alert rules)
+ portal :8091  ── /metrics  tenant health, PE-CE eBGP per site, VRF / SRv6 route │      └─ remote_write ─> VictoriaMetrics (NMS :8428, 180 days)
+                            counts, IS-IS / BFD adjacency counts, VPNv4 sessions,│                              └─ Grafana (NMS :3001) dashboards
+                            host reachability, steering policies, VM state, runs ┘
+               ── /api/sd   Prometheus HTTP service discovery: every target above, labelled lab / node / role / dc / tenant
+```
+
+- `set service monitoring prometheus node-exporter | frr-exporter listen-address <oob>` is rendered for every VyOS node
+  (`tools/render.py`); the Alpine image ships `prometheus-node-exporter` (`tools/build_host_image.sh`). No IS-IS collector
+  exists in frr-exporter, so the portal counts IS-IS adjacencies and BFD sessions itself (`webapp/metrics.py`; a background
+  collector refreshes the live state every 60 s so a scrape answers from the cache in milliseconds).
+- The stack itself (compose file, Prometheus config and alert rules, Grafana provisioning, generated dashboards, `deploy.sh`)
+  lives in the shared [lab-portal](https://github.com/dcantor/lab-portal) repo under `monitoring/` — it serves every lab on
+  this host. Dashboards: **SRv6 core: overview** (tenants, PE-CE sessions, host reachability, IS-IS / BFD / VPNv4, FRR BGP
+  peers, CPU / memory, core-link traffic, exporters), **Lab node detail** (any node: CPU, memory, disk, interfaces, BGP / BFD
+  peers) and **Labs: fleet and monitoring**. LAN: http://192.168.50.231:3001 (anonymous viewer; admin / admin to edit),
+  Prometheus http://192.168.50.231:9090, VictoriaMetrics http://192.168.50.231:8428/vmui — linked from the hub.
+- Alerts (Prometheus `:9090/alerts`): exporter / portal down, tenant host unreachable, PE-CE eBGP down, tenant degraded,
+  IS-IS adjacency missing, BFD session down, VPNv4 session down, FRR BGP peer down, tests failed, CPU / memory / disk. The
+  lab-state alerts are gated on `lab_vm_running` so a powered-off lab does not page.
+- Test suite `11_monitoring` verifies the whole chain, exporter → Prometheus → VictoriaMetrics → Grafana.
+
 ## Nautobot: the source of truth
 The lab is modelled in the shared Nautobot (the cat9000v NMS, on this lab's OOB network as **10.3.0.10**):
 `./lab.sh nautobot seed` (idempotent, from `lab.conf`), `./lab.sh nautobot render --check | --live | --write`.
@@ -243,7 +271,7 @@ rendered line is on the routers — suite 09 asserts both plus the model itself.
 invisible to REST reads (verify through GraphQL), VRF prefixes go through `vrf-prefix-assignments`, GraphQL returns
 choice fields upper-cased, and new custom fields need a Nautobot restart before GraphQL sees them.
 
-## Tests (`./lab.sh test`, 40 cases)
+## Tests (`./lab.sh test`, 49 cases)
 | Suite | Checks |
 |---|---|
 | 01 management | every node on the OOB network with SSH, host names, host LAN addresses, MTU 9000 on all core links, config saved |
@@ -255,6 +283,7 @@ choice fields upper-cased, and new custom fields need a Nautobot restart before 
 | 08 failover | BFD up on all 24 adjacencies; silent cut of p2–pe3 with a live 0.2 s ping: pe3 moves every tenant route to p3 within seconds, BFD reports Down, ≤ 10 packets lost across cut and repair (measured: 4); all BFD sessions and adjacencies back afterwards |
 | 09 nautobot | every device/link/address/VRF/RD/peering in Nautobot matches the inventory; Nautobot's rendering == lab.conf's; every rendered line present on the routers |
 | 10 throughput | iperf3 dc1 → dc3: TCP above the floor, UDP at 20 Mbit/s with no loss, steered (uSID and uncompressed) within half of the shortest path |
+| 11 monitoring | node-exporter + frr-exporter on every VyOS node (every PE BGP session Established per the exporter), node-exporter on every host, the portal's `/api/sd` lists every exporter and `/metrics` reports every tenant up / core fully adjacent; Prometheus scrapes all 31 lab targets, the alert rules are loaded and none fires, VictoriaMetrics holds the remote-written series, Grafana serves the provisioned dashboards |
 | 05 end to end | every host reaches every host of its tenant (2 × 4×3 pings) and **none of the other tenant's**, not even at the same site; dc1→dc3 traffic transits p2 with `tcpdump` showing `IP6 fd00:a::1 > fd00:c:3:…` both ways; P routers hold no VRF and no tenant routes |
 
 Every run lands in `results/<timestamp>/` — `report.html`, `log.html`, `output.xml`, and `configs/{pre-run,post-run}/` with
@@ -279,7 +308,7 @@ a terminal page; run it with the cat8000v-ipsec `webapp/.venv` python).
 | `tools/build_host_image.sh`, `tools/iperf.py` | the Alpine host base image (iperf3 etc.); throughput between hosts (`lab.sh iperf`) |
 | `tools/steer.py` | explicit-path SRv6 steering (`add / del / show / sid`; uSID carrier or `--uncompressed`) |
 | `tools/backup_configs.py` | `lab.sh backup`: running + intended configs and routing tables → the local Gitea (`lab/srv6-core-configs`); also the last step of every portal run |
-| `webapp/` | the tenant provisioning portal (FastAPI + single page; `restart.sh`, `srv6-webapp.service`) |
+| `webapp/` | the tenant provisioning portal (FastAPI + single page; `restart.sh`, `srv6-webapp.service`); `metrics.py` = `/metrics` and `/api/sd` for Prometheus |
 | `docs/demo/record.py` | records `docs/demo/srv6-demo.{gif,mp4}` from the live lab |
 | `docs/topology.pdf`, `docs/topology.py` | the topology as a two-page PDF (diagram, addressing, packet walk), drawn from `lab.sh inventory` — rerun the script after editing `lab.conf` |
 | `tools/gen_configs.py` | renders `nodes/<n>/vyos_config.txt` (the day-0 `set` lines) from `lab.sh inventory` — run after editing `lab.conf` |
@@ -319,4 +348,4 @@ a terminal page; run it with the cat8000v-ipsec `webapp/.venv` python).
 
 ## Next
 TI-LFA / a full P-router failure, steering policies with fallback modelled in Nautobot, Golden Config compliance for VyOS,
-measured throughput between the hosts.
+Alertmanager notifications, blackbox / synthetic probes, sFlow from the P routers, syslog (Loki / VictoriaLogs).

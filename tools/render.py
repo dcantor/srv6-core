@@ -23,7 +23,10 @@ class _Renderer:
                 f"set system host-name {n['name']}", "set system domain-name lab.local",
                 "set system login user vyos authentication plaintext-password vyos", "set service ssh port 22", "set service lldp interface all",
                 f"set interfaces ethernet eth0 address {n['mgmt_ip']}/24", "set interfaces ethernet eth0 description 'OOB management'",
-                f"set protocols static route 10.0.0.0/8 next-hop {self.inv['oob']['gateway']}"]
+                f"set protocols static route 10.0.0.0/8 next-hop {self.inv['oob']['gateway']}",
+                "# monitoring: Prometheus exporters on the OOB address (node-exporter :9100, frr-exporter :9342), scraped from the NMS",
+                f"set service monitoring prometheus node-exporter listen-address {n['mgmt_ip']}",
+                f"set service monitoring prometheus frr-exporter listen-address {n['mgmt_ip']}"]
 
 
     def core_ports(self, n):

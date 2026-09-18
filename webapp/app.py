@@ -17,6 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 import tenants as T
 from state import State
+import metrics as M
 
 LAB = Path(__file__).resolve().parents[1]; sys.path.insert(0, str(LAB / "tools")); from topology_svg import draw   # noqa: E402
 RUNS_DIR = Path(__file__).resolve().parent / "runs"; RUNS_DIR.mkdir(exist_ok=True); RESULTS = LAB / "results"
@@ -34,7 +35,7 @@ TAGS = [{"name": "state", "description": "Tenants, sites, hosts and live state (
 app = FastAPI(title="SRv6 Tenant Provisioning Portal API", version="1.0", openapi_tags=TAGS, docs_url="/docs", redoc_url="/redoc",
               description="REST API behind the SRv6 core lab's tenant portal. Every change goes **lab.conf → day-0 configs → VMs → SSH push → Nautobot seed → verification → Robot tests**; "
                           "runs are asynchronous (`POST /api/runs`, poll `GET /api/runs/{id}`). UI: [/](/)")
-registry = RunRegistry(RUNS_DIR); state = State()
+registry = RunRegistry(RUNS_DIR); state = State(); collector = M.Collector(state, interval=int(os.environ.get("METRICS_INTERVAL", "60")))
 
 
 class SiteSpec(BaseModel):
@@ -196,6 +197,18 @@ def tenant_removal(name: str):
     problems, plan = T.removal_plan(name)
     if problems: raise HTTPException(422, {"problems": problems})
     return plan
+
+
+@app.get("/metrics", tags=["state"], summary="Prometheus metrics (tenant health, host reachability, IS-IS / BFD counts, VPNv4 sessions, runs)", response_class=PlainTextResponse)
+def prometheus_metrics():
+    body = M.render(collector.snapshot(), registry.list())
+    body += "# HELP lab_collector_last_refresh_seconds When the background refresh last succeeded (0 = never)\n# TYPE lab_collector_last_refresh_seconds gauge\n"
+    body += M.line("lab_collector_last_refresh_seconds", {"lab": "srv6-core"}, int(collector.last or 0)) + "\n"
+    return PlainTextResponse(body, media_type="text/plain; version=0.0.4")
+
+
+@app.get("/api/sd", tags=["state"], summary="Prometheus HTTP service discovery: every exporter of the lab")
+def prometheus_sd(): return M.targets(state.get(live=False))
 
 
 @app.get("/api/iperf", tags=["state"], summary="Throughput between two tenant hosts (iperf3, blocks for ~10 s)")

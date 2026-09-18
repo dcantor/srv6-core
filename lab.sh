@@ -229,6 +229,8 @@ write_files:
 runcmd:
   - rc-update add sshd default
   - rc-service sshd restart
+  - rc-update add node-exporter default
+  - rc-service node-exporter restart
 U
   genisoimage -quiet -o "$d/seed.iso.tmp" -V cidata -J -r "$d/user-data" "$d/meta-data" "$d/network-config" && mv -f "$d/seed.iso.tmp" "$d/seed.iso"
 }

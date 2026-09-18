@@ -49,6 +49,16 @@ class State:
             c.disconnect()
         return out
 
+    def core_state(self, node):
+        """Live per core node: IS-IS adjacencies up, BFD sessions up."""
+        c = ConnectHandler(device_type="vyos", host=node["mgmt_ip"], **VYOS)
+        try:
+            isis = c.send_command("show isis neighbor", read_timeout=60); bfd = c.send_command("show bfd peers brief", read_timeout=60)
+        finally:
+            c.disconnect()
+        return {"isis_up": len([l for l in isis.splitlines() if re.search(r"\s2\s+Up\b", l)]), "bfd_up": len([l for l in bfd.splitlines() if re.search(r"^\d+\s+\S+\s+\S+\s+up\b", l)]),
+                "core_links": len([p for p in node["ports"] if p["peer"] and (p["peer"].startswith("pe") or p["peer"].startswith("p"))])}
+
     def host_reachable(self, host):
         c = paramiko.SSHClient(); c.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         try:
@@ -60,14 +70,17 @@ class State:
 
     def get(self, refresh=False, live=True):
         with self._lock:
-            if self._cache and not refresh and time.time() - self._cache["generated"] < self.ttl and (self._cache.get("live_done") or not live): return self._cache
+            if self._cache and not refresh and (not live or (time.time() - self._cache["generated"] < self.ttl and self._cache.get("live_done"))): return self._cache
             st = self.model(); tnames = [t["name"] for t in st["tenants"]]
+            if not live and self._cache and self._cache.get("live_done"): return self._cache   # a model-only request never discards live data (the model changes only through runs, which reset the cache)
             if live:
                 pes = [n for n in st["inv"]["nodes"] if n["role"] == "pe"]; hosts = [n for n in st["inv"]["nodes"] if n["role"] == "host"]
+                core = [n for n in st["inv"]["nodes"] if n["role"] in ("pe", "p")]
                 with concurrent.futures.ThreadPoolExecutor(max_workers=8) as ex:
                     pe_res = dict(zip([p["name"] for p in pes], ex.map(lambda p: self._safe(self.pe_state, p, tnames), pes)))
                     host_res = dict(zip([h["name"] for h in hosts], ex.map(self.host_reachable, hosts)))
-                st["pes_live"] = pe_res; st["hosts_live"] = host_res
+                    core_res = dict(zip([n["name"] for n in core], ex.map(lambda n: self._safe(self.core_state, n), core)))
+                st["pes_live"] = pe_res; st["hosts_live"] = host_res; st["core_live"] = core_res
                 for t in st["tenants"]:
                     for s in t["sites"]:
                         live_pe = pe_res.get(s["pe"]) or {}; tl = (live_pe.get("tenants") or {}).get(t["name"]) or {}
