@@ -360,6 +360,12 @@ underlay, the SIDs in the kernel, the BGP Prefix-SID attribute, a packet walk wi
 shift-and-forward seen hop by hop on a steered path, and how the lab is operated. Every output is captured from the
 live lab by `docs/walkthrough_capture.py`; `docs/build_walkthrough.py` renders the HTML / PDF.
 
+## Teaching / interview session
+[docs/session/](docs/session/README.md) — a 45–60 minute "whiteboard it, then prove it" session on this lab: facilitator
+guide with the three whiteboard drawings and timings, `tools/demo_live.py` (presenter mode: six acts of real commands, one
+Enter at a time, with the point to make after each output), a 40-question bank with model answers, hands-on exercises, and a
+14-slide deck. The five-minute version is acts 3 and 4.
+
 ## Demo
 `docs/demo/srv6-demo.mp4` / `.gif` (≈3.5 min): status, IS-IS + SRv6 nodes, the SIDs on a PE, VPNv4 at the reflector and
 the VRF routes, the 8×8 tenant ping matrix, explicit-path steering with the SRH seen on p1, the p1 reflector being shut
@@ -379,6 +385,7 @@ a terminal page; run it with the cat8000v-ipsec `webapp/.venv` python).
 | `tools/frr_logging.py` | FRR logs routing state changes to syslog (VyOS boot-hook flag + live vtysh; run by `configure`) |
 | `tools/backup_configs.py` | `lab.sh backup`: running + intended configs and routing tables → the local Gitea (`lab/srv6-core-configs`); also the last step of every portal run |
 | `webapp/` | the tenant provisioning portal (FastAPI + single page; `restart.sh`, `srv6-webapp.service`); `metrics.py` = `/metrics` and `/api/sd` for Prometheus |
+| `docs/session/`, `tools/demo_live.py` | the teaching / interview kit: guide, questions, exercises, slides; the presenter-mode demo |
 | `docs/demo/record.py` | records `docs/demo/srv6-demo.{gif,mp4}` from the live lab |
 | `docs/topology.pdf`, `docs/topology.py` | the topology as a two-page PDF (diagram, addressing, packet walk), drawn from `lab.sh inventory` — rerun the script after editing `lab.conf` |
 | `tools/gen_configs.py` | renders `nodes/<n>/vyos_config.txt` (the day-0 `set` lines) from `lab.sh inventory` — run after editing `lab.conf` |
