@@ -23,6 +23,13 @@ set system syslog remote 10.3.0.10 facility all level info
 set service monitoring telegraf global-tag lab value srv6-core
 set service monitoring telegraf global-tag role value pe
 set service monitoring telegraf global-tag dc value dc3
+# sFlow from the core-facing ports to the NMS collector (goflow2 -> VictoriaLogs): the outer IPv6 flows = SRv6 paths in use
+set system sflow agent-address 10.3.0.13
+set system sflow server 10.3.0.10 port 6343
+set system sflow sampling-rate 16
+set system sflow polling 20
+set system sflow interface eth1
+set system sflow interface eth2
 # underlay: IPv6-only core, IS-IS level-2 point-to-point, jumbo frames leave headroom for the SRv6 encapsulation
 set interfaces loopback lo address fd00:a::3/128
 set interfaces ethernet eth1 address fd00:b:0:203::2/64

@@ -5,7 +5,7 @@ locator, isis_net, asn, pe, rd {tenant: rd}, ports [{name, ip, peer, peer_port, 
 import ipaddress
 
 
-NMS_IP, VM_PORT, VL_SYSLOG_PORT = "10.3.0.10", 8428, 5514  # the NMS on the OOB network: VictoriaMetrics (InfluxDB API) and VictoriaLogs (syslog)
+NMS_IP, VM_PORT, VL_SYSLOG_PORT, SFLOW_PORT = "10.3.0.10", 8428, 5514, 6343  # the NMS on the OOB network: VictoriaMetrics (InfluxDB API) and VictoriaLogs (syslog)
 TELEGRAF_TOKEN = "srv6core-lab-telegraf".ljust(86, "_") + "=="   # VyOS insists on an InfluxDB-shaped token (86 chars + ==); VictoriaMetrics ignores it
 
 
@@ -39,7 +39,16 @@ class _Renderer:
                 f"set system syslog remote {NMS_IP} port {VL_SYSLOG_PORT}", f"set system syslog remote {NMS_IP} protocol udp",
                 f"set system syslog remote {NMS_IP} facility all level info",
                 f"set service monitoring telegraf global-tag lab value {self.inv['lab']}", f"set service monitoring telegraf global-tag role value {n['role']}",
-                f"set service monitoring telegraf global-tag dc value {n['dc']}"]
+                f"set service monitoring telegraf global-tag dc value {n['dc']}"] + self.sflow(n)
+
+    def sflow(self, n):
+        """sFlow (hsflowd) from the core-facing ports of PEs and Ps to the collector on the NMS (goflow2 -> VictoriaLogs):
+        the outer IPv6 flows show which uSIDs / paths carry the traffic. Lab traffic is small: sample 1 in 16 packets."""
+        core_ports = [p["name"] for p in n["ports"] if p["peer"] and self.NODES[p["peer"]]["role"] in ("pe", "p")]
+        if n["role"] not in ("pe", "p") or not core_ports: return []
+        return ["# sFlow from the core-facing ports to the NMS collector (goflow2 -> VictoriaLogs): the outer IPv6 flows = SRv6 paths in use",
+                f"set system sflow agent-address {n['mgmt_ip']}", f"set system sflow server {NMS_IP} port {SFLOW_PORT}",
+                "set system sflow sampling-rate 16", "set system sflow polling 20"] + [f"set system sflow interface {p}" for p in core_ports]
 
 
     def core_ports(self, n):

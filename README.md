@@ -253,10 +253,16 @@ Every device exports metrics on its OOB address and the NMS keeps them:
   shutdown: `Grafana Annotate` in suites 06 / 08) and steering changes, so a dip on a graph carries its cause. Getting
   FRR to log state changes at all needed `tools/frr_logging.py` (VyOS renders `log syslog notifications`; the changes are
   informational) and `log-neighbor-changes` in every VRF BGP instance — both are now part of `lab.sh configure`.
+- **Flows (sFlow)**: `system sflow` on every core-facing port of the PEs and Ps (hsflowd, 1 in 16 packets, agent = the OOB
+  address) → goflow2 on the NMS → VictoriaLogs. Each record is one sampled packet with the outer IPv6 header decoded —
+  including the SRH's addresses and segments-left — so the dashboard **SRv6 flows** shows the paths in use: source PE →
+  destination SID per sampler, which router forwards what, and steered packets (a uSID carrier has three or more uSIDs in
+  the destination). The flow view of the packet walk.
 - Test suite `11_monitoring` verifies the whole chain: exporters → Prometheus → VictoriaMetrics → Grafana, Telegraf push
   from every node (fresh within 2 minutes, tags right, no FRR daemon down), syslog from every node in VictoriaLogs, the log
-  rules healthy, and — live — a BGP session reset that must appear in syslog and raise `BgpNeighborDownLogged` within
-  two minutes.
+  rules healthy, — live — a BGP session reset that must appear in syslog and raise `BgpNeighborDownLogged` within
+  two minutes, and a ping burst whose encapsulated flow (pe1 loopback → pe3's uDT4 SID, IPv6-Route) must be sampled by
+  pe1 and by a P router.
 
 ## Interconnect (optional): the IPsec lab as branches of tenant-a
 The [cat8000v-ipsec](https://github.com/dcantor/cat8000v-ipsec) lab (three C8000v headends behind VyOS firewalls, five
@@ -327,7 +333,7 @@ rendered line is on the routers — suite 09 asserts both plus the model itself.
 invisible to REST reads (verify through GraphQL), VRF prefixes go through `vrf-prefix-assignments`, GraphQL returns
 choice fields upper-cased, and new custom fields need a Nautobot restart before GraphQL sees them.
 
-## Tests (`./lab.sh test`, 63 cases)
+## Tests (`./lab.sh test`, 64 cases)
 | Suite | Checks |
 |---|---|
 | 01 management | every node on the OOB network with SSH, host names, host LAN addresses, MTU 9000 on all core links, config saved |
@@ -339,7 +345,7 @@ choice fields upper-cased, and new custom fields need a Nautobot restart before 
 | 08 failover | BFD up on all 24 adjacencies; silent cut of p2–pe3 with a live 0.2 s ping: pe3 moves every tenant route to p3 within seconds, BFD reports Down, ≤ 10 packets lost across cut and repair (measured: 4); all BFD sessions and adjacencies back afterwards |
 | 09 nautobot | every device/link/address/VRF/RD/peering in Nautobot matches the inventory; Nautobot's rendering == lab.conf's; every rendered line present on the routers |
 | 10 throughput | iperf3 dc1 → dc3: TCP above the floor, UDP at 20 Mbit/s with no loss, steered (uSID and uncompressed) within half of the shortest path |
-| 11 monitoring | node-exporter + frr-exporter on every VyOS node (every PE BGP session Established per the exporter), node-exporter on every host, the portal's `/api/sd` lists every exporter and `/metrics` reports every tenant up / core fully adjacent; Prometheus scrapes all 31 lab targets, the alert rules are loaded and none fires, VictoriaMetrics holds the remote-written series **and the Telegraf series every node pushes** (tags, freshness, no FRR daemon down), every node's syslog is in VictoriaLogs, the log-derived alert rules are healthy and a live BGP reset raises one, Grafana serves the provisioned dashboards with the annotation layers |
+| 11 monitoring | node-exporter + frr-exporter on every VyOS node (every PE BGP session Established per the exporter), node-exporter on every host, the portal's `/api/sd` lists every exporter and `/metrics` reports every tenant up / core fully adjacent; Prometheus scrapes all 31 lab targets, the alert rules are loaded and none fires, VictoriaMetrics holds the remote-written series **and the Telegraf series every node pushes** (tags, freshness, no FRR daemon down), every node's syslog is in VictoriaLogs, the log-derived alert rules are healthy and a live BGP reset raises one, sFlow samples from every core node show the encapsulated flow of a ping burst, Grafana serves the provisioned dashboards with the annotation layers |
 | 12 interconnect | the IPsec headends as tenant-a CEs: PE↔headend eBGP with the right AS, headend + branch LANs on every PE with a SID from the attaching PE's locator and under its RD at the reflectors, absent from tenant-b, dc host ↔ branch pings both ways, the path dc → PE → core → headend → IPsec tunnel → branch, SRv6 encapsulation on p2 (skipped without `EXT_NODES`) |
 | 05 end to end | every host reaches every host of its tenant (2 × 4×3 pings) and **none of the other tenant's**, not even at the same site; dc1→dc3 traffic transits p2 with `tcpdump` showing `IP6 fd00:a::1 > fd00:c:3:…` both ways; P routers hold no VRF and no tenant routes |
 

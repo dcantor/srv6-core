@@ -97,7 +97,7 @@ Every VyOS node pushes Telegraf metrics into VictoriaMetrics, tagged with the la
     Should Be Equal As Numbers    ${fresh}[0][value]    ${{ len($VYOS) }}    msg=not every node pushed within the last 2 minutes
 
 Every VyOS node's syslog reaches VictoriaLogs
-    ${r}=    Http Get    ${VICTORIALOGS}/select/logsql/query    query=_time:15m | stats by (hostname) count() as n
+    ${r}=    Http Get    ${VICTORIALOGS}/select/logsql/query    query=_time:15m hostname:* | stats by (hostname) count() as n
     ${hosts}=    Evaluate    sorted(__import__("json").loads(l)["hostname"] for l in $r.splitlines() if l.strip())
     FOR    ${n}    IN    @{VYOS}
         Should Contain    ${hosts}    ${n}    msg=no syslog from ${n} in the last 15 minutes
@@ -126,12 +126,27 @@ A BGP session reset shows up in syslog and raises the log-derived alert within t
     Should Match Regexp    ${sum}    (?m)^${s}[ce_wan_ip]\\s+4\\s+\\d+\\s+.*\\s\\d+\\s+\\d+\\s+${s}[ce]    msg=${s}[pe]: session to ${s}[ce] did not come back
     Grafana Annotate    srv6-core: monitoring test — tenant-b session ${s}[pe]-${s}[ce] reset to prove syslog -> alert    monitoring    ${s}[pe]    start=${t0}
 
+sFlow from every PE and P reaches VictoriaLogs and shows the SRv6 paths in use
+    [Documentation]    hsflowd samples 1 in 16 packets on the core-facing ports; goflow2 decodes them into VictoriaLogs. A burst
+    ...                of pings dc1 -> dc3 must show up as outer IPv6 flows fd00:a::1 -> pe3's tenant-a uDT4 SID (proto IPv6-Route)
+    ...                sampled by pe1 and by a P router — the flow view of the packet walk.
+    ${src}=    Set Variable    ${SITES}[tenant-a][dc1]
+    ${dst}=    Set Variable    ${SITES}[tenant-a][dc3]
+    Host Command    ${MGMT}[${src}[host]]    ping -c 300 -i 0.02 -s 1000 ${dst}[host_ip] >/dev/null; true
+    Wait Until Keyword Succeeds    2 min    10 s    Flows Seen From Every Core Node
+    ${sid}=    Vyos Shell    ${MGMT}[${dst}[pe]]    ip -6 route show | grep 'End.DT4 vrftable tenant-a' | cut -d' ' -f1
+    ${r}=    Http Get    ${VICTORIALOGS}/select/logsql/query    query=_time:5m sampler_address:* proto:"IPv6-Route" src_addr:"${LOOPBACK}[${src}[pe]]" dst_addr:"${sid.strip()}" | stats by (sampler_address) count() as samples
+    ${samplers}=    Evaluate    sorted(__import__("json").loads(l)["sampler_address"] for l in str($r).splitlines() if l.strip())
+    Should Contain    ${samplers}    ${MGMT}[${src}[pe]]    msg=${src}[pe] did not sample the encapsulated flow to ${sid.strip()}
+    ${ps}=    Evaluate    [s for s in $samplers if s in [$MGMT[p] for p in $PS]]
+    Should Not Be Empty    ${ps}    msg=no P router sampled the flow ${LOOPBACK}[${src}[pe]] -> ${sid.strip()}: ${samplers}
+
 Grafana is healthy and serves the provisioned dashboards
     ${health}=    Http Get    ${GRAFANA}/api/health
     Should Be Equal    ${health}[database]    ok
     ${dash}=    Http Get    ${GRAFANA}/api/search    type=dash-db
     ${uids}=    Evaluate    [d["uid"] for d in $dash]
-    FOR    ${uid}    IN    srv6-core-overview    lab-node-detail    labs-fleet    vyos-telegraf
+    FOR    ${uid}    IN    srv6-core-overview    lab-node-detail    labs-fleet    vyos-telegraf    srv6-flows
         Should Contain    ${uids}    ${uid}    msg=dashboard ${uid} not provisioned
     END
     ${d}=    Http Get    ${GRAFANA}/api/dashboards/uid/srv6-core-overview
@@ -167,6 +182,13 @@ Portal Metrics Show Everything Up
     Length Should Be    ${hosts}    ${{ len($HOSTS) }}
     FOR    ${h}    IN    @{hosts}
         Should Be Equal As Numbers    ${h}[value]    1    msg=${h}[labels][host] unreachable
+    END
+
+Flows Seen From Every Core Node
+    ${r}=    Http Get    ${VICTORIALOGS}/select/logsql/query    query=_time:5m sampler_address:* | stats by (sampler_address) count() as samples
+    ${seen}=    Evaluate    sorted(__import__("json").loads(l)["sampler_address"] for l in str($r).splitlines() if l.strip())
+    FOR    ${n}    IN    @{CORE}
+        Should Contain    ${seen}    ${MGMT}[${n}]    msg=no sFlow samples from ${n} in the last 5 minutes
     END
 
 Syslog Has Adjchange
