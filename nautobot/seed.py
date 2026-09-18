@@ -139,6 +139,8 @@ for t in tenants:   # one /16 container per tenant and kind, derived from the te
     for kind, role, label in (("ac", "attachment-circuit", "PE-CE attachment circuits, {t} (/30 per site)"), ("lan", "site-lan", "{t} site LANs (/24 per DC)")):
         for sup in sorted({str(ipaddress.ip_network(l["prefix"]).supernet(new_prefix=16)) for l in inv["links"] if l.get("tenant") == t and (N[l["b"]]["role"] == "host") == (kind == "lan") and ipaddress.ip_network(l["prefix"]).version == 4}):
             ensure_prefix(sup, role, label.format(t=t), type="container", tenant=tenants[t].id)
+        for sup in sorted({str(ipaddress.ip_network(l["prefix6"]).supernet(new_prefix=32)) for l in inv["links"] if l.get("tenant") == t and l.get("prefix6") and (N[l["b"]]["role"] == "host") == (kind == "lan")}):
+            ensure_prefix(sup, role, label.format(t=t) + " — IPv6 twins (fd00:X:Y::/64 of 172.X.Y.0)", type="container", tenant=tenants[t].id)
 for n in inv["nodes"]:
     if n.get("locator"): ensure_prefix(n["locator"], "srv6-locator", f"SRv6 locator of {n['name']} ({'uN' if SR['format'].startswith('usid') else 'End'} SID {n['locator'].split('/')[0]}; uA / uDT4 functions allocated by FRR)", location=loc_of(n).id)
 # VRFs (before the tenant prefixes, which belong to them)
@@ -167,8 +169,12 @@ for l in inv["links"]:
         pf = ensure_prefix(l["prefix"], "attachment-circuit", f"{l['tenant']} attachment circuit {l['a']} {l['a_port']} <-> {l['b']} {l['b_port']}", location=loc_of(b_n).id, tenant=tenants[l["tenant"]].id)
     if l.get("tenant"): vrf_prefix_ids[l["tenant"]].append(pf.id)
     link_prefix[(l["a"], l["a_port"])] = link_prefix[(l["b"], l["b_port"])] = (pf, l)
+    if l.get("tenant") and l.get("prefix6"):   # the IPv6 twin of a tenant link
+        role6 = "site-lan" if b_n["role"] == "host" else "attachment-circuit"
+        pf6 = ensure_prefix(l["prefix6"], role6, f"{l['tenant']} {'LAN' if role6 == 'site-lan' else 'attachment circuit'} (IPv6) {l['a']} {l['a_port']} <-> {l['b']} {l['b_port']}", location=loc_of(a_n if role6 == "site-lan" else b_n).id, tenant=tenants[l["tenant"]].id)
+        vrf_prefix_ids[l["tenant"]].append(pf6.id)
 for t in tenants:
-    want = [l["prefix"] for l in inv["links"] if l.get("tenant") == t]
+    want = [p for l in inv["links"] if l.get("tenant") == t for p in ([l["prefix"]] + ([l["prefix6"]] if l.get("prefix6") else []))]
     for pf_id, pfx in zip(vrf_prefix_ids[t], want):
         if pfx not in vrf_prefixes[t]: nb.ipam.vrf_prefix_assignments.create(vrf=vrfs[t].id, prefix=pf_id); created.append(f"vrf {t} += {pfx}")
     for pfx in vrf_prefixes[t] - set(want):   # a renumbered circuit leaves its old prefix in the VRF: drop the assignment (the prefix itself may belong to another lab)
@@ -182,8 +188,10 @@ def ensure_ip(address, description, iface=None, tenant=None):
     if ip is None: ip = nb.ipam.ip_addresses.create(address=address, namespace=ns.id, status=active.id, description=description, **({"tenant": tenant.id} if tenant else {})); created.append(f"ip:{address}")
     else: ensure(ip, description=description, **({"tenant": tenant.id} if tenant else {}))
     if iface is not None:
-        for x in nb.ipam.ip_address_to_interface.filter(interface=iface.id):   # one address per lab interface: a renumbered link drops the old one
-            if str(getattr(x.ip_address, "id", x.ip_address)) != ip.id: x.delete(); created.append(f"unassign old address from {iface.device.name} {iface.name}")
+        fam = ipaddress.ip_interface(address).version
+        for x in nb.ipam.ip_address_to_interface.filter(interface=iface.id):   # one address per family per lab interface: a renumbered link drops the old one
+            if str(getattr(x.ip_address, "id", x.ip_address)) != ip.id and ipaddress.ip_interface(str(nb.ipam.ip_addresses.get(id=getattr(x.ip_address, "id", x.ip_address)).address)).version == fam:
+                x.delete(); created.append(f"unassign old address from {iface.device.name} {iface.name}")
         if not nb.ipam.ip_address_to_interface.get(ip_address=ip.id, interface=iface.id):
             nb.ipam.ip_address_to_interface.create(ip_address=ip.id, interface=iface.id); created.append(f"assign {address} -> {iface.device.name} {iface.name}")
     return ip
@@ -230,7 +238,9 @@ for n in inv["nodes"]:
             if role == "host": desc = f"{port['tenant']} LAN, gateway {port['peer']} {port['peer_port']}"
         else: desc = "unwired"
         i = ensure_if(port["name"], "1000base-t", desc, mac=f"{MAC_OUI}:{idx:02x}:{pnum:02x}")
-        if port["ip"]: ensure_ip(port["ip"], f"{n['name']} {port['name']}" + (f" ({port['tenant']})" if port.get("tenant") else ""), i, tenants.get(port.get("tenant")))
+        if port["ip"]:
+            ensure_ip(port["ip"], f"{n['name']} {port['name']}" + (f" ({port['tenant']})" if port.get("tenant") else ""), i, tenants.get(port.get("tenant")))
+            if port.get("ip6"): ensure_ip(port["ip6"], f"{n['name']} {port['name']} ({port['tenant']}, IPv6)", i, tenants.get(port.get("tenant")))
         else:   # unwired (e.g. after a tenant was removed): no cable, no address
             cur = requests.get(f"{a.url}/api/dcim/interfaces/{i.id}/", params={"depth": 1}, headers=H, timeout=30).json()
             if cur.get("cable"): requests.delete(f"{a.url}/api/dcim/cables/{cur['cable']['id']}/", headers=H, timeout=30); created.append(f"cable removed from unwired {n['name']} {port['name']}")
@@ -296,8 +306,12 @@ for n in inv["nodes"]:
     else: ensure(inst, autonomous_system=asn[n["asn"]].id, router_id=rid.id, description=desc)
     ri[n["name"]] = inst
     afs = []
-    if n["role"] in ("pe", "p"): afs.append(("vpnv4_unicast", None, {}))
-    if n["role"] in ("pe", "ce"): afs += [("ipv4_unicast", t, {"sid_vpn_export": "auto", "rd": n["rd"][t], "route_target": SVC["tenants"][t]["rt"], "redistribute": ["connected"]} if n["role"] == "pe" else {"network": next(pt["prefix"] for pt in n["ports"] if pt["peer"] and pt["tenant"] == t and N[pt["peer"]]["role"] == "host")}) for t in tenants]
+    if n["role"] in ("pe", "p"): afs += [("vpnv4_unicast", None, {}), ("vpnv6_unicast", None, {})]
+    if n["role"] in ("pe", "ce"):
+        for t in tenants:
+            lan = next(pt for pt in n["ports"] if pt["peer"] and pt["tenant"] == t and N[pt["peer"]]["role"] == "host") if n["role"] == "ce" else None
+            for afi, key in (("ipv4_unicast", "prefix"), ("ipv6_unicast", "prefix6")):
+                afs.append((afi, t, {"sid_vpn_per_vrf_export": "auto", "rd": n["rd"][t], "route_target": SVC["tenants"][t]["rt"], "redistribute": ["connected"]} if n["role"] == "pe" else {"network": lan[key]}))
     for afi, t, extra in afs:
         af = bgp.address_families.get(routing_instance=inst.id, afi_safi=afi, **({"vrf": vrfs[t].id} if t else {"vrf__isnull": True}))
         if af is None: bgp.address_families.create(routing_instance=inst.id, afi_safi=afi, extra_attributes=extra, **({"vrf": vrfs[t].id} if t else {})); created.append(f"bgp-af:{n['name']} {afi}{' ' + t if t else ''}")
@@ -319,14 +333,26 @@ def ensure_peering(a_name, a_ip, a_role, a_desc, b_name, b_ip, b_role, b_desc, a
         if bgp.peer_endpoint_address_families.get(peer_endpoint=ep.id, afi_safi=afi) is None:
             bgp.peer_endpoint_address_families.create(peer_endpoint=ep.id, afi_safi=afi, extra_attributes={"capability_extended_nexthop": True} if afi == "vpnv4_unicast" else {}); created.append(f"bgp-endpoint-af:{who} {label}")
 
+def ensure_peering_af(a_name, a_desc, afi):
+    ep_a = next((e for e in bgp.peer_endpoints.filter(routing_instance=ri[a_name].id) if e.description == a_desc), None)
+    if ep_a is None: return
+    for ep in (ep_a, bgp.peer_endpoints.get(id=ep_a.peer.id)):
+        if bgp.peer_endpoint_address_families.get(peer_endpoint=ep.id, afi_safi=afi) is None:
+            bgp.peer_endpoint_address_families.create(peer_endpoint=ep.id, afi_safi=afi, extra_attributes={"capability_extended_nexthop": True}); created.append(f"bgp-endpoint-af:{a_name} {afi}")
+
+
 for pe in [n for n in inv["nodes"] if n["role"] == "pe"]:
     for r in SVC["rrs"]:
         ensure_peering(pe["name"], f"{pe['loopback6']}/128", "rr-client", f"VPNv4 to {r} (route reflector)", r, f"{N[r]['loopback6']}/128", "rr", f"VPNv4 client {pe['name']}", "vpnv4_unicast", f"{pe['name']}<->{r} vpnv4")
+        ensure_peering_af(pe["name"], f"VPNv4 to {r} (route reflector)", "vpnv6_unicast")   # the same session carries VPNv6
     for pt in pe["ports"]:
         if pt["peer"] and N[pt["peer"]]["role"] in ("ce", "ext-ce"):
             ce = N[pt["peer"]]; t = pt["tenant"]; ce_ip = next(x["ip"] for x in ce["ports"] if x["peer"] == pe["name"] and x["tenant"] == t)
             ext = " - SRv6 core attachment" if ce["role"] == "ext-ce" else ""
             ensure_peering(pe["name"], pt["ip"], "pe", f"eBGP {ce['name']} ({t})", ce["name"], ce_ip, "ce", f"eBGP {pe['name']} ({t}){ext}", "ipv4_unicast", f"{pe['name']}<->{ce['name']} {t}")
+            ce_ip6 = next((x.get("ip6") for x in ce["ports"] if x["peer"] == pe["name"] and x["tenant"] == t), None)
+            if pt.get("ip6") and ce_ip6:
+                ensure_peering(pe["name"], pt["ip6"], "pe", f"eBGP {ce['name']} ({t}, IPv6)", ce["name"], ce_ip6, "ce", f"eBGP {pe['name']} ({t}, IPv6)", "ipv6_unicast", f"{pe['name']}<->{ce['name']} {t} v6")
 
 # stale peerings / prefixes: a detached external CE (no longer in lab.conf) leaves its eBGP peering on the PE, its attachment
 # prefix and its address on the other lab's port — remove what this seed created, hand the port back as unwired
@@ -336,7 +362,7 @@ for pe in [n for n in inv["nodes"] if n["role"] == "pe"]:
         far = ep.peer and bgp.peer_endpoints.get(id=ep.peer.id); far_dev = far and far.routing_instance and nb.plugins.bgp.routing_instances.get(id=far.routing_instance.id).device.name
         if far_dev and far_dev not in N and (pe["name"], far_dev) not in wanted_peers:
             bgp.peerings.get(id=ep.peering.id).delete(); created.append(f"removed stale peering {pe['name']}<->{far_dev}")
-lab_links = {l["prefix"] for l in inv["links"]}
+lab_links = {l["prefix"] for l in inv["links"]} | {l["prefix6"] for l in inv["links"] if l.get("prefix6")}
 for pf in [x for t in tenants for x in nb.ipam.prefixes.filter(tenant=tenants[t].id, role="attachment-circuit")]:
     if str(pf.prefix) not in lab_links and str(getattr(pf.type, "value", pf.type)) != "container":
         for ip in nb.ipam.ip_addresses.filter(parent=pf.id):

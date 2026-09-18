@@ -59,8 +59,8 @@ Tenants are VRFs with their route targets, prefixes, and a route distinguisher p
         Should Be Equal    ${v}[import_targets][0][name]    ${VRF_RT}[${t}]
         Should Be Equal    ${v}[export_targets][0][name]    ${VRF_RT}[${t}]
         ${pfx}=    Evaluate    sorted([p["prefix"] for p in $v["prefixes"]])
-        ${want}=    Evaluate    sorted([l["prefix"] for l in $LINKS if l["tenant"] == $t])
-        Lists Should Be Equal    ${pfx}    ${want}    msg=${t}: VRF prefixes differ from the tenant links
+        ${want}=    Evaluate    sorted([l["prefix"] for l in $LINKS if l["tenant"] == $t] + [l["prefix6"] for l in $LINKS if l["tenant"] == $t and l.get("prefix6")])
+        Lists Should Be Equal    ${pfx}    ${want}    msg=${t}: VRF prefixes differ from the tenant links (IPv4 and their IPv6 twins)
         FOR    ${dc}    IN    @{SITES}[${t}]
             ${s}=    Set Variable    ${SITES}[${t}][${dc}]
             ${va}=    Nautobot Get    ipam/vrf-device-assignments/    vrf=${t}    device=${s}[pe]
@@ -68,19 +68,20 @@ Tenants are VRFs with their route targets, prefixes, and a route distinguisher p
         END
     END
 
-BGP is modelled: every PE peers with every reflector in VPNv4 and with its CE in each tenant VRF
+BGP is modelled: every PE peers with every reflector in VPNv4 + VPNv6 and with its CE per family in each tenant VRF
     FOR    ${pe}    IN    @{PES}
         ${d}=    Nautobot Graphql    { devices(name:["${pe}"]) { bgp_routing_instances { address_families { afi_safi vrf { name } extra_attributes } endpoints { description role { name } source_ip { address } peer { routing_instance { device { name } } source_ip { address } } address_families { afi_safi } } } } }
         ${ri}=    Set Variable    ${d}[devices][0][bgp_routing_instances][0]
         ${afs}=    Evaluate    sorted([(af["afi_safi"].lower(), af["vrf"]["name"] if af["vrf"] else "") for af in $ri["address_families"]])
-        ${want}=    Evaluate    sorted([("vpnv4_unicast", "")] + [("ipv4_unicast", t) for t in $TENANTS])
+        ${want}=    Evaluate    sorted([("vpnv4_unicast", ""), ("vpnv6_unicast", "")] + [(af, t) for t in $TENANTS for af in ("ipv4_unicast", "ipv6_unicast")])
         Lists Should Be Equal    ${afs}    ${want}
         FOR    ${rr}    IN    @{RRS}
             ${ep}=    Evaluate    [e for e in $ri["endpoints"] if e["peer"]["routing_instance"]["device"]["name"] == $rr][0]
             Should Be Equal    ${ep}[role][name]    rr-client
             Should Be Equal    ${ep}[source_ip][address]    ${LOOPBACK}[${pe}]/128
             Should Be Equal    ${ep}[peer][source_ip][address]    ${LOOPBACK}[${rr}]/128
-            Should Be Equal    ${{ $ep["address_families"][0]["afi_safi"].lower() }}    vpnv4_unicast
+            ${eafs}=    Evaluate    sorted(a["afi_safi"].lower() for a in $ep["address_families"])
+            Lists Should Be Equal    ${eafs}    ${{ ["vpnv4_unicast", "vpnv6_unicast"] }}    msg=${pe} -> ${rr}: the session must carry VPNv4 and VPNv6
         END
         FOR    ${t}    IN    @{TENANTS}
             ${s}=    Evaluate    [s for s in $SITES[$t].values() if s["pe"] == $pe][0]
@@ -88,6 +89,10 @@ BGP is modelled: every PE peers with every reflector in VPNv4 and with its CE in
             Should Be Equal    ${ep}[source_ip][address]    ${s}[pe_wan_ip]/30
             Should Be Equal    ${ep}[peer][source_ip][address]    ${s}[ce_wan_ip]/30
             Should Be Equal    ${ep}[peer][routing_instance][device][name]    ${s}[ce]
+            ${ep6}=    Evaluate    [e for e in $ri["endpoints"] if e["description"] == "eBGP %s (%s, IPv6)" % ($s["ce"], $t)][0]
+            Should Be Equal    ${ep6}[source_ip][address]    ${s}[pe_wan_ip6]/64
+            Should Be Equal    ${ep6}[peer][source_ip][address]    ${s}[ce_wan_ip6]/64
+            Should Be Equal    ${{ $ep6["address_families"][0]["afi_safi"].lower() }}    ipv6_unicast
         END
     END
 

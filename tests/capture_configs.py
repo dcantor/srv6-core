@@ -20,15 +20,15 @@ def route_commands(name):
     role = NODES[name]["role"]
     cmds = [("show ip route", "IPv4 RIB, default VRF"), ("show ipv6 route", "IPv6 RIB, default VRF")]
     if role in ("pe", "ce"):
-        cmds += [(f"show ip route vrf {t}", f"IPv4 RIB, VRF {t}") for t in TENANTS]
+        cmds += [(f"show ip route vrf {t}", f"IPv4 RIB, VRF {t}") for t in TENANTS] + [(f"show ipv6 route vrf {t}", f"IPv6 RIB, VRF {t}") for t in TENANTS]
     if role in ("pe", "p"):
         cmds += [("show isis route", "IS-IS SPF result"), ("show isis segment-routing srv6 node", "IS-IS SRv6 nodes"), ("show segment-routing srv6 locator", "SRv6 locators")]
     if role == "pe":
-        cmds += [("show bgp ipv4 vpn", "BGP VPNv4 table"), ("show bgp segment-routing srv6", "BGP SRv6 SIDs"),
+        cmds += [("show bgp ipv4 vpn", "BGP VPNv4 table"), ("show bgp ipv6 vpn", "BGP VPNv6 table"), ("show bgp segment-routing srv6", "BGP SRv6 SIDs"),
                  ("sudo ip -c=never -6 route show | grep seg6local", "kernel: local SIDs (seg6local)")]
-        cmds += [(f"sudo ip -c=never route show vrf {t}", f"kernel: VRF {t} (SRv6 encapsulation routes)") for t in TENANTS]
+        cmds += [(f"sudo ip -c=never route show vrf {t}", f"kernel: VRF {t} (SRv6 encapsulation routes)") for t in TENANTS] + [(f"sudo ip -c=never -6 route show vrf {t}", f"kernel: VRF {t} IPv6 (SRv6 encapsulation routes, locator leaks)") for t in TENANTS]
     if name in RRS:
-        cmds += [("show bgp ipv4 vpn summary", "VPNv4 clients"), ("show bgp ipv4 vpn", "BGP VPNv4 table (reflected)")]
+        cmds += [("show bgp ipv4 vpn summary", "VPNv4 clients"), ("show bgp ipv6 vpn summary", "VPNv6 clients"), ("show bgp ipv4 vpn", "BGP VPNv4 table (reflected)"), ("show bgp ipv6 vpn", "BGP VPNv6 table (reflected)")]
     if role in ("pe", "p"):
         cmds += [("show bfd peers brief", "BFD sessions"), ("show isis neighbor", "IS-IS adjacencies")]
     return cmds

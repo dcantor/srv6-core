@@ -43,7 +43,7 @@ BGP VPNv4 over SRv6 (End.DT4) reflected by p1; a VyOS CE per data centre with on
 <p class="foot">Links: core <code>fd00:b:0:&lt;ab&gt;::/64</code> (first end ::1), PE–CE <code>172.16.n.0/30</code> (PE .1), CE–host <code>172.20.n.0/24</code> (CE .1 = gateway).
 OOB network <code>{inv["oob"]["network"]}</code> 10.3.0.0/24 (host {inv["oob"]["gateway"]}), consoles 127.0.0.1:5301–5319.
 {" · ".join(f'VRF <code>{t}</code>: table {v["table"]}, RT {v["rt"]}, RD {S["core_as"]}:{v["table"]}+pe#' for t, v in sorted(S["tenants"].items()))}.
-Tenant-b uses PE–CE <code>172.18.n.0/30</code> and LANs <code>172.21.n.0/24</code>.</p>
+Tenant-b uses PE–CE <code>172.18.n.0/30</code> and LANs <code>172.21.n.0/24</code>. Every tenant link is dual-stack: its IPv6 twin is <code>fd00:X:Y::/64</code> of <code>172.X.Y.0</code> (<code>fd00:16:1::/64</code>, <code>fd00:20:1::/64</code> …), one End.DT46 per VRF serves both families.</p>
 </div>
 <div>
 <h2>Packet walk: dc1-h1 → dc3-h1 (tenant-a, dc1 → dc3)</h2>
@@ -62,7 +62,7 @@ Outer IPv6 <code>{pe1["loopback6"]} → fd00:c:3:0:X::</code> + SRH.</li>
 <table><tr><th>SID</th><th>Behaviour</th><th>Installed by</th></tr>
 <tr><td><code>fd00:c:1::/48</code></td><td>uN (End, NEXT-C-SID flavour: shift 16 bits, forward)</td><td>IS-IS</td></tr>
 <tr><td><code>fd00:c:1:e000::</code>, <code>fd00:c:1:e001::</code></td><td>uA — End.X per core adjacency</td><td>IS-IS</td></tr>
-<tr><td><code>fd00:c:1:e002::</code>, <code>fd00:c:1:e003::</code></td><td>uDT4 — End.DT4 → VRF tenant-a / tenant-b (one per tenant)</td><td>BGP (<code>sid vpn export auto</code> in each VRF)</td></tr></table>
+<tr><td><code>fd00:c:1:e002::</code>, <code>fd00:c:1:e003::</code></td><td>uDT46 — End.DT46 → VRF tenant-a / tenant-b (one per tenant, IPv4 and IPv6)</td><td>BGP (<code>sid vpn export auto</code> in each VRF)</td></tr></table>
 <p class="foot">uSID (usid-f3216): block 32 · node 16 · function 16 bits, /48 locators from fd00:c::/32; a steered path p1 → p3 → pe3 is the single segment <code>fd00:c:11:13:3:e001::</code>. Function values are allocated by FRR at run time.</p>
 </div></div>
 <p class="foot">Generated from <code>lab.conf</code> by <code>docs/topology.py</code> · https://github.com/dcantor/srv6-core</p>

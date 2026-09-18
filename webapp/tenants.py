@@ -75,6 +75,7 @@ def tenant_sites(f, tenant):
         if l.get("tenant") == tenant and f["N"][l["b"]]["role"] == "host":
             ce = l["a"]; dc = f["N"][ce]["dc"]; ac = next(x for x in f["inv"]["links"] if x.get("tenant") == tenant and x["b"] == ce)
             out.append({"dc": dc, "pe": ac["a"], "ce": ce, "host": l["b"], "lan": l["prefix"], "host_ip": l["b_ip"].split("/")[0], "attachment_circuit": ac["prefix"],
+                        "lan6": l.get("prefix6"), "host_ip6": (l.get("b_ip6") or "/").split("/")[0] or None, "attachment_circuit6": ac.get("prefix6"), "ce_wan_ip6": (ac.get("b_ip6") or "/").split("/")[0] or None,
                         "pe_port": ac["a_port"], "ce_pe_port": ac["b_port"], "ce_lan_port": l["a_port"], "host_mgmt": f["N"][l["b"]]["mgmt_ip"], "rd": f["N"][ac["a"]]["rd"].get(tenant)})
     # external sites: another lab's router attached to the tenant (an IPsec headend); no host of ours behind it
     for l in f["inv"]["links"]:

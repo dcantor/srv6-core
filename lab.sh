@@ -58,6 +58,15 @@ link_ip() {     # node port -> "address/len" on that link (first host address fo
   python3 -c "import ipaddress; n=ipaddress.ip_network('$pfx'); print(f'{n.network_address + int(\"$end\")}/{n.prefixlen}')"
 }
 link_addr() { link_ip "$1" "$2" | cut -d/ -f1; }
+prefix6_of() {  # IPv4 tenant prefix -> its IPv6 twin (172.X.Y.0/n -> V6_MAP:X:Y::/64); empty for IPv6 / non-tenant prefixes
+  [[ "$1" == *:* ]] && return; local o; IFS=. read -r _ o2 o3 _ <<<"${1%/*}"; echo "$V6_MAP:$o2:$o3::/64"
+}
+link_ip6() {    # node port -> "address/64" on the IPv6 twin of a tenant link (::1 first end, ::2 second), or empty
+  local peer; peer="$(link_peer "$1" "$2")"; [[ -z "$peer" ]] && return
+  read -r _ _ pfx end t <<<"$peer"; [[ "$t" == "-" ]] && return; local p6; p6="$(prefix6_of "$pfx")"; [[ -z "$p6" ]] && return
+  echo "${p6%::/64}::$end/64"
+}
+link_addr6() { link_ip6 "$1" "$2" | cut -d/ -f1; }
 
 # ---- XML generation -------------------------------------------------------
 serial_xml() {
@@ -182,7 +191,7 @@ build_host() {
   [[ -f "$HOST_IMAGE" ]] || die "host base image not found: $HOST_IMAGE (build it with tools/build_host_image.sh)"
   peer="$(link_peer "$n" 1)"; [[ -n "$peer" ]] || die "$n eth1 is not wired in LINKS"
   read -r pn pp pfx end _ <<<"$peer"
-  cidr="$(link_ip "$n" 1)"; gw="$(link_addr "$pn" "$pp")"
+  cidr="$(link_ip "$n" 1)"; gw="$(link_addr "$pn" "$pp")"; local cidr6 gw6; cidr6="$(link_ip6 "$n" 1)"; gw6="$(link_addr6 "$pn" "$pp")"
   mkdir -p "$d"
   if [[ ! -f "$d/disk.qcow2" ]]; then
     echo "[$n] creating overlay disk on $(basename "$HOST_IMAGE")"
@@ -196,7 +205,7 @@ build_host() {
 host_seed() {   # cloud-init NoCloud seed for an Alpine host: static addresses (network-config v2 by MAC), lab / lab, sshd
   local n="$1" d peer pn pp pfx end cidr gw; d="$(node_dir "$n")"
   peer="$(link_peer "$n" 1)"; read -r pn pp pfx end _ <<<"$peer"
-  cidr="$(link_ip "$n" 1)"; gw="$(link_addr "$pn" "$pp")"
+  cidr="$(link_ip "$n" 1)"; gw="$(link_addr "$pn" "$pp")"; local cidr6 gw6; cidr6="$(link_ip6 "$n" 1)"; gw6="$(link_addr6 "$pn" "$pp")"
   echo "[$n] building cloud-init (NoCloud) seed ISO"
   printf 'instance-id: %s-001\nlocal-hostname: %s\n' "$n" "$n" > "$d/meta-data"
   cat > "$d/network-config" <<U
@@ -210,12 +219,12 @@ ethernets:
   lan:
     match: { macaddress: "$(mac "$n" 1)" }
     set-name: eth1
-    addresses: [$cidr]
-    routes: [{ to: 0.0.0.0/0, via: $gw }]
+    addresses: [$cidr, $cidr6]
+    routes: [{ to: 0.0.0.0/0, via: $gw }, { to: "::/0", via: "$gw6" }]
 U
   cat > "$d/user-data" <<U
 #cloud-config
-# $n: eth0 = OOB management (${MGMT_IP[$n]}), eth1 = $pn $(port_name "$pn" "$pp") (${DC[$n]} LAN $pfx, gateway $gw)
+# $n: eth0 = OOB management (${MGMT_IP[$n]}), eth1 = $pn $(port_name "$pn" "$pp") (${DC[$n]} LAN $pfx + $(prefix6_of "$pfx"), gateways $gw / $gw6)
 hostname: $n
 users:
   - name: lab
@@ -354,7 +363,7 @@ cmd_status() {
   done
   echo; echo "links (point-to-point UDP tunnels):"
   local l a b pfx t; for l in "${LINKS[@]}"; do read -r a b pfx t <<<"$l"
-    echo "  ${a%%:*} $(port_name "${a%%:*}" "${a##*:}") $(link_addr "${a%%:*}" "${a##*:}")  <->  ${b%%:*} $(port_name "${b%%:*}" "${b##*:}") $(link_addr "${b%%:*}" "${b##*:}")   ($pfx${t:+, $t})"; done
+    echo "  ${a%%:*} $(port_name "${a%%:*}" "${a##*:}") $(link_addr "${a%%:*}" "${a##*:}")  <->  ${b%%:*} $(port_name "${b%%:*}" "${b##*:}") $(link_addr "${b%%:*}" "${b##*:}")   ($pfx${t:+ + $(prefix6_of "$pfx"), $t})"; done
   echo; for t in "${TENANTS[@]}"; do echo "VRF $t (table ${VRF_TABLE[$t]}, RT ${VRF_RT[$t]}): CE eBGP -> PE, VPNv4 over SRv6 End.DT4, route reflectors ${RRS[*]}"; done
 }
 
@@ -379,7 +388,8 @@ cmd_inventory() {  # the lab as JSON (nodes, links, service) — consumed by tes
       local p pf=1 peer
       for p in $(node_ports "$n"); do
         [[ $pf -eq 1 ]] || printf ','; pf=0; peer="$(link_peer "$n" "$p")"
-        if [[ -n "$peer" ]]; then read -r pn pp pfx end t <<<"$peer"; printf '{"name": "%s", "ip": "%s", "peer": "%s", "peer_port": "%s", "prefix": "%s", "tenant": %s}' "$(port_name "$n" "$p")" "$(link_ip "$n" "$p")" "$pn" "$(port_name "$pn" "$pp")" "$pfx" "$( [[ "$t" == "-" ]] && echo null || echo "\"$t\"" )"
+        if [[ -n "$peer" ]]; then read -r pn pp pfx end t <<<"$peer"; local i6 p6; i6="$(link_ip6 "$n" "$p")"; p6="$(prefix6_of "$pfx")"
+          printf '{"name": "%s", "ip": "%s", "peer": "%s", "peer_port": "%s", "prefix": "%s", "tenant": %s, "ip6": %s, "prefix6": %s}' "$(port_name "$n" "$p")" "$(link_ip "$n" "$p")" "$pn" "$(port_name "$pn" "$pp")" "$pfx" "$( [[ "$t" == "-" ]] && echo null || echo "\"$t\"" )" "$( [[ -n "$i6" ]] && echo "\"$i6\"" || echo null )" "$( [[ -n "$p6" && "$t" != "-" ]] && echo "\"$p6\"" || echo null )"
         else printf '{"name": "%s", "ip": null, "peer": null}' "$(port_name "$n" "$p")"; fi
       done
       printf ']}'
@@ -388,8 +398,10 @@ cmd_inventory() {  # the lab as JSON (nodes, links, service) — consumed by tes
     echo ' "links": ['
     first=1
     for l in "${LINKS[@]}"; do read -r a b pfx t <<<"$l"; [[ $first -eq 1 ]] || echo ','; first=0
-      printf '  {"a": "%s", "a_port": "%s", "a_ip": "%s", "b": "%s", "b_port": "%s", "b_ip": "%s", "prefix": "%s", "tenant": %s}' \
-        "${a%%:*}" "$(port_name "${a%%:*}" "${a##*:}")" "$(link_ip "${a%%:*}" "${a##*:}")" "${b%%:*}" "$(port_name "${b%%:*}" "${b##*:}")" "$(link_ip "${b%%:*}" "${b##*:}")" "$pfx" "$( [[ -z "$t" ]] && echo null || echo "\"$t\"" )"
+      local a6 b6 p6; a6="$(link_ip6 "${a%%:*}" "${a##*:}")"; b6="$(link_ip6 "${b%%:*}" "${b##*:}")"; p6="$(prefix6_of "$pfx")"
+      printf '  {"a": "%s", "a_port": "%s", "a_ip": "%s", "b": "%s", "b_port": "%s", "b_ip": "%s", "prefix": "%s", "tenant": %s, "a_ip6": %s, "b_ip6": %s, "prefix6": %s}' \
+        "${a%%:*}" "$(port_name "${a%%:*}" "${a##*:}")" "$(link_ip "${a%%:*}" "${a##*:}")" "${b%%:*}" "$(port_name "${b%%:*}" "${b##*:}")" "$(link_ip "${b%%:*}" "${b##*:}")" "$pfx" "$( [[ -z "$t" ]] && echo null || echo "\"$t\"" )" \
+        "$( [[ -n "$a6" ]] && echo "\"$a6\"" || echo null )" "$( [[ -n "$b6" ]] && echo "\"$b6\"" || echo null )" "$( [[ -n "$t" && -n "$p6" ]] && echo "\"$p6\"" || echo null )"
     done
     echo; echo ' ]}'
   } | python3 -m json.tool

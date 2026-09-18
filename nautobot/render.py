@@ -45,13 +45,15 @@ def inventory_from_nautobot():
         ri = (x["bgp_routing_instances"] or [None])[0]
         ports, lo6, locator_addr = [], None, None
         for i in sorted(x["interfaces"], key=lambda i: (i["name"][:3], int(i["name"][3:]) if i["name"][3:].isdigit() else 0)):
-            addr = i["ip_addresses"][0]["address"] if i["ip_addresses"] else None
+            addrs = i["ip_addresses"]; v4 = [a for a in addrs if ":" not in a["address"]]; v6 = [a for a in addrs if ":" in a["address"]]
+            addr = (v4 or v6 or [{"address": None}])[0]["address"]   # core links are IPv6-only; tenant links are dual-stack (IPv4 first, its twin second)
             if i["name"] == "lo": lo6 = addr.split("/")[0] if addr else None; continue
             if i["name"] == "dum0": locator_addr = addr; continue
             if i["mgmt_only"]: continue
-            far = i["connected_interface"]; parent = i["ip_addresses"][0]["parent"]["prefix"] if i["ip_addresses"] and i["ip_addresses"][0]["parent"] else None
+            far = i["connected_interface"]; first = (v4 or v6 or [None])[0]; parent = first["parent"]["prefix"] if first and first.get("parent") else None
+            twin = v6[0] if v4 and v6 else None
             ports.append({"name": i["name"], "ip": addr, "peer": far["device"]["name"] if far else None, "peer_port": far["name"] if far else None,
-                          "prefix": parent, "tenant": vrf_of_prefix.get(parent)})
+                          "prefix": parent, "tenant": vrf_of_prefix.get(parent), "ip6": twin["address"] if twin else None, "prefix6": twin["parent"]["prefix"] if twin and twin.get("parent") else None})
         pe = next((pt["peer"] for pt in ports if pt["peer"] and pt["peer"] in devs and ROLE[devs[pt["peer"]]["role"]["name"]] == "pe"), None) if role == "ce" else None
         rd = {va["vrf"]["name"]: va["rd"] for va in x["vrf_assignments"] if va["rd"]}
         nodes.append({"name": name, "role": role, "dc": dc, "mgmt_ip": x["primary_ip4"]["address"].split("/")[0], "loopback6": lo6,
@@ -79,7 +81,8 @@ def inventory_from_nautobot():
             net = ipaddress.ip_network(pt["prefix"]); first = ipaddress.ip_interface(pt["ip"]).ip == net.network_address + 1
             b = next(q for q in next(m for m in nodes if m["name"] == pt["peer"])["ports"] if q["name"] == pt["peer_port"])
             a_, b_ = ((n["name"], pt), (pt["peer"], b)) if first else ((pt["peer"], b), (n["name"], pt))
-            links.append({"a": a_[0], "a_port": a_[1]["name"], "a_ip": a_[1]["ip"], "b": b_[0], "b_port": b_[1]["name"], "b_ip": b_[1]["ip"], "prefix": pt["prefix"], "tenant": pt["tenant"]})
+            links.append({"a": a_[0], "a_port": a_[1]["name"], "a_ip": a_[1]["ip"], "b": b_[0], "b_port": b_[1]["name"], "b_ip": b_[1]["ip"], "prefix": pt["prefix"], "tenant": pt["tenant"],
+                          "a_ip6": a_[1].get("ip6"), "b_ip6": b_[1].get("ip6"), "prefix6": pt.get("prefix6")})
     return {"lab": "srv6-core", "source": "nautobot", "oob": {"network": ctx["oob"]["network"], "gateway": ctx["oob"]["gateway"]}, "service": service, "nodes": nodes, "links": links}
 
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Tenant hosts (Alpine) over SSH (paramiko, lab/lab, password auth).
    host_cmd.py run HOST CMD          run a command on one host (HOST = name from lab.conf or an address)
-   host_cmd.py matrix [host ...]     ping every host from every other host over the tenant LANs and print the matrix"""
+   host_cmd.py matrix [--v6] [host ...]   ping every host from every other host over the tenant LANs (IPv4, or IPv6 with --v6) and print the matrix"""
 import json, os, subprocess, sys
 from pathlib import Path
 import paramiko
@@ -31,8 +31,8 @@ if sys.argv[1] == "run":
     rc, text = run(host, " ".join(sys.argv[3:])); print(text, end=""); sys.exit(rc)
 elif sys.argv[1] == "matrix":
     inv = {n["name"]: n for n in inventory()["nodes"] if n["role"] == "host"}
-    names = sys.argv[2:] or sorted(inv)
-    lan_ip = {n: inv[n]["ports"][0]["ip"].split("/")[0] for n in names}
+    v6 = "--v6" in sys.argv; names = [a for a in sys.argv[2:] if a != "--v6"] or sorted(inv)
+    lan_ip = {n: (inv[n]["ports"][0]["ip6"] if v6 else inv[n]["ports"][0]["ip"]).split("/")[0] for n in names}
     ok = total = 0
     print(f"{'from \\ to':10s}" + "".join(f"{t:>10s}" for t in names))
     for src in names:
@@ -41,7 +41,7 @@ elif sys.argv[1] == "matrix":
             if src == dst: row += f"{'-':>10s}"; continue
             total += 1
             try:
-                rc, text = run(inv[src]["mgmt_ip"], f"ping -c 3 -W 2 {lan_ip[dst]}", timeout=30)
+                rc, text = run(inv[src]["mgmt_ip"], f"ping {'-6 ' if v6 else ''}-c 3 -W 2 {lan_ip[dst]}", timeout=30)
                 loss = next((l for l in text.splitlines() if "packet loss" in l), "")
                 pct = loss.split("%")[0].split()[-1] if loss else "?"
                 cell = "ok" if rc == 0 else f"{pct}% loss"; ok += rc == 0

@@ -15,11 +15,11 @@ def draw(inv, live=None):
     dcs = sorted({n["dc"] for n in inv["nodes"] if n["dc"] != "core"})
     hosts_of = {dc: sorted((n for n in inv["nodes"] if n["role"] == "host" and n["dc"] == dc), key=lambda h: tenants.index(next(p["tenant"] for p in h["ports"] if p["peer"])) if any(p["peer"] for p in h["ports"]) else 99) for dc in dcs}
     ext_of = {dc: [n for n in inv["nodes"] if n["role"] == "ext-ce" and n["dc"] == dc] for dc in dcs}   # another lab's routers attached here (IPsec headends)
-    HW, HGAP = 150, 14; lane_w = {dc: max(320 + (340 if ext_of[dc] else 0), len(hosts_of[dc]) * (HW + HGAP) + 40) for dc in dcs}
+    HW, HGAP = 172, 10; lane_w = {dc: max(380 + (340 if ext_of[dc] else 0), len(hosts_of[dc]) * (HW + HGAP) + 40) for dc in dcs}
     GAP = 24; x = 30; DCX = {}
     for dc in dcs: DCX[dc] = x + lane_w[dc] / 2; x += lane_w[dc] + GAP
     W = max(x + 6, 1200); ROWS = {"p": 175, "pe": 380, "ce": 560, "host": 720, "ext-ce": 560}; H = 790
-    BOX = {"p": (240, 74), "pe": (270, 62 + 14 * len(tenants)), "ce": (min(280, min(lane_w.values()) - 30), 48 + 14 * len(tenants)), "host": (HW, 56), "ext-ce": (300, 62)}
+    BOX = {"p": (240, 74), "pe": (270, 62 + 14 * len(tenants)), "ce": (min(340, min(lane_w.values()) - 30), 48 + 14 * len(tenants)), "host": (HW, 56), "ext-ce": (300, 62)}
     ps = sorted(n["name"] for n in inv["nodes"] if n["role"] == "p")
     core_left, core_right = 150, W - 150; PX = {p: core_left + (core_right - core_left) * (i + 0.5) / len(ps) for i, p in enumerate(ps)}
     COLS = {**{n["name"]: DCX[n["dc"]] for n in inv["nodes"] if n["role"] in ("pe", "ce")}, **PX}
@@ -91,11 +91,13 @@ def draw(inv, live=None):
         x0, y0 = center(n["name"]); w, h = BOX[n["role"]]; fill, stroke = FILL[n["role"]]
         lans = {p["tenant"]: p["prefix"] for p in n["ports"] if p["peer"] and N[p["peer"]]["role"] == "host"}
         if n["role"] == "p": lines = [f'{n["loopback6"]} · rid {n["router_id"]}', f'locator {n["locator"]}', "VPNv4 route reflector · AS 65000" if n["name"] in S["rrs"] else "IPv6 forwarding only, no BGP / VRF"]
-        elif n["role"] == "pe": lines = [f'{n["loopback6"]} · rid {n["router_id"]} · AS {n["asn"]}', f'locator {n["locator"]}'] + [f'VRF {t} · RD {n["rd"].get(t, "?")} · End.DT4' for t in tenants if t in n["rd"]]
-        elif n["role"] == "ce": lines = [f'AS {n["asn"]} · eBGP → {n["pe"]} per tenant'] + [f'VRF {t}: {lans[t]}' for t in tenants if t in lans]
+        elif n["role"] == "pe": lines = [f'{n["loopback6"]} · rid {n["router_id"]} · AS {n["asn"]}', f'locator {n["locator"]}'] + [f'VRF {t} · RD {n["rd"].get(t, "?")} · End.DT46' for t in tenants if t in n["rd"]]
+        elif n["role"] == "ce":
+            lans6 = {p["tenant"]: p.get("prefix6") for p in n["ports"] if p["peer"] and N[p["peer"]]["role"] == "host"}
+            lines = [f'AS {n["asn"]} · eBGP v4 + v6 → {n["pe"]} per tenant'] + [f'VRF {t}: {lans[t]}' + (f' · {lans6[t]}' if lans6.get(t) else '') for t in tenants if t in lans]
         elif n["role"] == "ext-ce": lines = [f'AS {n["asn"]} · IPsec headend ({n.get("lab", "external")})', f'eBGP → {n["pe"]} in {next(p["tenant"] for p in n["ports"] if p["peer"])}', "announces its site + branch LANs"]
         else:
-            t = next((p["tenant"] for p in n["ports"] if p["peer"]), None); lines = [f'{n["ports"][0]["ip"]} · gw .1', t or "unwired"]
+            t = next((p["tenant"] for p in n["ports"] if p["peer"]), None); lines = [f'{n["ports"][0]["ip"]} · gw .1', (n["ports"][0].get("ip6") or "") + (" · gw ::1" if n["ports"][0].get("ip6") else "") or (t or "unwired")]
             if live and n["name"] in live: fill = "#dcfce7" if live[n["name"]].get("reachable") else "#fee2e2"; stroke = "#15803d" if live[n["name"]].get("reachable") else "#b91c1c"
         role = {"p": "P" + (" / RR" if n["name"] in S["rrs"] else ""), "pe": "PE", "ce": "CE", "host": "host", "ext-ce": "external CE"}[n["role"]]
         out.append(f'<g><rect x="{x0 - w / 2:.0f}" y="{y0 - h / 2:.0f}" width="{w:.0f}" height="{h:.0f}" rx="9" fill="{fill}" stroke="{stroke}" stroke-width="1.6"/>'

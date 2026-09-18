@@ -1,6 +1,6 @@
 *** Settings ***
 Documentation     SRv6: every core node has its locator, IS-IS carries every node's SRv6 capability and locator,
-...               and every PE has the local SIDs installed in the Linux data plane (End, End.X, End.DT4 into the VRF).
+...               and every PE has the local SIDs installed in the Linux data plane (End, End.X, End.DT46 into the VRF).
 Resource          ../resources/common.resource
 Suite Teardown    Suite Teardown Close Connections
 
@@ -34,17 +34,17 @@ IS-IS advertises the SRv6 capability of every core node and every locator is in 
         END
     END
 
-Every PE has one End.DT4 SID per tenant VRF, an End SID, and End.X SIDs installed in the Linux data plane
+Every PE has one End.DT46 SID per tenant VRF (serving IPv4 and IPv6), an End SID, and End.X SIDs installed in the Linux data plane
     FOR    ${pe}    IN    @{PES}
         ${sids}=    Shell    ${pe}    sudo ip -6 route show | grep seg6local
         ${bgp}=    Vyos    ${pe}    show bgp segment-routing srv6
         FOR    ${t}    IN    @{TENANTS}
-            ${dt4}=    Regex Findall    ${sids}    (?m)^(\\S+)\\s.*action End\\.DT4 vrftable ${t}\\b
-            Length Should Be    ${dt4}    1    msg=${pe}: expected exactly one End.DT4 SID for VRF ${t}
+            ${dt4}=    Regex Findall    ${sids}    (?m)^(\\S+)\\s.*action End\\.DT46 vrftable ${t}\\b
+            Length Should Be    ${dt4}    1    msg=${pe}: expected exactly one End.DT46 SID for VRF ${t}
             Ip In Network    ${dt4}[0]    ${LOCATOR}[${pe}]
-            Should Match Regexp    ${bgp}    (?s)name: ${t}.*?vpn_policy\\[AFI_IP\\].tovpn_sid: ${dt4}[0]    msg=${pe}: BGP does not export ${dt4}[0] for ${t}
+            Should Match Regexp    ${bgp}    (?s)name: ${t}.*?per-vrf tovpn_sid: ${dt4}[0]    msg=${pe}: BGP does not export ${dt4}[0] as the per-VRF SID for ${t}
         END
-        ${all_dt4}=    Regex Findall    ${sids}    (?m)action End\\.DT4 vrftable
+        ${all_dt4}=    Regex Findall    ${sids}    (?m)action End\\.DT46 vrftable
         ${n_t}=    Get Length    ${TENANTS}
         Length Should Be    ${all_dt4}    ${n_t}    msg=${pe}: a tenant VRF without its own SID, or a stray one
         Should Match Regexp    ${sids}    (?m)^\\S+\\s.*action End (dev dum0|flavors next-csid)    msg=${pe}: no End / uN SID from IS-IS

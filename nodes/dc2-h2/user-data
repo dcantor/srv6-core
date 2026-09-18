@@ -1,5 +1,5 @@
 #cloud-config
-# dc2-h2: eth0 = OOB management (10.3.0.52), eth1 = ce2 eth4 (dc2 LAN 172.21.2.0/24, gateway 172.21.2.1)
+# dc2-h2: eth0 = OOB management (10.3.0.52), eth1 = ce2 eth4 (dc2 LAN 172.21.2.0/24 + fd00:21:2::/64, gateways 172.21.2.1 / fd00:21:2::1)
 hostname: dc2-h2
 users:
   - name: lab

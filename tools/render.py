@@ -112,14 +112,18 @@ class _Renderer:
         for r in self.RRS:
             out += [f"set protocols bgp neighbor {r['loopback6']} remote-as {self.SVC['core_as']}", f"set protocols bgp neighbor {r['loopback6']} description '{r['name']} route reflector'",
                     f"set protocols bgp neighbor {r['loopback6']} update-source {n['loopback6']}", f"set protocols bgp neighbor {r['loopback6']} capability extended-nexthop",
-                    f"set protocols bgp neighbor {r['loopback6']} address-family ipv4-vpn"]
+                    f"set protocols bgp neighbor {r['loopback6']} address-family ipv4-vpn", f"set protocols bgp neighbor {r['loopback6']} address-family ipv6-vpn"]
         for ce_port in [p for p in n["ports"] if p["peer"] and self.NODES[p["peer"]]["role"] in ("ce", "ext-ce")]:
             vrf = ce_port["tenant"]; t = self.SVC["tenants"][vrf]; ce = self.NODES[ce_port["peer"]]
             me = ipaddress.ip_interface(ce_port["ip"]); net = me.network.network_address
             ce_ip = str(net + 2 if me.ip == net + 1 else net + 1); rd = n["rd"][vrf]   # the other host of the /30 (an external CE is the first end)
             ext = " (external CE, another lab's router)" if ce["role"] == "ext-ce" else ""
-            out += [f"# tenant VRF {vrf} (table {t['table']}, RT {t['rt']}, RD {rd}): attachment circuit {ce_port['name']} to {ce['name']} {ce_port['peer_port']}{ext}",
-                    f"set vrf name {vrf} table {t['table']}", f"set interfaces ethernet {ce_port['name']} vrf {vrf}", f"set interfaces ethernet {ce_port['name']} address {ce_port['ip']}",
+            ce_ip6 = None
+            if ce_port.get("ip6"):
+                me6 = ipaddress.ip_interface(ce_port["ip6"]); net6 = me6.network.network_address; ce_ip6 = str(net6 + 2 if me6.ip == net6 + 1 else net6 + 1)
+            out += [f"# tenant VRF {vrf} (table {t['table']}, RT {t['rt']}, RD {rd}): attachment circuit {ce_port['name']} to {ce['name']} {ce_port['peer_port']}{ext}, dual-stack",
+                    f"set vrf name {vrf} table {t['table']}", f"set interfaces ethernet {ce_port['name']} vrf {vrf}", f"set interfaces ethernet {ce_port['name']} address {ce_port['ip']}"] + (
+                    [f"set interfaces ethernet {ce_port['name']} address {ce_port['ip6']}"] if ce_port.get("ip6") else []) + [
                     f"set interfaces ethernet {ce_port['name']} description '{vrf}: {ce['name']} {ce_port['peer_port']}'",
                     f"# Linux scopes the SRv6 encapsulation's outer lookup to the ingress VRF for forwarded packets: leak every remote locator into",
                     f"# the VRF table via the attached P router(s) on the IGP shortest path (recursive through IS-IS, so a dead P drops out), and the",
@@ -127,16 +131,19 @@ class _Renderer:
                     f"set vrf name {vrf} protocols static route6 {self.NODES[d]['locator']} next-hop {self.NODES[x]['loopback6']} vrf default"
                     for d, hops in sorted(first_hops.items()) if self.NODES[d].get("locator") for x in hops] + [
                     f"set vrf name {vrf} protocols static route6 {block} next-hop {self.NODES[x]['loopback6']} vrf default" for x in attached_ps] + [
-                    f"# eBGP to the CE; export/import with an SRv6 End.DT4 SID (sid vpn export auto)",
+                    f"# eBGP to the CE, one session per address family; one SRv6 End.DT46 SID per VRF carries both (sid vpn per-vrf export auto)",
                     f"set vrf name {vrf} protocols bgp system-as {self.SVC['core_as']}", f"set vrf name {vrf} protocols bgp parameters router-id {n['router_id']}",
                     f"set vrf name {vrf} protocols bgp parameters log-neighbor-changes",
+                    f"set vrf name {vrf} protocols bgp sid vpn per-vrf export auto",
                     f"set vrf name {vrf} protocols bgp neighbor {ce_ip} remote-as {ce['asn']}", f"set vrf name {vrf} protocols bgp neighbor {ce_ip} description '{ce['name']} ({vrf})'",
-                    f"set vrf name {vrf} protocols bgp neighbor {ce_ip} address-family ipv4-unicast",
-                    f"set vrf name {vrf} protocols bgp address-family ipv4-unicast redistribute connected",
-                    f"set vrf name {vrf} protocols bgp address-family ipv4-unicast rd vpn export {rd}",
-                    f"set vrf name {vrf} protocols bgp address-family ipv4-unicast route-target vpn both {t['rt']}",
-                    f"set vrf name {vrf} protocols bgp address-family ipv4-unicast sid vpn export auto",
-                    f"set vrf name {vrf} protocols bgp address-family ipv4-unicast import vpn", f"set vrf name {vrf} protocols bgp address-family ipv4-unicast export vpn"]
+                    f"set vrf name {vrf} protocols bgp neighbor {ce_ip} address-family ipv4-unicast"] + ([
+                    f"set vrf name {vrf} protocols bgp neighbor {ce_ip6} remote-as {ce['asn']}", f"set vrf name {vrf} protocols bgp neighbor {ce_ip6} description '{ce['name']} ({vrf}, IPv6)'",
+                    f"set vrf name {vrf} protocols bgp neighbor {ce_ip6} address-family ipv6-unicast"] if ce_ip6 else []) + [
+                    l for af in (["ipv4-unicast"] + (["ipv6-unicast"] if ce_ip6 else [])) for l in (
+                    f"set vrf name {vrf} protocols bgp address-family {af} redistribute connected",
+                    f"set vrf name {vrf} protocols bgp address-family {af} rd vpn export {rd}",
+                    f"set vrf name {vrf} protocols bgp address-family {af} route-target vpn both {t['rt']}",
+                    f"set vrf name {vrf} protocols bgp address-family {af} import vpn", f"set vrf name {vrf} protocols bgp address-family {af} export vpn")]
         seen, dedup = set(), []   # a VRF with two attachment circuits repeats its block: keep the first occurrence of each set line
         for l in out:
             if l.startswith("set") and l in seen: continue
@@ -147,11 +154,12 @@ class _Renderer:
     def p(self, n):
         out = self.identity(n) + self.underlay(n)
         if n["name"] in self.SVC["rrs"]:
-            out += [f"# VPNv4 route reflector for the PEs (no VRFs here; p routers only forward IPv6); the PEs peer with every reflector",
+            out += [f"# VPNv4 + VPNv6 route reflector for the PEs (no VRFs here; p routers only forward IPv6); the PEs peer with every reflector",
                     f"set protocols bgp system-as {self.SVC['core_as']}", f"set protocols bgp parameters router-id {n['router_id']}", f"set protocols bgp parameters cluster-id {n['router_id']}",
                     "set protocols bgp parameters log-neighbor-changes",
                     f"set protocols bgp peer-group RR-CLIENTS remote-as {self.SVC['core_as']}", f"set protocols bgp peer-group RR-CLIENTS update-source {n['loopback6']}",
-                    "set protocols bgp peer-group RR-CLIENTS capability extended-nexthop", "set protocols bgp peer-group RR-CLIENTS address-family ipv4-vpn route-reflector-client"]
+                    "set protocols bgp peer-group RR-CLIENTS capability extended-nexthop", "set protocols bgp peer-group RR-CLIENTS address-family ipv4-vpn route-reflector-client",
+                    "set protocols bgp peer-group RR-CLIENTS address-family ipv6-vpn route-reflector-client"]
             for x in self.PES:
                 out += [f"set protocols bgp neighbor {x['loopback6']} peer-group RR-CLIENTS", f"set protocols bgp neighbor {x['loopback6']} description '{x['name']}'"]
         return out
@@ -167,11 +175,16 @@ class _Renderer:
             pe_port = next(p for p in n["ports"] if p.get("tenant") == vrf and self.NODES[p["peer"]]["role"] == "pe")
             lan = next(p for p in n["ports"] if p.get("tenant") == vrf and self.NODES[p["peer"]]["role"] == "host")
             pe_ip = str(ipaddress.ip_interface(pe_port["ip"]).network.network_address + 1); lan_net = ipaddress.ip_interface(lan["ip"]).network
+            pe_ip6 = str(ipaddress.ip_interface(pe_port["ip6"]).network.network_address + 1) if pe_port.get("ip6") else None
+            lan_net6 = ipaddress.ip_interface(lan["ip6"]).network if lan.get("ip6") else None
             v = f"vrf name {vrf} "   # prefix for everything that lives in the tenant VRF
-            out += [f"# {vrf}: VRF {vrf} on the CE holds the attachment circuit to {pe_port['peer']} and the {n['dc']} LAN",
-                    f"set vrf name {vrf} table {self.SVC['tenants'][vrf]['table']}", f"set interfaces ethernet {pe_port['name']} vrf {vrf}", f"set interfaces ethernet {lan['name']} vrf {vrf}",f"set interfaces ethernet {pe_port['name']} address {pe_port['ip']}", f"set interfaces ethernet {pe_port['name']} description '{pe_port['peer']} {pe_port['peer_port']} ({vrf})'",
-                    f"set interfaces ethernet {lan['name']} address {lan['ip']}", f"set interfaces ethernet {lan['name']} description '{n['dc']} LAN {vrf}: {lan['peer']}'",
+            out += [f"# {vrf}: VRF {vrf} on the CE holds the attachment circuit to {pe_port['peer']} and the {n['dc']} LAN (dual-stack: one eBGP session per family)",
+                    f"set vrf name {vrf} table {self.SVC['tenants'][vrf]['table']}", f"set interfaces ethernet {pe_port['name']} vrf {vrf}", f"set interfaces ethernet {lan['name']} vrf {vrf}",f"set interfaces ethernet {pe_port['name']} address {pe_port['ip']}"] + (
+                    [f"set interfaces ethernet {pe_port['name']} address {pe_port['ip6']}"] if pe_port.get("ip6") else []) + [f"set interfaces ethernet {pe_port['name']} description '{pe_port['peer']} {pe_port['peer_port']} ({vrf})'",
+                    f"set interfaces ethernet {lan['name']} address {lan['ip']}"] + ([f"set interfaces ethernet {lan['name']} address {lan['ip6']}"] if lan.get("ip6") else []) + [f"set interfaces ethernet {lan['name']} description '{n['dc']} LAN {vrf}: {lan['peer']}'",
                     f"set {v}protocols bgp system-as {n['asn']}", f"set {v}protocols bgp parameters router-id {lan_net.network_address + 1}", f"set {v}protocols bgp parameters log-neighbor-changes",
                     f"set {v}protocols bgp neighbor {pe_ip} remote-as {self.SVC['core_as']}", f"set {v}protocols bgp neighbor {pe_ip} description '{pe_port['peer']} ({vrf})'",
-                    f"set {v}protocols bgp neighbor {pe_ip} address-family ipv4-unicast", f"set {v}protocols bgp address-family ipv4-unicast network {lan_net}"]
+                    f"set {v}protocols bgp neighbor {pe_ip} address-family ipv4-unicast", f"set {v}protocols bgp address-family ipv4-unicast network {lan_net}"] + ([
+                    f"set {v}protocols bgp neighbor {pe_ip6} remote-as {self.SVC['core_as']}", f"set {v}protocols bgp neighbor {pe_ip6} description '{pe_port['peer']} ({vrf}, IPv6)'",
+                    f"set {v}protocols bgp neighbor {pe_ip6} address-family ipv6-unicast", f"set {v}protocols bgp address-family ipv6-unicast network {lan_net6}"] if pe_ip6 else [])
         return out

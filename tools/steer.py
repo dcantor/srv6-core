@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """Explicit-path SRv6 steering: pin a tenant prefix on a source PE to a segment list through chosen P routers instead of
 the IGP shortest path. The policy is a static route in the tenant VRF whose SID list is the End SID of every listed
-P router followed by the End.DT4 SID of the PE that owns the prefix (read live, since BGP allocates it).
+P router followed by the End.DT46 SID of the PE that owns the prefix (read live, since BGP allocates it).
 
    steer.py add  <src-pe> <tenant> <prefix> <p> [<p> ...]     e.g. steer.py add pe1 tenant-b 172.21.3.0/24 p1 p3
                  with uSID locators (lab.conf SRV6_FORMAT=usid-*) the whole path is packed into ONE segment — the carrier
                  <block>:<uN p1>:<uN p3>:<uN pe3>:<uDT4 fn>:: — add --uncompressed to install the classic list instead
    steer.py del  <src-pe> <tenant> <prefix>
    steer.py show [<pe> ...]                                    the policies present on the PEs (kernel view)
-   steer.py sid  <pe> <tenant>                                 print the End.DT4 SID of a tenant VRF on a PE"""
+   steer.py sid  <pe> <tenant>                                 print the End.DT46 SID of a tenant VRF on a PE"""
 import ipaddress, json, os, re, subprocess, sys
 from pathlib import Path
 from netmiko import ConnectHandler
@@ -23,10 +23,12 @@ def conn(node): return ConnectHandler(device_type="vyos", host=N[node]["mgmt_ip"
 
 
 def dt4_sid(pe, tenant):
-    """The End.DT4 SID BGP allocated for a tenant VRF on a PE (from `show bgp segment-routing srv6`)."""
+    """The SID BGP allocated for a tenant VRF on a PE: the per-VRF End.DT46 (one for both address families), or the
+    per-address-family End.DT4 if the VRF is configured that way (from `show bgp segment-routing srv6`)."""
     c = conn(pe); out = c.send_command("show bgp segment-routing srv6"); c.disconnect()
-    m = re.search(rf"- name: {re.escape(tenant)}\n\s+vpn_policy\[AFI_IP\]\.tovpn_sid: ([0-9a-f:]+)", out)
-    if not m: sys.exit(f"{pe}: no End.DT4 SID for {tenant}")
+    blk = re.search(rf"- name: {re.escape(tenant)}\n(.*?)(?=\n- name:|\Z)", out, re.S)
+    m = blk and (re.search(r"per-vrf tovpn_sid: ([0-9a-f:]+)", blk[1]) or re.search(r"vpn_policy\[AFI_IP\]\.tovpn_sid: ([0-9a-f:]+)", blk[1]))
+    if not m: sys.exit(f"{pe}: no End.DT46 / End.DT4 SID for {tenant}")
     return m[1]
 
 

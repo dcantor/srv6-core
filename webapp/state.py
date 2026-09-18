@@ -35,16 +35,16 @@ class State:
                 m = re.match(r"^(fd00:\S+)\s+4\s+\d+\s+\d+\s+\d+\s+\d+\s+\d+\s+\d+\s+(\S+)\s+(\S+)\s+(\d+)\s+(.*)$", line)
                 if m: out["vpnv4"][m[1]] = {"state": "Established" if m[3].isdigit() else m[3], "prefixes": int(m[3]) if m[3].isdigit() else 0, "uptime": m[2], "desc": m[5].strip()}
             for t in tenants_:
-                s = c.send_command(f"show ip bgp vrf {t} summary", read_timeout=60); sess = {}
+                s = c.send_command(f"show bgp vrf {t} summary", read_timeout=60); sess = {}   # both families: IPv4 and IPv6 unicast sessions
                 for line in s.splitlines():
-                    m = re.match(r"^(\d+\.\d+\.\d+\.\d+)\s+4\s+(\d+)\s+\d+\s+\d+\s+\d+\s+\d+\s+\d+\s+(\S+)\s+(\S+)\s+(\d+)\s*(.*)$", line)
+                    m = re.match(r"^([0-9a-f.:]+)\s+4\s+(\d+)\s+\d+\s+\d+\s+\d+\s+\d+\s+\d+\s+(\S+)\s+(\S+)\s+(\d+)\s*(.*)$", line)
                     if m: sess[m[1]] = {"as": int(m[2]), "state": "Established" if m[4].isdigit() else m[4], "prefixes": int(m[4]) if m[4].isdigit() else 0, "uptime": m[3], "desc": m[6].strip()}
                 rt = c.send_command(f"sudo ip -c=never route show vrf {t}", read_timeout=60)
                 out["tenants"][t] = {"sessions": sess, "routes": len([l for l in rt.splitlines() if re.match(r"^\d", l) and not l.startswith("127.")]),
                                      "srv6_routes": len([l for l in rt.splitlines() if "encap seg6" in l and re.match(r"^\d", l)]),
                                      "steered": [l.strip() for l in rt.splitlines() if "proto static" in l and "seg6" in l]}
             sids = c.send_command("sudo ip -c=never -6 route show", read_timeout=60)
-            out["dt4"] = {m[2]: m[1] for m in re.finditer(r"^(\S+)\s.*action End\.DT4 vrftable (\S+)", sids, re.M)}
+            out["dt4"] = {m[2]: m[1] for m in re.finditer(r"^(\S+)\s.*action End\.DT4(?:6)? vrftable (\S+)", sids, re.M)}
         finally:
             c.disconnect()
         return out
@@ -85,7 +85,8 @@ class State:
                     for s in t["sites"]:
                         live_pe = pe_res.get(s["pe"]) or {}; tl = (live_pe.get("tenants") or {}).get(t["name"]) or {}
                         ce_wan = s.get("ce_wan_ip") or str(ipaddress.ip_network(s["attachment_circuit"]).network_address + 2); sess = (tl.get("sessions") or {}).get(ce_wan, {})
-                        s["live"] = {"bgp": sess.get("state", "n/a"), "prefixes_from_ce": sess.get("prefixes"), "vrf_routes": tl.get("routes"), "srv6_routes": tl.get("srv6_routes"),
+                        sess6 = (tl.get("sessions") or {}).get(s.get("ce_wan_ip6") or "", {})
+                        s["live"] = {"bgp": sess.get("state", "n/a"), "bgp6": sess6.get("state") if s.get("ce_wan_ip6") else None, "prefixes_from_ce": sess.get("prefixes"), "vrf_routes": tl.get("routes"), "srv6_routes": tl.get("srv6_routes"),
                                      "dt4_sid": (live_pe.get("dt4") or {}).get(t["name"]), "host": host_res.get(s["host"], {}) if s["host"] else {"reachable": None}, "error": live_pe.get("error")}
                     ok = [s for s in t["sites"] if s["live"]["bgp"] == "Established" and (s["live"]["host"].get("reachable") or not s["host"])]
                     t["health"] = "up" if len(ok) == len(t["sites"]) else ("degraded" if ok else "down")

@@ -5,7 +5,7 @@ A segment-routing-over-IPv6 service-provider core simulated on one Linux host wi
 per data centre serving **two tenants** — `tenant-a` (host h1) and `tenant-b` (host h2) — each in its own VRF on the
 CE and over its own attachment circuit into its own VRF on the PE, and an **Alpine Linux host** (iperf3, tcpdump, mtr)
 per tenant per site. The core is IPv6-only with IS-IS level-2 carrying the SRv6 locators; each tenant's IPv4 prefixes travel
-as BGP VPNv4 routes whose next hop is that tenant's **SRv6 End.DT4 SID** on the remote PE, so every h1 reaches every
+as BGP VPNv4 routes whose next hop is that tenant's **SRv6 End.DT46 SID** on the remote PE, so every h1 reaches every
 other h1, every h2 every other h2, and the two never meet — not even at the same site. Nineteen VMs (plus one CirrOS host per site per extra tenant), about 13 GiB of
 RAM, all VyOS nodes 1 vCPU / 1 GiB.
 
@@ -55,8 +55,8 @@ What the data plane looks like on a PE (`sudo ip route show vrf tenant-a` / `sud
 172.20.3.0/24   encap seg6 mode encap segs 1 [ fd00:c:3:e000:: ] via fe80::... dev eth2  # remote LAN → pe3's uDT4 (tenant-a)
 fd00:c:1::/48   encap seg6local action End flavors next-csid lblen 32 nflen 16          # uN: the node's micro-SID (IS-IS)
 fd00:c:1:e000:: encap seg6local action End.X nh6 fe80::... oif eth2 flavors next-csid   # uA: one per adjacency (IS-IS)
-fd00:c:1:e002:: encap seg6local action End.DT4 vrftable tenant-a                        # uDT4: one per tenant VRF (BGP)
-fd00:c:1:e003:: encap seg6local action End.DT4 vrftable tenant-b
+fd00:c:1:e002:: encap seg6local action End.DT46 vrftable tenant-a                       # uDT46: one per tenant VRF, IPv4 and IPv6 (BGP)
+fd00:c:1:e003:: encap seg6local action End.DT46 vrftable tenant-b
 ```
 `show segment-routing srv6 sid` in vtysh lists them as uN / uA / uDT4. Function values are allocated by FRR at run time
 (they can change after a reconfiguration); the tests only assert that a SID lies inside the right locator.
@@ -112,6 +112,12 @@ via p3→p1 half the time); per-locator entries keep the forwarding plane consis
 | ce*n*–dc*n*-h2 | 172.21.*n*.0/24 | ce*n* eth4 (gateway) | dc*n*-h2 eth1 |
 | headend–pe*n* tenant-a (external CE, IPsec lab — when attached) | 172.19.*n*.0/30 | east/central/west-headend GigabitEthernet3 | pe1/pe2/pe3 eth5 |
 
+**Dual-stack**: every tenant link has an IPv6 twin derived by rule from the IPv4 prefix — `172.X.Y.0/…` → `fd00:X:Y::/64`
+(attachment circuit `172.16.1.0/30` ↔ `fd00:16:1::/64`, LAN `172.20.1.0/24` ↔ `fd00:20:1::/64`; first end `::1`, second `::2`,
+host `::2`). `lab.conf` keeps the IPv4 `LINKS`; `lab.sh inventory` carries `ip6` / `prefix6` explicitly. Each VRF runs one eBGP
+session per family to the CE, VPNv4 **and VPNv6** to both reflectors, and **one End.DT46 SID per VRF** (`sid vpn per-vrf export
+auto`) that decapsulates both families — the same SID and transposed label appear on `172.20.3.0/24` and `fd00:20:3::/64`.
+
 VRFs: `tenant-a` table 100, RT 65000:100, RD 65000:10*n*; `tenant-b` table 200, RT 65000:200, RD 65000:20*n* (*n* = PE
 number). OOB network `srv6-oob` 10.3.0.0/24, host 10.3.0.1; serial consoles 127.0.0.1:5301–5319.
 
@@ -142,7 +148,7 @@ the portal has a **Throughput** button per tenant (`GET /api/iperf`).
 `./lab.sh steer add pe1 tenant-b 172.21.3.0/24 p1 p3` pins a tenant prefix on a PE to the path p1 → p3 → pe3 — the long
 way round the triangle instead of the IGP path via p2. It is a static route in the tenant VRF (`interface eth1 vrf default
 segments …`, the uDT4 SID read live from the destination PE); with uSID the tool packs the path into one carrier segment
-`fd00:c:11:13:3:e001::`, with `--uncompressed` (or uncompressed locators) it installs `[p1 End, p3 End, pe3 End.DT4]`.
+`fd00:c:11:13:3:e001::`, with `--uncompressed` (or uncompressed locators) it installs `[p1 End, p3 End, pe3 End.DT46]`.
 `steer del` removes it, `steer show` lists policies. On the wire p1 forwards `IP6 fd00:a::1 > fd00:c:13:3:e001::` (its own
 micro-SID consumed), p3 forwards `… > fd00:c:3:e001::`, and p2 sees nothing; the reply still takes the shortest path back
 (asymmetric, as intended). Suite 07 does exactly this and cleans up.
@@ -163,10 +169,10 @@ it is toggled — hence the firewall-style cut.)
    `IPv6 fd00:a::1 → fd00:c:3:e000::` + SRH.
 4. **p2** (the only shortest path west→east) forwards plain IPv6 towards pe3's locator `fd00:c:3::/48` learned from
    IS-IS — no VRF, no IPv4 knowledge.
-5. **pe3**: its local SID `seg6local End.DT4 vrftable tenant-a` decapsulates and looks the inner packet up in the VRF →
+5. **pe3**: its local SID `seg6local End.DT46 vrftable tenant-a` decapsulates and looks the inner packet up in the VRF →
    **ce3** 172.16.3.2 → **dc3-h1**.
 6. The reply mirrors the path with pe1's SID. A packet from **dc1-h2** (tenant-b) takes the same core path but enters
-   through CE VRF tenant-b, the second attachment circuit, PE VRF tenant-b and pe3's *other* End.DT4 SID; it can never
+   through CE VRF tenant-b, the second attachment circuit, PE VRF tenant-b and pe3's *other* End.DT46 SID; it can never
    reach a tenant-a address because no tenant-a route exists in any tenant-b table (different RTs).
 
 ### Local SIDs on a PE (pe1)
@@ -174,7 +180,7 @@ it is toggled — hence the firewall-style cut.)
 |---|---|---|
 | `fd00:c:1::/48` | uN — the node's micro-SID (End with the NEXT-C-SID flavour: shift left 16 bits and forward) | IS-IS |
 | `fd00:c:1:e000::`, `fd00:c:1:e001::` | uA — End.X per core adjacency (eth2 → p2, eth1 → p1) | IS-IS |
-| `fd00:c:1:e002::`, `fd00:c:1:e003::` | uDT4 — End.DT4 → VRF tenant-a, → VRF tenant-b (one per tenant) | BGP (`sid vpn export auto` in each VRF) |
+| `fd00:c:1:e002::`, `fd00:c:1:e003::` | uDT46 — End.DT46 → VRF tenant-a, → VRF tenant-b (one per tenant, both families) | BGP (`sid vpn export auto` in each VRF) |
 
 Locator structure (usid-f3216): block 32 bits · node 16 bits · function 16 bits; the function values are allocated by FRR at
 run time (they can change after a reconfiguration), which is why the tests only ever assert that a SID lies inside the right locator.
@@ -333,12 +339,12 @@ rendered line is on the routers — suite 09 asserts both plus the model itself.
 invisible to REST reads (verify through GraphQL), VRF prefixes go through `vrf-prefix-assignments`, GraphQL returns
 choice fields upper-cased, and new custom fields need a Nautobot restart before GraphQL sees them.
 
-## Tests (`./lab.sh test`, 64 cases)
+## Tests (`./lab.sh test`, 70 cases)
 | Suite | Checks |
 |---|---|
 | 01 management | every node on the OOB network with SSH, host names, host LAN addresses, MTU 9000 on all core links, config saved |
 | 02 underlay | exactly the expected IS-IS L2 adjacencies (2/4/6/4/2), every loopback via IS-IS, PE↔PE pings incl. 1600-byte DF (headroom for the encapsulation) |
-| 03 srv6 | locator Up with the lab's structure (usid-f3216, 32/16/16, uN with NEXT-C-SID) on all 7 nodes, all 7 in `show isis segment-routing srv6 node`, all locators in every RIB, End / End.X SIDs and exactly one End.DT4 SID per tenant VRF in the kernel, seg6 enabled per core interface |
+| 03 srv6 | locator Up with the lab's structure (usid-f3216, 32/16/16, uN with NEXT-C-SID) on all 7 nodes, all 7 in `show isis segment-routing srv6 node`, all locators in every RIB, End / End.X SIDs and exactly one End.DT46 SID per tenant VRF in the kernel (BGP's per-VRF SID), seg6 enabled per core interface |
 | 04 vpn | per tenant: 4 clients Established at **both** reflectors and both reflector sessions up on every PE, every LAN under its RD at the RR, remote LANs imported into the right VRF only (no prefix of the other tenant) with a SID inside the right locator and a recursive seg6 route, CEs learn the other three LANs in the tenant's own VRF over that VRF's session, nothing in the default VRF |
 | 06 rr redundancy | every PE holds every remote VPN route once per reflector; **shutting p1's client sessions** (peer-group `shutdown`, restored in the teardown) leaves every VRF route, every SRv6 encap route and every in-tenant ping intact via p3; the sessions come back after the restore |
 | 07 steering | `steer add` installs the one-segment uSID carrier (`fd00:c:11:13:3:e001::`); captures on p1/p3 show the destination shifting hop by hop with the carrier in a one-segment SRH, p2 carries none of it, pings work, the return path crosses p2; the same path as an uncompressed three-segment list also works; `steer del` restores the BGP route |
@@ -347,6 +353,7 @@ choice fields upper-cased, and new custom fields need a Nautobot restart before 
 | 10 throughput | iperf3 dc1 → dc3: TCP above the floor, UDP at 20 Mbit/s with no loss, steered (uSID and uncompressed) within half of the shortest path |
 | 11 monitoring | node-exporter + frr-exporter on every VyOS node (every PE BGP session Established per the exporter), node-exporter on every host, the portal's `/api/sd` lists every exporter and `/metrics` reports every tenant up / core fully adjacent; Prometheus scrapes all 31 lab targets, the alert rules are loaded and none fires, VictoriaMetrics holds the remote-written series **and the Telegraf series every node pushes** (tags, freshness, no FRR daemon down), every node's syslog is in VictoriaLogs, the log-derived alert rules are healthy and a live BGP reset raises one, sFlow samples from every core node show the encapsulated flow of a ping burst, Grafana serves the provisioned dashboards with the annotation layers |
 | 12 interconnect | the IPsec headends as tenant-a CEs: PE↔headend eBGP with the right AS, headend + branch LANs on every PE with a SID from the attaching PE's locator and under its RD at the reflectors, absent from tenant-b, dc host ↔ branch pings both ways, the path dc → PE → core → headend → IPsec tunnel → branch, SRv6 encapsulation on p2 (skipped without `EXT_NODES`) |
+| 13 dual-stack | per VRF an Established IPv6 eBGP session with the CE announcing its IPv6 LAN; every IPv6 LAN at both reflectors under the right RD and on every PE once per reflector; **one End.DT46 per VRF** with the same SID and label on the IPv4 and the IPv6 route; SRv6 encap routes for every remote IPv6 LAN in the right VRF only; the 8×7 IPv6 host matrix (in-tenant ok, cross-tenant none); IPv6-in-IPv6 on p2 towards the same SID |
 | 05 end to end | every host reaches every host of its tenant (2 × 4×3 pings) and **none of the other tenant's**, not even at the same site; dc1→dc3 traffic transits p2 with `tcpdump` showing `IP6 fd00:a::1 > fd00:c:3:…` both ways; P routers hold no VRF and no tenant routes |
 
 Every run lands in `results/<timestamp>/` — `report.html`, `log.html`, `output.xml`, and `configs/{pre-run,post-run}/` with

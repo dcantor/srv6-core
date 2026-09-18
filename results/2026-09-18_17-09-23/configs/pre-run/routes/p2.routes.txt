@@ -1,0 +1,234 @@
+# p2 (10.3.0.22) routing tables captured 2026-09-18 17:09:26
+
+==== IPv4 RIB, default VRF: show ip route
+Codes: K - kernel route, C - connected, L - local, S - static,
+       R - RIP, O - OSPF, I - IS-IS, B - BGP, E - EIGRP, N - NHRP,
+       T - Table, v - VNC, V - VNC-Direct, A - Babel, F - PBR,
+       f - OpenFabric, t - Table-Direct,
+       > - selected route, * - FIB route, q - queued, r - rejected, b - backup
+       t - trapped, o - offload failure
+
+IPv4 unicast VRF default:
+S>* 10.0.0.0/8 [1/0] via 10.3.0.1, eth0, weight 1, 19:05:12
+C>* 10.3.0.0/24 is directly connected, eth0, weight 1, 19:05:20
+L>* 10.3.0.22/32 is directly connected, eth0, weight 1, 19:05:20
+
+==== IPv6 RIB, default VRF: show ipv6 route
+Codes: K - kernel route, C - connected, L - local, S - static,
+       R - RIPng, O - OSPFv3, I - IS-IS, B - BGP, N - NHRP,
+       T - Table, v - VNC, V - VNC-Direct, A - Babel, F - PBR,
+       f - OpenFabric, t - Table-Direct,
+       > - selected route, * - FIB route, q - queued, r - rejected, b - backup
+       t - trapped, o - offload failure
+
+IPv6 unicast VRF default:
+I>* fd00:a::1/128 [115/20] via fe80::5054:ff:fec6:102, eth3, weight 1, 09:51:25
+I>* fd00:a::2/128 [115/20] via fe80::5054:ff:fec6:202, eth4, weight 1, 01:37:19
+I>* fd00:a::3/128 [115/20] via fe80::5054:ff:fec6:301, eth5, weight 1, 03:12:07
+I>* fd00:a::4/128 [115/20] via fe80::5054:ff:fec6:401, eth6, weight 1, 10:12:36
+I>* fd00:a::11/128 [115/20] via fe80::5054:ff:fec6:501, eth1, weight 1, 10:12:36
+L * fd00:a::12/128 is directly connected, lo, weight 1, 19:05:22
+C>* fd00:a::12/128 is directly connected, lo, weight 1, 19:05:22
+I>* fd00:a::13/128 [115/20] via fe80::5054:ff:fec6:702, eth2, weight 1, 10:12:36
+C>* fd00:b:0:12::/64 is directly connected, eth1, weight 1, 19:05:19
+L>* fd00:b:0:12::2/128 is directly connected, eth1, weight 1, 19:05:19
+I>* fd00:b:0:13::/64 [115/20] via fe80::5054:ff:fec6:501, eth1, weight 1, 10:12:36
+  *                           via fe80::5054:ff:fec6:702, eth2, weight 1, 10:12:36
+C>* fd00:b:0:23::/64 is directly connected, eth2, weight 1, 19:05:20
+L>* fd00:b:0:23::1/128 is directly connected, eth2, weight 1, 19:05:20
+I>* fd00:b:0:101::/64 [115/20] via fe80::5054:ff:fec6:102, eth3, weight 1, 09:51:25
+  *                            via fe80::5054:ff:fec6:501, eth1, weight 1, 09:51:25
+I>* fd00:b:0:102::/64 [115/20] via fe80::5054:ff:fec6:202, eth4, weight 1, 01:37:19
+  *                            via fe80::5054:ff:fec6:501, eth1, weight 1, 01:37:19
+C>* fd00:b:0:201::/64 is directly connected, eth3, weight 1, 19:05:20
+L>* fd00:b:0:201::1/128 is directly connected, eth3, weight 1, 19:05:20
+C>* fd00:b:0:202::/64 is directly connected, eth4, weight 1, 19:05:21
+L>* fd00:b:0:202::1/128 is directly connected, eth4, weight 1, 19:05:21
+C>* fd00:b:0:203::/64 is directly connected, eth5, weight 1, 19:05:19
+L>* fd00:b:0:203::1/128 is directly connected, eth5, weight 1, 19:05:19
+C>* fd00:b:0:204::/64 is directly connected, eth6, weight 1, 19:05:19
+L>* fd00:b:0:204::1/128 is directly connected, eth6, weight 1, 19:05:19
+I>* fd00:b:0:303::/64 [115/20] via fe80::5054:ff:fec6:301, eth5, weight 1, 03:12:07
+  *                            via fe80::5054:ff:fec6:702, eth2, weight 1, 03:12:07
+I>* fd00:b:0:304::/64 [115/20] via fe80::5054:ff:fec6:401, eth6, weight 1, 10:12:36
+  *                            via fe80::5054:ff:fec6:702, eth2, weight 1, 10:12:36
+I>* fd00:c:1::/48 [115/10] via fe80::5054:ff:fec6:102, eth3, weight 1, 03:14:04
+I>* fd00:c:1::1/128 [115/20] via fe80::5054:ff:fec6:102, eth3, weight 1, 09:51:25
+I>* fd00:c:2::/48 [115/10] via fe80::5054:ff:fec6:202, eth4, weight 1, 01:37:19
+I>* fd00:c:2::1/128 [115/20] via fe80::5054:ff:fec6:202, eth4, weight 1, 01:37:19
+I>* fd00:c:3::/48 [115/10] via fe80::5054:ff:fec6:301, eth5, weight 1, 03:12:07
+I>* fd00:c:3::1/128 [115/20] via fe80::5054:ff:fec6:301, eth5, weight 1, 03:12:07
+I>* fd00:c:4::/48 [115/10] via fe80::5054:ff:fec6:401, eth6, weight 1, 10:12:36
+I>* fd00:c:4::1/128 [115/20] via fe80::5054:ff:fec6:401, eth6, weight 1, 10:12:36
+I>* fd00:c:11::/48 [115/10] via fe80::5054:ff:fec6:501, eth1, weight 1, 10:12:36
+I>* fd00:c:11::1/128 [115/20] via fe80::5054:ff:fec6:501, eth1, weight 1, 10:12:36
+I>* fd00:c:12::/48 [115/0] is directly connected, dum0, seg6local uN, weight 1, 19:05:13
+L * fd00:c:12::1/128 is directly connected, dum0, weight 1, 19:05:21
+C>* fd00:c:12::1/128 is directly connected, dum0, weight 1, 19:05:21
+I>* fd00:c:12:e000::/64 [115/0] is directly connected, eth1, seg6local uA nh6 fe80::5054:ff:fec6:501, eth1, weight 1, 10:13:07
+I>* fd00:c:12:e001::/64 [115/0] is directly connected, eth3, seg6local uA nh6 fe80::5054:ff:fec6:102, eth3, weight 1, 09:51:35
+I>* fd00:c:12:e002::/64 [115/0] is directly connected, eth4, seg6local uA nh6 fe80::5054:ff:fec6:202, eth4, weight 1, 01:37:49
+I>* fd00:c:12:e003::/64 [115/0] is directly connected, eth5, seg6local uA nh6 fe80::5054:ff:fec6:301, eth5, weight 1, 03:12:37
+I>* fd00:c:12:e004::/64 [115/0] is directly connected, eth2, seg6local uA nh6 fe80::5054:ff:fec6:702, eth2, weight 1, 10:13:07
+I>* fd00:c:12:e005::/64 [115/0] is directly connected, eth6, seg6local uA nh6 fe80::5054:ff:fec6:401, eth6, weight 1, 10:13:07
+I>* fd00:c:13::/48 [115/10] via fe80::5054:ff:fec6:702, eth2, weight 1, 10:12:36
+I>* fd00:c:13::1/128 [115/20] via fe80::5054:ff:fec6:702, eth2, weight 1, 10:12:36
+C * fe80::/64 is directly connected, eth5, weight 1, 19:05:19
+C * fe80::/64 is directly connected, eth6, weight 1, 19:05:19
+C * fe80::/64 is directly connected, eth1, weight 1, 19:05:19
+C * fe80::/64 is directly connected, eth2, weight 1, 19:05:20
+C * fe80::/64 is directly connected, eth3, weight 1, 19:05:20
+C * fe80::/64 is directly connected, eth4, weight 1, 19:05:21
+C * fe80::/64 is directly connected, eth0, weight 1, 19:05:21
+C * fe80::/64 is directly connected, dum0, weight 1, 19:05:21
+C>* fe80::/64 is directly connected, lo, weight 1, 19:05:22
+
+==== IS-IS SPF result: show isis route
+Area VyOS:
+IS-IS paths to level-2 routers that speak IP
+ Vertex  Type   Metric  Next-Hop  Interface  Parent  
+ ----------------------------------------------------
+ p2                                                  
+ p1      TE-IS  10      p1        eth1       p2(4)   
+ p3      TE-IS  10      p3        eth2       p2(4)   
+ pe1     TE-IS  10      pe1       eth3       p2(4)   
+ pe2     TE-IS  10      pe2       eth4       p2(4)   
+ pe3     TE-IS  10      pe3       eth5       p2(4)   
+ pe4     TE-IS  10      pe4       eth6       p2(4)   
+
+
+IS-IS L2 IPv4 routing table:
+
+IS-IS paths to level-2 routers that speak IPv6
+ Vertex             Type          Metric  Next-Hop  Interface  Parent  
+ ----------------------------------------------------------------------
+ p2                                                                    
+ fd00:c:12::/48     IP6 internal  0                            p2(4)   
+ fd00:c:12::1/128   IP6 internal  0                            p2(4)   
+ fd00:b:0:12::/64   IP6 internal  0                            p2(4)   
+ fd00:b:0:23::/64   IP6 internal  0                            p2(4)   
+ fd00:b:0:201::/64  IP6 internal  0                            p2(4)   
+ fd00:b:0:202::/64  IP6 internal  0                            p2(4)   
+ fd00:b:0:203::/64  IP6 internal  0                            p2(4)   
+ fd00:b:0:204::/64  IP6 internal  0                            p2(4)   
+ fd00:a::12/128     IP6 internal  0                            p2(4)   
+ p1                 TE-IS         10      p1        eth1       p2(4)   
+ p3                 TE-IS         10      p3        eth2       p2(4)   
+ pe1                TE-IS         10      pe1       eth3       p2(4)   
+ pe2                TE-IS         10      pe2       eth4       p2(4)   
+ pe3                TE-IS         10      pe3       eth5       p2(4)   
+ pe4                TE-IS         10      pe4       eth6       p2(4)   
+ fd00:c:11::/48     IP6 internal  10      p1        eth1       p1(4)   
+ fd00:c:13::/48     IP6 internal  10      p3        eth2       p3(4)   
+ fd00:c:1::/48      IP6 internal  10      pe1       eth3       pe1(4)  
+ fd00:c:2::/48      IP6 internal  10      pe2       eth4       pe2(4)  
+ fd00:c:3::/48      IP6 internal  10      pe3       eth5       pe3(4)  
+ fd00:c:4::/48      IP6 internal  10      pe4       eth6       pe4(4)  
+ fd00:c:11::1/128   IP6 internal  20      p1        eth1       p1(4)   
+ fd00:b:0:13::/64   IP6 internal  20      p1        eth1       p1(4)   
+                                          p3        eth2       p3(4)   
+ fd00:b:0:101::/64  IP6 internal  20      p1        eth1       p1(4)   
+                                          pe1       eth3       pe1(4)  
+ fd00:b:0:102::/64  IP6 internal  20      p1        eth1       p1(4)   
+                                          pe2       eth4       pe2(4)  
+ fd00:a::11/128     IP6 internal  20      p1        eth1       p1(4)   
+ fd00:c:13::1/128   IP6 internal  20      p3        eth2       p3(4)   
+ fd00:b:0:303::/64  IP6 internal  20      p3        eth2       p3(4)   
+                                          pe3       eth5       pe3(4)  
+ fd00:b:0:304::/64  IP6 internal  20      p3        eth2       p3(4)   
+                                          pe4       eth6       pe4(4)  
+ fd00:a::13/128     IP6 internal  20      p3        eth2       p3(4)   
+ fd00:c:1::1/128    IP6 internal  20      pe1       eth3       pe1(4)  
+ fd00:a::1/128      IP6 internal  20      pe1       eth3       pe1(4)  
+ fd00:c:2::1/128    IP6 internal  20      pe2       eth4       pe2(4)  
+ fd00:a::2/128      IP6 internal  20      pe2       eth4       pe2(4)  
+ fd00:c:3::1/128    IP6 internal  20      pe3       eth5       pe3(4)  
+ fd00:a::3/128      IP6 internal  20      pe3       eth5       pe3(4)  
+ fd00:c:4::1/128    IP6 internal  20      pe4       eth6       pe4(4)  
+ fd00:a::4/128      IP6 internal  20      pe4       eth6       pe4(4)  
+
+
+IS-IS L2 IPv6 routing table:
+
+ Prefix             Metric  Interface  Nexthop                 Label(s)  
+ ------------------------------------------------------------------------
+ fd00:a::1/128      20      eth3       fe80::5054:ff:fec6:102  -         
+ fd00:a::2/128      20      eth4       fe80::5054:ff:fec6:202  -         
+ fd00:a::3/128      20      eth5       fe80::5054:ff:fec6:301  -         
+ fd00:a::4/128      20      eth6       fe80::5054:ff:fec6:401  -         
+ fd00:a::11/128     20      eth1       fe80::5054:ff:fec6:501  -         
+ fd00:a::12/128     0       -          -                       -         
+ fd00:a::13/128     20      eth2       fe80::5054:ff:fec6:702  -         
+ fd00:b:0:12::/64   0       -          -                       -         
+ fd00:b:0:13::/64   20      eth1       fe80::5054:ff:fec6:501  -         
+                            eth2       fe80::5054:ff:fec6:702  -         
+ fd00:b:0:23::/64   0       -          -                       -         
+ fd00:b:0:101::/64  20      eth1       fe80::5054:ff:fec6:501  -         
+                            eth3       fe80::5054:ff:fec6:102  -         
+ fd00:b:0:102::/64  20      eth1       fe80::5054:ff:fec6:501  -         
+                            eth4       fe80::5054:ff:fec6:202  -         
+ fd00:b:0:201::/64  0       -          -                       -         
+ fd00:b:0:202::/64  0       -          -                       -         
+ fd00:b:0:203::/64  0       -          -                       -         
+ fd00:b:0:204::/64  0       -          -                       -         
+ fd00:b:0:303::/64  20      eth2       fe80::5054:ff:fec6:702  -         
+                            eth5       fe80::5054:ff:fec6:301  -         
+ fd00:b:0:304::/64  20      eth2       fe80::5054:ff:fec6:702  -         
+                            eth6       fe80::5054:ff:fec6:401  -         
+ fd00:c:1::/48      10      eth3       fe80::5054:ff:fec6:102  -         
+ fd00:c:1::1/128    20      eth3       fe80::5054:ff:fec6:102  -         
+ fd00:c:2::/48      10      eth4       fe80::5054:ff:fec6:202  -         
+ fd00:c:2::1/128    20      eth4       fe80::5054:ff:fec6:202  -         
+ fd00:c:3::/48      10      eth5       fe80::5054:ff:fec6:301  -         
+ fd00:c:3::1/128    20      eth5       fe80::5054:ff:fec6:301  -         
+ fd00:c:4::/48      10      eth6       fe80::5054:ff:fec6:401  -         
+ fd00:c:4::1/128    20      eth6       fe80::5054:ff:fec6:401  -         
+ fd00:c:11::/48     10      eth1       fe80::5054:ff:fec6:501  -         
+ fd00:c:11::1/128   20      eth1       fe80::5054:ff:fec6:501  -         
+ fd00:c:12::/48     0       -          -                       -         
+ fd00:c:12::1/128   0       -          -                       -         
+ fd00:c:13::/48     10      eth2       fe80::5054:ff:fec6:702  -         
+ fd00:c:13::1/128   20      eth2       fe80::5054:ff:fec6:702  -
+
+==== IS-IS SRv6 nodes: show isis segment-routing srv6 node
+Area VyOS:
+ IS-IS L1 SRv6-Nodes:
+
+ IS-IS L2 SRv6-Nodes:
+
+ System ID       Algorithm  SRH Max SL  SRH Max End Pop  SRH Max H.encaps  SRH Max End D  
+ -----------------------------------------------------------------------------------------
+ 0000.0000.0001  SPF        3           3                2                 5              
+ 0000.0000.0002  SPF        3           3                2                 5              
+ 0000.0000.0003  SPF        3           3                2                 5              
+ 0000.0000.0004  SPF        3           3                2                 5              
+ 0000.0000.0011  SPF        3           3                2                 5              
+ 0000.0000.0012  SPF        3           3                2                 5              
+ 0000.0000.0013  SPF        3           3                2                 5
+
+==== SRv6 locators: show segment-routing srv6 locator
+Locator:
+Name                 ID      Prefix                   Status
+-------------------- ------- ------------------------ -------
+main                       1 fd00:c:12::/48           Up
+
+==== BFD sessions: show bfd peers brief
+Session count: 6
+SessionId  LocalAddress                             PeerAddress                             Status          Profile             
+=========  ============                             ===========                             ======          =======             
+1394471285 fe80::5054:ff:fec6:602                   fe80::5054:ff:fec6:702                  up              -                   
+1186878074 fe80::5054:ff:fec6:601                   fe80::5054:ff:fec6:501                  up              -                   
+60388289   fe80::5054:ff:fec6:606                   fe80::5054:ff:fec6:401                  up              -                   
+2130395328 fe80::5054:ff:fec6:605                   fe80::5054:ff:fec6:301                  up              -                   
+2111673641 fe80::5054:ff:fec6:604                   fe80::5054:ff:fec6:202                  up              -                   
+1413536520 fe80::5054:ff:fec6:603                   fe80::5054:ff:fec6:102                  up              -
+
+==== IS-IS adjacencies: show isis neighbor
+Area VyOS:
+ System Id           Interface   L  State         Holdtime SNPA
+ p1                  eth1        2  Up            30       2020.2020.2020
+ p3                  eth2        2  Up            28       2020.2020.2020
+ pe1                 eth3        2  Up            28       2020.2020.2020
+ pe2                 eth4        2  Up            28       2020.2020.2020
+ pe3                 eth5        2  Up            28       2020.2020.2020
+ pe4                 eth6        2  Up            29       2020.2020.2020

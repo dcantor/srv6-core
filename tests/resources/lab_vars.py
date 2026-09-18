@@ -32,12 +32,16 @@ for ce in CES:
     pe = NODES[ce]["pe"]
     for lan_port in (p for p in NODES[ce]["ports"] if p["peer"] and NODES[p["peer"]]["role"] == "host"):
         t = lan_port["tenant"]; pe_port = next(p for p in NODES[ce]["ports"] if p["peer"] == pe and p["tenant"] == t)
-        SITES[t][NODES[ce]["dc"]] = {"tenant": t, "ce": ce, "pe": pe, "host": lan_port["peer"], "lan": lan_port["prefix"], "host_ip": NODES[lan_port["peer"]]["ports"][0]["ip"].split("/")[0],
+        hp = NODES[lan_port["peer"]]["ports"][0]; pe_p = next(x for x in NODES[pe]["ports"] if x["peer"] == ce and x["tenant"] == t)
+        SITES[t][NODES[ce]["dc"]] = {"tenant": t, "ce": ce, "pe": pe, "host": lan_port["peer"], "lan": lan_port["prefix"], "host_ip": hp["ip"].split("/")[0],
                                      "ce_lan_ip": lan_port["ip"].split("/")[0], "pe_ce_prefix": pe_port["prefix"], "ce_wan_ip": pe_port["ip"].split("/")[0],
-                                     "pe_wan_ip": next(x for x in NODES[pe]["ports"] if x["peer"] == ce and x["tenant"] == t)["ip"].split("/")[0],
-                                     "rd": f"{CORE_AS}:{VRF_TABLE[t] + NODES[pe]['idx']}", "ce_vrf": t}
+                                     "pe_wan_ip": pe_p["ip"].split("/")[0], "rd": f"{CORE_AS}:{VRF_TABLE[t] + NODES[pe]['idx']}", "ce_vrf": t,
+                                     # the IPv6 twin of every tenant address (dual-stack sites)
+                                     "lan6": lan_port.get("prefix6"), "host_ip6": (hp.get("ip6") or "/").split("/")[0] or None, "ce_lan_ip6": (lan_port.get("ip6") or "/").split("/")[0] or None,
+                                     "pe_ce_prefix6": pe_port.get("prefix6"), "ce_wan_ip6": (pe_port.get("ip6") or "/").split("/")[0] or None, "pe_wan_ip6": (pe_p.get("ip6") or "/").split("/")[0] or None}
 DCS = SITES[TENANTS[0]]                                   # first tenant, kept for the suites that only need one
 HOST_IP = {s["host"]: s["host_ip"] for t in SITES.values() for s in t.values()}
+HOST_IP6 = {s["host"]: s["host_ip6"] for t in SITES.values() for s in t.values()}
 HOST_TENANT = {s["host"]: t for t, sites in SITES.items() for s in sites.values()}
 # External CEs: another lab's routers attached to a tenant (the IPsec headends of cat8000v-ipsec). EXT_SITES per external CE:
 # its PE, both ends of the attachment circuit, its AS, and the LANs that lab advertises (its own site LAN and, through its

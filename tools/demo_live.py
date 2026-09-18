@@ -60,7 +60,7 @@ def act(num, title, blurb, steps):
         if step(*s) is False: return
 
 
-def sid(pe, tenant): return shell(pe, f"ip -6 route show | grep 'End.DT4 vrftable {tenant}' | cut -d' ' -f1").strip().splitlines()[0]
+def sid(pe, tenant): return shell(pe, f"ip -6 route show | grep -E 'End.DT4(6)? vrftable {tenant}' | cut -d' ' -f1").strip().splitlines()[0]
 
 
 def capture(src, dst):

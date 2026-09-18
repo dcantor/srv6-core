@@ -27,7 +27,7 @@ The frr-exporter reports every BGP session of every PE as Established
     FOR    ${pe}    IN    @{PES}
         ${text}=    Http Get    http://${MGMT}[${pe}]:9342/metrics
         ${peers}=    Metric Samples    ${text}    frr_bgp_peer_state
-        ${expected}=    Evaluate    len($RRS) + len($TENANTS) + len([s for s in $EXT_SITES.values() if s["pe"] == "${pe}"])    # reflectors + one CE per tenant + external CEs
+        ${expected}=    Evaluate    2 * (len($RRS) + len($TENANTS)) + len([s for s in $EXT_SITES.values() if s["pe"] == "${pe}"])    # dual-stack: frr-exporter lists a reflector session per VPN family and one CE session per family per tenant, plus external CEs
         Length Should Be    ${peers}    ${expected}    msg=${pe}: expected ${expected} BGP peers in frr_bgp_peer_state
         FOR    ${p}    IN    @{peers}
             Should Be Equal As Numbers    ${p}[value]    1    msg=${pe}: peer ${p}[labels][peer] (${p}[labels][vrf]) is not Established
@@ -79,7 +79,7 @@ VictoriaMetrics holds the series remote-written by Prometheus
     ${health}=    Prometheus Query    ${VICTORIAMETRICS}    lab_tenant_health{lab="srv6-core"}
     Length Should Be    ${health}    ${{ len($TENANTS) }}
     ${bgp}=    Prometheus Query    ${VICTORIAMETRICS}    count(frr_bgp_peer_state{lab="srv6-core",role="pe"} == 1)
-    ${expected}=    Evaluate    len($PES) * (len($RRS) + len($TENANTS)) + len($EXT_SITES)
+    ${expected}=    Evaluate    len($PES) * 2 * (len($RRS) + len($TENANTS)) + len($EXT_SITES)   # per PE: (2 reflectors + 2 tenants) x 2 families
     Should Be Equal As Numbers    ${bgp}[0][value]    ${expected}    msg=${bgp}[0][value] Established PE BGP sessions in VictoriaMetrics, expected ${expected}
 
 Every VyOS node pushes Telegraf metrics into VictoriaMetrics, tagged with the lab, role and DC
@@ -134,7 +134,7 @@ sFlow from every PE and P reaches VictoriaLogs and shows the SRv6 paths in use
     ${dst}=    Set Variable    ${SITES}[tenant-a][dc3]
     Host Command    ${MGMT}[${src}[host]]    ping -c 300 -i 0.02 -s 1000 ${dst}[host_ip] >/dev/null; true
     Wait Until Keyword Succeeds    2 min    10 s    Flows Seen From Every Core Node
-    ${sid}=    Vyos Shell    ${MGMT}[${dst}[pe]]    ip -6 route show | grep 'End.DT4 vrftable tenant-a' | cut -d' ' -f1
+    ${sid}=    Vyos Shell    ${MGMT}[${dst}[pe]]    ip -6 route show | grep -E 'End.DT4(6)? vrftable tenant-a' | cut -d' ' -f1
     ${r}=    Http Get    ${VICTORIALOGS}/select/logsql/query    query=_time:5m sampler_address:* proto:"IPv6-Route" src_addr:"${LOOPBACK}[${src}[pe]]" dst_addr:"${sid.strip()}" | stats by (sampler_address) count() as samples
     ${samplers}=    Evaluate    sorted(__import__("json").loads(l)["sampler_address"] for l in str($r).splitlines() if l.strip())
     Should Contain    ${samplers}    ${MGMT}[${src}[pe]]    msg=${src}[pe] did not sample the encapsulated flow to ${sid.strip()}

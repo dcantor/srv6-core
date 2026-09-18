@@ -78,7 +78,7 @@ set protocols isis interface lo passive
 set protocols isis interface dum0 passive
 set protocols isis segment-routing srv6 locator main
 set protocols isis segment-routing srv6 interface dum0
-# VPNv4 route reflector for the PEs (no VRFs here; p routers only forward IPv6); the PEs peer with every reflector
+# VPNv4 + VPNv6 route reflector for the PEs (no VRFs here; p routers only forward IPv6); the PEs peer with every reflector
 set protocols bgp system-as 65000
 set protocols bgp parameters router-id 10.255.0.13
 set protocols bgp parameters cluster-id 10.255.0.13
@@ -87,6 +87,7 @@ set protocols bgp peer-group RR-CLIENTS remote-as 65000
 set protocols bgp peer-group RR-CLIENTS update-source fd00:a::13
 set protocols bgp peer-group RR-CLIENTS capability extended-nexthop
 set protocols bgp peer-group RR-CLIENTS address-family ipv4-vpn route-reflector-client
+set protocols bgp peer-group RR-CLIENTS address-family ipv6-vpn route-reflector-client
 set protocols bgp neighbor fd00:a::1 peer-group RR-CLIENTS
 set protocols bgp neighbor fd00:a::1 description 'pe1'
 set protocols bgp neighbor fd00:a::2 peer-group RR-CLIENTS

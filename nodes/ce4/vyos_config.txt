@@ -25,13 +25,15 @@ set service monitoring telegraf global-tag role value ce
 set service monitoring telegraf global-tag dc value dc4
 # VyOS/FRR insist on a default-VRF BGP instance while VRF instances exist: an empty one (no neighbours, no networks)
 set protocols bgp system-as 65004
-# tenant-a: VRF tenant-a on the CE holds the attachment circuit to pe4 and the dc4 LAN
+# tenant-a: VRF tenant-a on the CE holds the attachment circuit to pe4 and the dc4 LAN (dual-stack: one eBGP session per family)
 set vrf name tenant-a table 100
 set interfaces ethernet eth1 vrf tenant-a
 set interfaces ethernet eth2 vrf tenant-a
 set interfaces ethernet eth1 address 172.16.4.2/30
+set interfaces ethernet eth1 address fd00:16:4::2/64
 set interfaces ethernet eth1 description 'pe4 eth3 (tenant-a)'
 set interfaces ethernet eth2 address 172.20.4.1/24
+set interfaces ethernet eth2 address fd00:20:4::1/64
 set interfaces ethernet eth2 description 'dc4 LAN tenant-a: dc4-h1'
 set vrf name tenant-a protocols bgp system-as 65004
 set vrf name tenant-a protocols bgp parameters router-id 172.20.4.1
@@ -40,13 +42,19 @@ set vrf name tenant-a protocols bgp neighbor 172.16.4.1 remote-as 65000
 set vrf name tenant-a protocols bgp neighbor 172.16.4.1 description 'pe4 (tenant-a)'
 set vrf name tenant-a protocols bgp neighbor 172.16.4.1 address-family ipv4-unicast
 set vrf name tenant-a protocols bgp address-family ipv4-unicast network 172.20.4.0/24
-# tenant-b: VRF tenant-b on the CE holds the attachment circuit to pe4 and the dc4 LAN
+set vrf name tenant-a protocols bgp neighbor fd00:16:4::1 remote-as 65000
+set vrf name tenant-a protocols bgp neighbor fd00:16:4::1 description 'pe4 (tenant-a, IPv6)'
+set vrf name tenant-a protocols bgp neighbor fd00:16:4::1 address-family ipv6-unicast
+set vrf name tenant-a protocols bgp address-family ipv6-unicast network fd00:20:4::/64
+# tenant-b: VRF tenant-b on the CE holds the attachment circuit to pe4 and the dc4 LAN (dual-stack: one eBGP session per family)
 set vrf name tenant-b table 200
 set interfaces ethernet eth3 vrf tenant-b
 set interfaces ethernet eth4 vrf tenant-b
 set interfaces ethernet eth3 address 172.18.4.2/30
+set interfaces ethernet eth3 address fd00:18:4::2/64
 set interfaces ethernet eth3 description 'pe4 eth4 (tenant-b)'
 set interfaces ethernet eth4 address 172.21.4.1/24
+set interfaces ethernet eth4 address fd00:21:4::1/64
 set interfaces ethernet eth4 description 'dc4 LAN tenant-b: dc4-h2'
 set vrf name tenant-b protocols bgp system-as 65004
 set vrf name tenant-b protocols bgp parameters router-id 172.21.4.1
@@ -55,3 +63,7 @@ set vrf name tenant-b protocols bgp neighbor 172.18.4.1 remote-as 65000
 set vrf name tenant-b protocols bgp neighbor 172.18.4.1 description 'pe4 (tenant-b)'
 set vrf name tenant-b protocols bgp neighbor 172.18.4.1 address-family ipv4-unicast
 set vrf name tenant-b protocols bgp address-family ipv4-unicast network 172.21.4.0/24
+set vrf name tenant-b protocols bgp neighbor fd00:18:4::1 remote-as 65000
+set vrf name tenant-b protocols bgp neighbor fd00:18:4::1 description 'pe4 (tenant-b, IPv6)'
+set vrf name tenant-b protocols bgp neighbor fd00:18:4::1 address-family ipv6-unicast
+set vrf name tenant-b protocols bgp address-family ipv6-unicast network fd00:21:4::/64
