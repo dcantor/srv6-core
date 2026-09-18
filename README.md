@@ -14,7 +14,7 @@ RAM, all VyOS nodes 1 vCPU / 1 GiB.
                    | eth2 (VRF tenant-a) | eth4 (VRF tenant-b)
  CEs   (VyOS)     ce1 AS65001 — eBGP to pe1 once per tenant      ce2 AS65002         ce3 AS65003         ce4 AS65004
                    | eth1 172.16.n.0/30 → PE VRF tenant-a          |                   |                   |
-                   | eth3 172.17.n.0/30 → PE VRF tenant-b          |                   |                   |
+                   | eth3 172.18.n.0/30 → PE VRF tenant-b          |                   |                   |
  PEs   (VyOS)     pe1 fd00:c:1::/64     pe2 fd00:c:2::/64              pe3 fd00:c:3::/64     pe4 fd00:c:4::/64
                    |    \      /    |                                   |    \      /    |
  P core (VyOS)    p1 (RR) ---------- p2 ------------------------------ p3 (RR)  IS-IS L2, IPv6-only, MTU 9000
@@ -107,15 +107,16 @@ via p3→p1 half the time); per-locator entries keep the forwarding plane consis
 | p2–pe1, p2–pe2, p2–pe3, p2–pe4 | fd00:b:0:201::/64 … fd00:b:0:204::/64 | p2 eth3 … eth6 | pe*n* eth2 (pe1/pe2), eth1 (pe3/pe4) |
 | p3–pe3, p3–pe4 | fd00:b:0:303::/64, fd00:b:0:304::/64 | p3 eth3, p3 eth4 | pe3 eth2, pe4 eth2 |
 | pe*n*–ce*n* tenant-a | 172.16.*n*.0/30 | pe*n* eth3 | ce*n* eth1 |
-| pe*n*–ce*n* tenant-b | 172.17.*n*.0/30 | pe*n* eth4 | ce*n* eth3 |
+| pe*n*–ce*n* tenant-b | 172.18.*n*.0/30 | pe*n* eth4 | ce*n* eth3 |
 | ce*n*–dc*n*-h1 | 172.20.*n*.0/24 | ce*n* eth2 (gateway) | dc*n*-h1 eth1 |
 | ce*n*–dc*n*-h2 | 172.21.*n*.0/24 | ce*n* eth4 (gateway) | dc*n*-h2 eth1 |
+| headend–pe*n* tenant-a (external CE, IPsec lab) | 172.19.*n*.0/30 | east/central/west-headend GigabitEthernet3 | pe1/pe2/pe3 eth5 |
 
 VRFs: `tenant-a` table 100, RT 65000:100, RD 65000:10*n*; `tenant-b` table 200, RT 65000:200, RD 65000:20*n* (*n* = PE
 number). OOB network `srv6-oob` 10.3.0.0/24, host 10.3.0.1; serial consoles 127.0.0.1:5301–5319.
 
 Links: core `fd00:b:0:<ab>::/64` (`ab` = the two node numbers, e.g. p1–p2 `fd00:b:0:12::/64`, p2–pe1 `fd00:b:0:201::/64`);
-tenant-a: PE–CE `172.16.n.0/30` (PE .1), CE–host `172.20.n.0/24`; tenant-b: PE–CE `172.17.n.0/30`, CE–host `172.21.n.0/24`
+tenant-a: PE–CE `172.16.n.0/30` (PE .1), CE–host `172.20.n.0/24`; tenant-b: PE–CE `172.18.n.0/30`, CE–host `172.21.n.0/24`
 (CE .1 = gateway, host .2). A fourth token on a `LINKS` entry names the tenant. The first end of a link in
 `lab.conf` gets the first address. `./lab.sh status` prints every link with both addresses, `./lab.sh inventory`
 the whole lab as JSON (what the tests read; a future Nautobot seed would too).
@@ -241,6 +242,41 @@ Every device exports metrics on its OOB address and the NMS keeps them:
   lab-state alerts are gated on `lab_vm_running` so a powered-off lab does not page.
 - Test suite `11_monitoring` verifies the whole chain, exporter → Prometheus → VictoriaMetrics → Grafana.
 
+## Interconnect: the IPsec lab as branches of tenant-a
+The [cat8000v-ipsec](https://github.com/dcantor/cat8000v-ipsec) lab (three C8000v headends behind VyOS firewalls, five
+spokes over IKEv2/IPsec VTIs, eBGP) is attached to this core: **every headend is a CE of tenant-a** on its data centre's PE,
+so a branch reaches a data-centre host through IPsec → headend → PE → SRv6 → PE → CE → host, and back.
+
+```
+ branch (spoke5) ══ IPsec VTI ══ central-headend ── Gi3 172.19.2.1 ── eth5 pe2 ═══ SRv6 (uDT4 of pe1) ═══ pe1 ── ce1 ── dc1-h1
+  192.168.17.1                   AS 65204  eBGP        tenant-a AC          VRF tenant-a                          172.20.1.2
+```
+
+| Headend | AS | Attaches to | Circuit | Announces into tenant-a |
+|---|---|---|---|---|
+| east-headend | 65200 | pe1 (dc1) eth5 | 172.19.1.0/30 | 192.168.11.0/24 + the branch LANs of its spokes |
+| central-headend | 65204 | pe2 (dc2) eth5 | 172.19.2.0/30 | 192.168.14.0/24 + branches |
+| west-headend | 65206 | pe3 (dc3) eth5 | 172.19.3.0/30 | 192.168.16.0/24 + branches |
+
+- **Declared once, in this lab**: `lab.conf` lists the headends as `EXT_NODES` (role `ext-ce`, their AS, OOB address and
+  the IPsec lab's UDP numbering) and the three links. No VM and no configuration is managed here for them: the PE side is
+  rendered like any CE attachment (VRF interface, eBGP neighbour with the headend's AS), the headend's UDP link ports
+  are mirrored from the IPsec lab's fixed numbering (headend Gi3 is the first end of the link, so its domain XML never
+  changes), and `nautobot/seed.py` models the attachment on the headend that the IPsec lab's seed owns: Gi3 address and
+  description, the cable to the PE, and the eBGP peering between the PE's tenant-a routing instance and the headend's.
+- **Pushed by the IPsec lab's own pipeline**: `cat8000v-ipsec/nautobot/render_nac.py` sees the enabled, addressed, cabled
+  Gi3 and the peering with AS 65000 and renders them into its NaC data; `terraform apply` configures the headend. Its seed
+  treats a port cabled to a device outside its lab as *foreign-wired* and leaves it alone. Golden Config stays compliant.
+- **Routing**: plain eBGP. The headend re-advertises the branch LANs it learns over the tunnels to the PE and the tenant's
+  data-centre LANs to its spokes; AS-path loop prevention handles the triangle (a spoke sees its own AS on the far path).
+  tenant-b never sees a branch: there is no route (`12_interconnect` proves it).
+- The IPsec tunnel /30s live in `172.17.0.0/16`, which is why tenant-b's attachment circuits moved to `172.18.0.0/16` — the
+  two labs share one Nautobot namespace, and two seeds fighting over the same prefix objects was the first bug found.
+- Suite `12_interconnect` (10 cases) covers sessions, VPN routes with SIDs under the right RD, isolation, host ↔ branch
+  reachability both ways, the path through the headend and tunnel, and the SRv6 encapsulation on p2. It is skipped when
+  `EXT_NODES` is empty, and needs the IPsec lab up. Resource note: both labs plus the NMS need ~52 GiB and the eight
+  C8000v each keep a core busy — run the two labs' test suites one after the other.
+
 ## Nautobot: the source of truth
 The lab is modelled in the shared Nautobot (the cat9000v NMS, on this lab's OOB network as **10.3.0.10**):
 `./lab.sh nautobot seed` (idempotent, from `lab.conf`), `./lab.sh nautobot render --check | --live | --write`.
@@ -271,7 +307,7 @@ rendered line is on the routers — suite 09 asserts both plus the model itself.
 invisible to REST reads (verify through GraphQL), VRF prefixes go through `vrf-prefix-assignments`, GraphQL returns
 choice fields upper-cased, and new custom fields need a Nautobot restart before GraphQL sees them.
 
-## Tests (`./lab.sh test`, 49 cases)
+## Tests (`./lab.sh test`, 59 cases)
 | Suite | Checks |
 |---|---|
 | 01 management | every node on the OOB network with SSH, host names, host LAN addresses, MTU 9000 on all core links, config saved |
@@ -284,6 +320,7 @@ choice fields upper-cased, and new custom fields need a Nautobot restart before 
 | 09 nautobot | every device/link/address/VRF/RD/peering in Nautobot matches the inventory; Nautobot's rendering == lab.conf's; every rendered line present on the routers |
 | 10 throughput | iperf3 dc1 → dc3: TCP above the floor, UDP at 20 Mbit/s with no loss, steered (uSID and uncompressed) within half of the shortest path |
 | 11 monitoring | node-exporter + frr-exporter on every VyOS node (every PE BGP session Established per the exporter), node-exporter on every host, the portal's `/api/sd` lists every exporter and `/metrics` reports every tenant up / core fully adjacent; Prometheus scrapes all 31 lab targets, the alert rules are loaded and none fires, VictoriaMetrics holds the remote-written series, Grafana serves the provisioned dashboards |
+| 12 interconnect | the IPsec headends as tenant-a CEs: PE↔headend eBGP with the right AS, headend + branch LANs on every PE with a SID from the attaching PE's locator and under its RD at the reflectors, absent from tenant-b, dc host ↔ branch pings both ways, the path dc → PE → core → headend → IPsec tunnel → branch, SRv6 encapsulation on p2 (skipped without `EXT_NODES`) |
 | 05 end to end | every host reaches every host of its tenant (2 × 4×3 pings) and **none of the other tenant's**, not even at the same site; dc1→dc3 traffic transits p2 with `tcpdump` showing `IP6 fd00:a::1 > fd00:c:3:…` both ways; P routers hold no VRF and no tenant routes |
 
 Every run lands in `results/<timestamp>/` — `report.html`, `log.html`, `output.xml`, and `configs/{pre-run,post-run}/` with
@@ -307,7 +344,7 @@ a terminal page; run it with the cat8000v-ipsec `webapp/.venv` python).
 ## What is where
 | Path | Purpose |
 |---|---|
-| `lab.conf` | the topology: nodes, roles, addresses, `LINKS`, service parameters (AS, VRF, RT, RR) |
+| `lab.conf` | the topology: nodes, roles, addresses, `LINKS`, service parameters (AS, VRF, RT, RR); `EXT_NODES` = the IPsec headends attached as external CEs |
 | `lab.sh` | libvirt controller: `up down bootstrap configure steer nautobot wait status inventory verify test console ssh log rebuild clean` |
 | `nautobot/seed.py`, `nautobot/render.py`, `nautobot/srv6-core-model.graphql` | model the lab in Nautobot; render the configs from it; the saved query |
 | `tools/render.py` | the one config renderer (inventory → VyOS `set` lines), used by `gen_configs.py` and `nautobot/render.py` |

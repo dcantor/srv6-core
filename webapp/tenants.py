@@ -13,10 +13,16 @@ def inventory():
     return json.loads(subprocess.run([str(LAB / "lab.sh"), "inventory"], capture_output=True, text=True, check=True).stdout)
 
 
+# Per-tenant /16 blocks by tenant index: attachment circuits 172.16 (tenant-a), 172.18 (tenant-b), then 172.22...; site LANs
+# 172.20, 172.21, then 172.40... — 172.17 (IPsec tunnels of the cat8000v-ipsec lab) and 172.19 (its headends' attachment to
+# this core) are taken, and every lab's prefixes share one Nautobot namespace.
+AC_BLOCK = [16, 18] + list(range(22, 40)); LAN_BLOCK = [20, 21] + list(range(40, 58))
+
+
 def facts(inv=None):
     inv = inv or inventory(); N = {n["name"]: n for n in inv["nodes"]}
     tenants = inv["service"]["tenants"]
-    # tenant index (0 = tenant-a, 1 = tenant-b, ...) drives the address blocks: PE-CE 172.(16+i).n.0/30, LAN 172.(20+i).n.0/24
+    # tenant index (0 = tenant-a, 1 = tenant-b, ...) drives the address blocks, see AC_BLOCK / LAN_BLOCK
     order = sorted(tenants, key=lambda t: tenants[t]["table"])
     dcs = sorted({n["dc"] for n in inv["nodes"] if n["dc"] != "core"})
     used_ports = {(n["name"], p["name"]) for n in inv["nodes"] for p in n["ports"] if p["peer"]}
@@ -48,8 +54,8 @@ def sites_for(f, tenant, index, dcs):
         if mgmt in mgmt_used: mgmt = f"10.3.0.{next_free({int(m.split('.')[-1]) for m in mgmt_used}, 60)}"
         mgmt_used.add(mgmt)
         sites.append({"dc": dc, "pe": pe, "ce": ce, "pe_port": pe_free[0], "ce_pe_port": ce_free[0], "ce_lan_port": ce_free[1],
-                      "attachment_circuit": f"172.{16 + index}.{n}.0/30", "lan": f"172.{20 + index}.{n}.0/24",
-                      "host": host, "host_mgmt": mgmt, "host_console": console, "host_idx": idx, "host_ip": f"172.{20 + index}.{n}.2", "gateway": f"172.{20 + index}.{n}.1"})
+                      "attachment_circuit": f"172.{AC_BLOCK[index]}.{n}.0/30", "lan": f"172.{LAN_BLOCK[index]}.{n}.0/24",
+                      "host": host, "host_mgmt": mgmt, "host_console": console, "host_idx": idx, "host_ip": f"172.{LAN_BLOCK[index]}.{n}.2", "gateway": f"172.{LAN_BLOCK[index]}.{n}.1"})
     return sites
 
 
@@ -70,7 +76,14 @@ def tenant_sites(f, tenant):
             ce = l["a"]; dc = f["N"][ce]["dc"]; ac = next(x for x in f["inv"]["links"] if x.get("tenant") == tenant and x["b"] == ce)
             out.append({"dc": dc, "pe": ac["a"], "ce": ce, "host": l["b"], "lan": l["prefix"], "host_ip": l["b_ip"].split("/")[0], "attachment_circuit": ac["prefix"],
                         "pe_port": ac["a_port"], "ce_pe_port": ac["b_port"], "ce_lan_port": l["a_port"], "host_mgmt": f["N"][l["b"]]["mgmt_ip"], "rd": f["N"][ac["a"]]["rd"].get(tenant)})
-    return sorted(out, key=lambda s: s["dc"])
+    # external sites: another lab's router attached to the tenant (an IPsec headend); no host of ours behind it
+    for l in f["inv"]["links"]:
+        if l.get("tenant") == tenant and f["N"][l["a"]]["role"] == "ext-ce":
+            ce, pe = l["a"], l["b"]
+            out.append({"dc": f["N"][ce]["dc"], "pe": pe, "ce": ce, "host": None, "lan": None, "host_ip": None, "attachment_circuit": l["prefix"], "ce_wan_ip": l["a_ip"].split("/")[0],
+                        "pe_port": l["b_port"], "ce_pe_port": l["a_port"], "ce_lan_port": None, "host_mgmt": None, "rd": f["N"][pe]["rd"].get(tenant),
+                        "external": f["N"][ce]["lab"], "ce_asn": f["N"][ce]["asn"], "ce_mgmt": f["N"][ce]["mgmt_ip"]})
+    return sorted(out, key=lambda s: (s["dc"], s.get("external") or ""))
 
 
 def suggest_site(tenant, dc):

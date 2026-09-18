@@ -92,7 +92,9 @@ function render() {
       <span style="float:right"><button onclick="throughput('${t.name}')">Throughput</button> <button onclick="openSiteWizard('${t.name}')">Add site</button> <button class="danger" onclick="openRemove('${t.name}')">Remove</button></span></h2>
     <div id="tp-${t.name}" class="hint"></div>
     <table><thead><tr><th>Site</th><th>PE</th><th>RD</th><th>Attachment circuit</th><th>CE</th><th>LAN</th><th>Host</th><th>eBGP CE↔PE</th><th>VRF routes (SRv6)</th><th>End.DT4 SID</th></tr></thead><tbody>
-    ${t.sites.map(s => { const l = s.live || {}; const h = l.host || {}; return `<tr><td><b>${s.dc}</b></td><td>${s.pe} ${s.pe_port}</td><td class="mono">${s.rd || ''}</td><td class="mono">${s.attachment_circuit}</td><td>${s.ce} ${s.ce_pe_port} / ${s.ce_lan_port}</td><td class="mono">${s.lan}</td>
+    ${t.sites.map(s => { const l = s.live || {}; const h = l.host || {}; if (s.external) return `<tr><td><b>${s.dc}</b> <span class="pill">external</span></td><td>${s.pe} ${s.pe_port}</td><td class="mono">${s.rd || ''}</td><td class="mono">${s.attachment_circuit}</td><td>${s.ce} ${s.ce_pe_port}<div class="hint">${s.external} lab · AS ${s.ce_asn} · IPsec headend, announces its branches</div></td><td class="mono hint">via IPsec</td><td><span class="hint">no host of this lab</span></td>
+      <td><span class="pill ${l.bgp === 'Established' ? 'ok' : (l.bgp ? 'bad' : '')}">${l.bgp || '…'}</span>${l.prefixes_from_ce != null ? `<div class="hint">${l.prefixes_from_ce} prefixes from the headend</div>` : ''}</td><td>${l.vrf_routes ?? '…'} (${l.srv6_routes ?? '…'})</td><td class="mono">${l.dt4_sid || '…'}</td></tr>`;
+      return `<tr><td><b>${s.dc}</b></td><td>${s.pe} ${s.pe_port}</td><td class="mono">${s.rd || ''}</td><td class="mono">${s.attachment_circuit}</td><td>${s.ce} ${s.ce_pe_port} / ${s.ce_lan_port}</td><td class="mono">${s.lan}</td>
       <td>${s.host} <span class="pill ${h.reachable ? 'ok' : (l.host ? 'bad' : '')}">${h.reachable ? 'up' : (l.host ? 'down' : '…')}</span><div class="hint mono">${s.host_ip} · oob ${s.host_mgmt}</div></td>
       <td><span class="pill ${l.bgp === 'Established' ? 'ok' : (l.bgp ? 'bad' : '')}">${l.bgp || '…'}</span>${l.prefixes_from_ce != null ? ` <span class="hint">${l.prefixes_from_ce} pfx</span>` : ''}${l.error ? `<div class="msg">${esc(l.error)}</div>` : ''}</td>
       <td>${l.vrf_routes ?? '…'} (${l.srv6_routes ?? '…'})</td><td class="mono">${l.dt4_sid || '…'}</td></tr>`; }).join('')}</tbody></table></div>`).join('') || '<div class="hint">no tenants</div>';
@@ -180,7 +182,7 @@ async function openRemove(name) {
 async function loadSteering() {
   if (!ST) await refresh(false);
   $('st-pe').innerHTML = ST.pes.map(p => `<option>${p}</option>`).join(''); $('st-tenant').innerHTML = ST.tenants.map(t => `<option>${t.name}</option>`).join('');
-  const fill = () => { const t = ST.tenants.find(x => x.name === $('st-tenant').value); const pe = $('st-pe').value; $('st-prefix').innerHTML = t.sites.filter(s => s.pe !== pe).map(s => `<option value="${s.lan}">${s.lan} (${s.dc}, behind ${s.pe})</option>`).join(''); };
+  const fill = () => { const t = ST.tenants.find(x => x.name === $('st-tenant').value); const pe = $('st-pe').value; $('st-prefix').innerHTML = t.sites.filter(s => s.pe !== pe && s.lan).map(s => `<option value="${s.lan}">${s.lan} (${s.dc}, behind ${s.pe})</option>`).join(''); };
   $('st-pe').onchange = fill; $('st-tenant').onchange = fill; fill();
   const r = await fetch('/api/steering'); const pol = await r.json();
   $('st-table').querySelector('tbody').innerHTML = pol.map(p => `<tr><td>${p.pe}</td><td>${p.tenant}</td><td class="mono">${p.prefix}</td><td class="mono">${(p.segments || []).join(' → ')}</td><td>${p.interface}</td><td><button class="danger" onclick="steerDel('${p.pe}','${p.tenant}','${p.prefix}')">Remove</button></td></tr>`).join('') || '<tr><td colspan="6" class="hint">no policies — every prefix follows the IGP shortest path</td></tr>';

@@ -11,7 +11,7 @@ query srv6_core_model {
     interfaces {
       name type description mgmt_only mac_address
       ip_addresses { address parent { prefix role { name } } }
-      connected_interface { name device { name } }
+      connected_interface { name device { name primary_ip4 { address } location { name parent { name parent { name } } } bgp_routing_instances { autonomous_system { asn } } } ip_addresses { address } }
     }
     vrf_assignments { rd vrf { name } }
     bgp_routing_instances {

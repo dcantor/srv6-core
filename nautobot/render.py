@@ -52,11 +52,21 @@ def inventory_from_nautobot():
             far = i["connected_interface"]; parent = i["ip_addresses"][0]["parent"]["prefix"] if i["ip_addresses"] and i["ip_addresses"][0]["parent"] else None
             ports.append({"name": i["name"], "ip": addr, "peer": far["device"]["name"] if far else None, "peer_port": far["name"] if far else None,
                           "prefix": parent, "tenant": vrf_of_prefix.get(parent)})
-        pe = next((pt["peer"] for pt in ports if pt["peer"] and ROLE[devs[pt["peer"]]["role"]["name"]] == "pe"), None) if role == "ce" else None
+        pe = next((pt["peer"] for pt in ports if pt["peer"] and pt["peer"] in devs and ROLE[devs[pt["peer"]]["role"]["name"]] == "pe"), None) if role == "ce" else None
         rd = {va["vrf"]["name"]: va["rd"] for va in x["vrf_assignments"] if va["rd"]}
         nodes.append({"name": name, "role": role, "dc": dc, "mgmt_ip": x["primary_ip4"]["address"].split("/")[0], "loopback6": lo6,
                       "router_id": ri["router_id"]["address"].split("/")[0] if ri and ri["router_id"] else None, "locator": x["cf_srv6_locator"] or None,
                       "isis_net": x["cf_isis_net"] or None, "asn": int(ri["autonomous_system"]["asn"]) if ri else None, "pe": pe, "rd": rd, "ports": ports})
+    # external CEs: a PE port cabled to a device outside the lab (an IPsec headend) — modelled minimally, as lab.sh does
+    for pe in [n for n in nodes if n["role"] == "pe"]:
+        for pt in pe["ports"]:
+            if not pt["peer"] or pt["peer"] in devs or any(m["name"] == pt["peer"] for m in nodes): continue
+            far = next(i["connected_interface"] for i in devs[pe["name"]]["interfaces"] if i["name"] == pt["name"]); fd = far["device"]
+            top = fd["location"]; 
+            while top.get("parent"): top = top["parent"]
+            nodes.append({"name": fd["name"], "role": "ext-ce", "dc": pe["dc"], "mgmt_ip": fd["primary_ip4"]["address"].split("/")[0], "lab": top["name"], "loopback6": None, "router_id": None,
+                          "locator": None, "isis_net": None, "asn": int(fd["bgp_routing_instances"][0]["autonomous_system"]["asn"]), "pe": pe["name"], "rd": {},
+                          "ports": [{"name": far["name"], "ip": far["ip_addresses"][0]["address"], "peer": pe["name"], "peer_port": pt["name"], "prefix": pt["prefix"], "tenant": pt["tenant"]}]})
     rrs = sorted(n["name"] for n in nodes if n["role"] == "p" and any(ep["role"] and ep["role"]["name"] == "rr" for ri in devs[n["name"]]["bgp_routing_instances"] for ep in ri["endpoints"]))
     core_as = next(n["asn"] for n in nodes if n["role"] == "pe")
     service = {"core_as": core_as, "rr": rrs[0], "rrs": rrs, "isis_area": ctx["isis"]["area"], "tenants": ctx["tenants"],

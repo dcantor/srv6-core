@@ -29,7 +29,11 @@ class LabLib:
     # ---- VyOS ------------------------------------------------------------------
     def _conn(self, host):
         if host not in self._ssh:
-            self._ssh[host] = ConnectHandler(device_type="vyos", host=host, username=VYOS_USER, password=VYOS_PASS)
+            for attempt in (1, 2, 3):   # a loaded host can miss the prompt on the first try
+                try: self._ssh[host] = ConnectHandler(device_type="vyos", host=host, username=VYOS_USER, password=VYOS_PASS, conn_timeout=30, banner_timeout=60, auth_timeout=60, global_delay_factor=2); break
+                except Exception:  # noqa: BLE001
+                    if attempt == 3: raise
+                    time.sleep(5)
         return self._ssh[host]
 
     @keyword
@@ -168,6 +172,16 @@ class LabLib:
 
     @keyword
     @keyword
+    def run_ios_command(self, host, command, timeout=90):
+        """Run a command on an IOS-XE router of the external lab (netmiko cisco_xe; IOS_USERNAME / IOS_PASSWORD, admin/admin)."""
+        key = ("ios", host)
+        if key not in self._ssh:
+            self._ssh[key] = ConnectHandler(device_type="cisco_xe", host=host, username=os.environ.get("IOS_USERNAME", "admin"), password=os.environ.get("IOS_PASSWORD", "admin"))
+        out = self._ssh[key].send_command(command, read_timeout=float(timeout))
+        logger.info(f"<pre>{host}# {command}\n{out}</pre>", html=True)
+        return out
+
+    @keyword
     def http_get(self, url, timeout=30, **params):
         """GET a URL; returns the parsed JSON, or the text for non-JSON answers (Prometheus exposition)."""
         r = requests.get(url, params=params or None, timeout=timeout); r.raise_for_status()
@@ -190,6 +204,7 @@ class LabLib:
             out.append({"labels": labels, "value": float(m[2])})
         return out
 
+    @keyword
     def ping_loss(self, text):
         """Packets lost according to a ping summary line ('N packets transmitted, M received, ...')."""
         m = re.search(r"(\d+) packets transmitted, (\d+) (?:packets )?received", text)

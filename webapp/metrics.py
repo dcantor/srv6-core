@@ -15,7 +15,7 @@ def render(st, runs):
     out += ["# HELP lab_host_reachable 1 if the tenant host answers SSH over the OOB network", "# TYPE lab_host_reachable gauge"]
     for t in st["tenants"]:
         for s in t["sites"]:
-            h = hl.get(s["host"])
+            h = hl.get(s["host"]) if s["host"] else None
             if h is not None: out.append(line("lab_host_reachable", {"lab": "srv6-core", "host": s["host"], "tenant": t["name"], "dc": s["dc"]}, int(bool(h.get("reachable")))))
     out += ["# HELP lab_tenant_site_bgp_up 1 if the PE's eBGP session to the CE for the tenant is Established", "# TYPE lab_tenant_site_bgp_up gauge",
             "# HELP lab_tenant_vrf_routes IPv4 routes in the tenant VRF on the PE", "# TYPE lab_tenant_vrf_routes gauge",
@@ -24,7 +24,7 @@ def render(st, runs):
         for s in t["sites"]:
             l = s.get("live") or {}
             if "bgp" in l:
-                lab = {"lab": "srv6-core", "tenant": t["name"], "dc": s["dc"], "pe": s["pe"], "ce": s["ce"]}
+                lab = {"lab": "srv6-core", "tenant": t["name"], "dc": s["dc"], "pe": s["pe"], "ce": s["ce"], "external": s.get("external") or ""}
                 out.append(line("lab_tenant_site_bgp_up", lab, int(l.get("bgp") == "Established")))
                 if l.get("vrf_routes") is not None: out.append(line("lab_tenant_vrf_routes", lab, l["vrf_routes"]))
                 if l.get("srv6_routes") is not None: out.append(line("lab_tenant_srv6_routes", lab, l["srv6_routes"]))
@@ -45,7 +45,8 @@ def render(st, runs):
     out += ["# HELP lab_vm_running 1 if the lab VM is running (virsh)", "# TYPE lab_vm_running gauge"]
     try: running = set(subprocess.run(["sg", "libvirt", "-c", "virsh list --name"], capture_output=True, text=True, timeout=20).stdout.split())
     except Exception: running = set()  # noqa: BLE001
-    for n in st["inv"]["nodes"]: out.append(line("lab_vm_running", {"lab": "srv6-core", "node": n["name"], "role": n["role"]}, int(n["name"] in running)))
+    for n in st["inv"]["nodes"]:
+        if n["role"] != "ext-ce": out.append(line("lab_vm_running", {"lab": "srv6-core", "node": n["name"], "role": n["role"]}, int(n["name"] in running)))
     out += run_metrics("srv6-core", runs)
     return exposition(out)
 
@@ -54,6 +55,7 @@ def targets(st):
     """Prometheus http_sd: one target group per exporter, labelled for the dashboards."""
     groups = []
     for n in st["inv"]["nodes"]:
+        if n["role"] == "ext-ce": continue   # another lab's router (IOS-XE: no exporter)
         base = {"lab": "srv6-core", "node": n["name"], "role": n["role"], "dc": n["dc"]}
         if n["role"] == "host":
             t = next((p["tenant"] for p in n["ports"] if p["peer"]), None); groups.append({"targets": [f"{n['mgmt_ip']}:9100"], "labels": {**base, "job": "node", "tenant": t or ""}})

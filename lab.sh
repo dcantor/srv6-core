@@ -37,10 +37,11 @@ ensure_networks() {
 }
 
 # ---- point-to-point links (UDP tunnels between VMs) ------------------------
-port_local() { echo $(( UDP_BASE + NODE_IDX[$1]*100 + $2 )); }           # UDP port a node's NIC listens on when it anchors a link
-port_far()   { echo $(( UDP_BASE + 10000 + NODE_IDX[$1]*100 + $2 )); }   # ...and the port it sends to (the other end listens there)
-node_ports() { case "${ROLE[$1]}" in pe) seq 1 "$PE_PORTS";; p) seq 1 "$P_PORTS";; ce) seq 1 "$CE_PORTS";; host) seq 1 "$HOST_PORTS";; esac; }
-port_name()  { echo "eth$2"; }
+# external nodes (EXT_NODES, the IPsec headends) keep their own lab's numbering, so a PE mirrors the headend's fixed port pair
+port_local() { echo $(( ${EXT_UDP_BASE[$1]:-$UDP_BASE} + ${EXT_IDX[$1]:-${NODE_IDX[$1]:-0}}*100 + $2 )); }           # UDP port a node's NIC listens on when it anchors a link
+port_far()   { echo $(( ${EXT_UDP_BASE[$1]:-$UDP_BASE} + 10000 + ${EXT_IDX[$1]:-${NODE_IDX[$1]:-0}}*100 + $2 )); }   # ...and the port it sends to (the other end listens there)
+node_ports() { case "${ROLE[$1]}" in pe) seq 1 "$PE_PORTS";; p) seq 1 "$P_PORTS";; ce) seq 1 "$CE_PORTS";; host) seq 1 "$HOST_PORTS";; ext-ce) seq 1 "$EXT_PORTS";; esac; }
+port_name()  { [[ "${ROLE[$1]}" == "ext-ce" ]] && echo "GigabitEthernet$2" || echo "eth$2"; }
 mac()        { printf '%s:%02x:%02x' "$MAC_OUI" "${NODE_IDX[$1]}" "$2"; }
 link_peer() {   # node port -> "peer_node peer_port prefix end(1|2) tenant|-" or "" if unwired
   local me="$1:$2" l a b pfx t
@@ -347,6 +348,9 @@ cmd_status() {
     printf '%-6s %-5s %-10s %-10s %-5s %-12s %-14s %-6s %-7s\n' "$n" "${ROLE[$n]}" "$(V domstate "$n" 2>/dev/null || echo undefined)" \
       "${MGMT_IP[$n]}" "${DC[$n]}" "${LOOPBACK6[$n]:--}" "${LOCATOR[$n]:--}" "${BGP_AS[$n]:--}" "${CONSOLE_PORT[$n]}"
   done
+  for n in "${EXT_NODES[@]}"; do   # external CEs: VMs of another lab, shown for the wiring, never started or stopped from here
+    printf '%-6s %-5s %-10s %-10s %-5s %-12s %-14s %-6s %-7s\n' "$n" "${ROLE[$n]}" "$(V domstate "$n" 2>/dev/null || echo undefined)" "${MGMT_IP[$n]}" "${DC[$n]}" "-" "external: $(basename "${EXT_LAB[$n]}")" "${BGP_AS[$n]}" "-"
+  done
   echo; echo "links (point-to-point UDP tunnels):"
   local l a b pfx t; for l in "${LINKS[@]}"; do read -r a b pfx t <<<"$l"
     echo "  ${a%%:*} $(port_name "${a%%:*}" "${a##*:}") $(link_addr "${a%%:*}" "${a##*:}")  <->  ${b%%:*} $(port_name "${b%%:*}" "${b##*:}") $(link_addr "${b%%:*}" "${b##*:}")   ($pfx${t:+, $t})"; done
@@ -363,19 +367,19 @@ cmd_inventory() {  # the lab as JSON (nodes, links, service) — consumed by tes
     echo ' "service": {"core_as": '"$CORE_AS"', "rr": "'"$RR"'", "rrs": ['"$rj"'], "isis_area": "'"$ISIS_AREA"'", "srv6": {"block": "'"$SRV6_BLOCK"'", '"$sr"'}, "tenants": {'"$tj"'}},'
     echo ' "nodes": ['
     local first=1
-    for n in "${ALL_NODES[@]}"; do
+    for n in "${ALL_NODES[@]}" "${EXT_NODES[@]}"; do
       [[ $first -eq 1 ]] || echo ','; first=0
       local rdj=""; if [[ "${ROLE[$n]}" == "pe" ]]; then for t in "${TENANTS[@]}"; do rdj+="${rdj:+, }\"$t\": \"$CORE_AS:$(( VRF_TABLE[$t] + NODE_IDX[$n] ))\""; done; fi
-      printf '  {"name": "%s", "role": "%s", "dc": "%s", "mgmt_ip": "%s", "console": %s, "idx": %s, "loopback6": %s, "router_id": %s, "locator": %s, "isis_net": %s, "asn": %s, "pe": %s, "rd": {%s}, "ports": [' \
-        "$n" "${ROLE[$n]}" "${DC[$n]}" "${MGMT_IP[$n]}" "${CONSOLE_PORT[$n]}" "${NODE_IDX[$n]}" \
+      printf '  {"name": "%s", "role": "%s", "dc": "%s", "mgmt_ip": "%s", "console": %s, "idx": %s, "lab": %s, "loopback6": %s, "router_id": %s, "locator": %s, "isis_net": %s, "asn": %s, "pe": %s, "rd": {%s}, "ports": [' \
+        "$n" "${ROLE[$n]}" "${DC[$n]}" "${MGMT_IP[$n]}" "${CONSOLE_PORT[$n]:-null}" "${NODE_IDX[$n]:-${EXT_IDX[$n]:-null}}" "$( [[ -n "${EXT_LAB[$n]:-}" ]] && echo "\"$(basename "${EXT_LAB[$n]}")\"" || echo null )" \
         "$( [[ -n "${LOOPBACK6[$n]:-}" ]] && echo "\"${LOOPBACK6[$n]}\"" || echo null )" "$( [[ -n "${ROUTER_ID[$n]:-}" ]] && echo "\"${ROUTER_ID[$n]}\"" || echo null )" \
         "$( [[ -n "${LOCATOR[$n]:-}" ]] && echo "\"${LOCATOR[$n]}\"" || echo null )" "$( [[ -n "${ISIS_NET[$n]:-}" ]] && echo "\"${ISIS_NET[$n]}\"" || echo null )" \
         "$( [[ "${BGP_AS[$n]:--}" == "-" ]] && echo null || echo "${BGP_AS[$n]}" )" "$( [[ -n "${PE_OF[$n]:-}" ]] && echo "\"${PE_OF[$n]}\"" || echo null )" "$rdj"
       local p pf=1 peer
       for p in $(node_ports "$n"); do
         [[ $pf -eq 1 ]] || printf ','; pf=0; peer="$(link_peer "$n" "$p")"
-        if [[ -n "$peer" ]]; then read -r pn pp pfx end t <<<"$peer"; printf '{"name": "eth%s", "ip": "%s", "peer": "%s", "peer_port": "eth%s", "prefix": "%s", "tenant": %s}' "$p" "$(link_ip "$n" "$p")" "$pn" "$pp" "$pfx" "$( [[ "$t" == "-" ]] && echo null || echo "\"$t\"" )"
-        else printf '{"name": "eth%s", "ip": null, "peer": null}' "$p"; fi
+        if [[ -n "$peer" ]]; then read -r pn pp pfx end t <<<"$peer"; printf '{"name": "%s", "ip": "%s", "peer": "%s", "peer_port": "%s", "prefix": "%s", "tenant": %s}' "$(port_name "$n" "$p")" "$(link_ip "$n" "$p")" "$pn" "$(port_name "$pn" "$pp")" "$pfx" "$( [[ "$t" == "-" ]] && echo null || echo "\"$t\"" )"
+        else printf '{"name": "%s", "ip": null, "peer": null}' "$(port_name "$n" "$p")"; fi
       done
       printf ']}'
     done
@@ -383,8 +387,8 @@ cmd_inventory() {  # the lab as JSON (nodes, links, service) — consumed by tes
     echo ' "links": ['
     first=1
     for l in "${LINKS[@]}"; do read -r a b pfx t <<<"$l"; [[ $first -eq 1 ]] || echo ','; first=0
-      printf '  {"a": "%s", "a_port": "eth%s", "a_ip": "%s", "b": "%s", "b_port": "eth%s", "b_ip": "%s", "prefix": "%s", "tenant": %s}' \
-        "${a%%:*}" "${a##*:}" "$(link_ip "${a%%:*}" "${a##*:}")" "${b%%:*}" "${b##*:}" "$(link_ip "${b%%:*}" "${b##*:}")" "$pfx" "$( [[ -z "$t" ]] && echo null || echo "\"$t\"" )"
+      printf '  {"a": "%s", "a_port": "%s", "a_ip": "%s", "b": "%s", "b_port": "%s", "b_ip": "%s", "prefix": "%s", "tenant": %s}' \
+        "${a%%:*}" "$(port_name "${a%%:*}" "${a##*:}")" "$(link_ip "${a%%:*}" "${a##*:}")" "${b%%:*}" "$(port_name "${b%%:*}" "${b##*:}")" "$(link_ip "${b%%:*}" "${b##*:}")" "$pfx" "$( [[ -z "$t" ]] && echo null || echo "\"$t\"" )"
     done
     echo; echo ' ]}'
   } | python3 -m json.tool

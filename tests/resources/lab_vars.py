@@ -39,5 +39,30 @@ for ce in CES:
 DCS = SITES[TENANTS[0]]                                   # first tenant, kept for the suites that only need one
 HOST_IP = {s["host"]: s["host_ip"] for t in SITES.values() for s in t.values()}
 HOST_TENANT = {s["host"]: t for t, sites in SITES.items() for s in sites.values()}
+# External CEs: another lab's routers attached to a tenant (the IPsec headends of cat8000v-ipsec). EXT_SITES per external CE:
+# its PE, both ends of the attachment circuit, its AS, and the LANs that lab advertises (its own site LAN and, through its
+# IPsec tunnels, the branch LANs) read from that lab's Nautobot-derived NaC data.
+EXT_CES = sorted(n for n, v in NODES.items() if v["role"] == "ext-ce")
+EXT_SITES = {}
+for ce in EXT_CES:
+    n = NODES[ce]; pe = n["pe"]; port = next(p for p in n["ports"] if p["peer"] == pe); t = port["tenant"]
+    EXT_SITES[ce] = {"tenant": t, "pe": pe, "lab": n["lab"], "asn": n["asn"], "mgmt_ip": n["mgmt_ip"], "pe_ce_prefix": port["prefix"], "ce_wan_ip": port["ip"].split("/")[0],
+                     "pe_wan_ip": next(x for x in NODES[pe]["ports"] if x["peer"] == ce)["ip"].split("/")[0], "pe_port": next(x for x in NODES[pe]["ports"] if x["peer"] == ce)["name"], "ce_port": port["name"]}
+EXT_LAB_DIR = {}
+if EXT_CES:
+    for line in subprocess.run(["bash", "-c", f"source {LAB_DIR}/lab.conf; for n in \"${{EXT_NODES[@]}}\"; do echo \"$n ${{EXT_LAB[$n]}} ${{BGP_AS[$n]}}\"; done"], capture_output=True, text=True).stdout.splitlines():
+        name, path, _ = line.split(); EXT_LAB_DIR[name] = path
+# LANs the external lab advertises into the tenant, per router: {router: {"lan": prefix, "loopback": ip, "asn": asn}} — from that lab's NaC data
+EXT_LAB_ROUTERS = {}
+for path in set(EXT_LAB_DIR.values()):
+    nac = Path(path) / "nac" / "data" / "devices.nac.yaml"
+    if nac.exists():
+        import yaml
+        mgmt = dict(l.split() for l in subprocess.run(["bash", "-c", f"source {path}/lab.conf; for n in \"${{!MGMT_IP[@]}}\"; do echo \"$n ${{MGMT_IP[$n]}}\"; done"], capture_output=True, text=True).stdout.splitlines())
+        for dev in yaml.safe_load(nac.read_text())["iosxe"]["devices"]:
+            c = dev["configuration"]; lo = {l["id"]: l["ipv4"]["address"] for l in c["interfaces"].get("loopbacks", [])}
+            EXT_LAB_ROUTERS[dev["name"]] = {"lan": f"{lo[10].rsplit('.', 1)[0]}.0/24" if 10 in lo else None, "loopback": lo.get(0), "asn": c["routing"]["bgp"]["as_number"], "mgmt_ip": mgmt.get(dev["name"])}
+EXT_LANS = sorted(r["lan"] for r in EXT_LAB_ROUTERS.values() if r["lan"])            # every site LAN of the external lab (headends + branches)
+EXT_LAN_IP = {lan: lan.rsplit(".", 1)[0] + ".1" for lan in EXT_LANS}                 # the router's address in it (Loopback10 .1)
 # IS-IS system id (the 6 bytes between the area and the NSEL) as `show isis` prints it
 SYSID = {n: ".".join(NODES[n]["isis_net"].split(".")[-4:-1]) for n in CORE}

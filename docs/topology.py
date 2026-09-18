@@ -43,7 +43,7 @@ BGP VPNv4 over SRv6 (End.DT4) reflected by p1; a VyOS CE per data centre with on
 <p class="foot">Links: core <code>fd00:b:0:&lt;ab&gt;::/64</code> (first end ::1), PE–CE <code>172.16.n.0/30</code> (PE .1), CE–host <code>172.20.n.0/24</code> (CE .1 = gateway).
 OOB network <code>{inv["oob"]["network"]}</code> 10.3.0.0/24 (host {inv["oob"]["gateway"]}), consoles 127.0.0.1:5301–5319.
 {" · ".join(f'VRF <code>{t}</code>: table {v["table"]}, RT {v["rt"]}, RD {S["core_as"]}:{v["table"]}+pe#' for t, v in sorted(S["tenants"].items()))}.
-Tenant-b uses PE–CE <code>172.17.n.0/30</code> and LANs <code>172.21.n.0/24</code>.</p>
+Tenant-b uses PE–CE <code>172.18.n.0/30</code> and LANs <code>172.21.n.0/24</code>.</p>
 </div>
 <div>
 <h2>Packet walk: dc1-h1 → dc3-h1 (tenant-a, dc1 → dc3)</h2>

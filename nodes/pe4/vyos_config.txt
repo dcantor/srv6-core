@@ -92,7 +92,7 @@ set vrf name tenant-a protocols bgp address-family ipv4-unicast export vpn
 # tenant VRF tenant-b (table 200, RT 65000:200, RD 65000:204): attachment circuit eth4 to ce4 eth3
 set vrf name tenant-b table 200
 set interfaces ethernet eth4 vrf tenant-b
-set interfaces ethernet eth4 address 172.17.4.1/30
+set interfaces ethernet eth4 address 172.18.4.1/30
 set interfaces ethernet eth4 description 'tenant-b: ce4 eth3'
 # Linux scopes the SRv6 encapsulation's outer lookup to the ingress VRF for forwarded packets: leak every remote locator into
 # the VRF table via the attached P router(s) on the IGP shortest path (recursive through IS-IS, so a dead P drops out), and the
@@ -110,9 +110,9 @@ set vrf name tenant-b protocols static route6 fd00:c::/32 next-hop fd00:a::13 vr
 # eBGP to the CE; export/import with an SRv6 End.DT4 SID (sid vpn export auto)
 set vrf name tenant-b protocols bgp system-as 65000
 set vrf name tenant-b protocols bgp parameters router-id 10.255.0.4
-set vrf name tenant-b protocols bgp neighbor 172.17.4.2 remote-as 65004
-set vrf name tenant-b protocols bgp neighbor 172.17.4.2 description 'ce4 (tenant-b)'
-set vrf name tenant-b protocols bgp neighbor 172.17.4.2 address-family ipv4-unicast
+set vrf name tenant-b protocols bgp neighbor 172.18.4.2 remote-as 65004
+set vrf name tenant-b protocols bgp neighbor 172.18.4.2 description 'ce4 (tenant-b)'
+set vrf name tenant-b protocols bgp neighbor 172.18.4.2 address-family ipv4-unicast
 set vrf name tenant-b protocols bgp address-family ipv4-unicast redistribute connected
 set vrf name tenant-b protocols bgp address-family ipv4-unicast rd vpn export 65000:204
 set vrf name tenant-b protocols bgp address-family ipv4-unicast route-target vpn both 65000:200

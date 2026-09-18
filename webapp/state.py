@@ -62,7 +62,7 @@ class State:
     def host_reachable(self, host):
         c = paramiko.SSHClient(); c.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         try:
-            c.connect(host["mgmt_ip"], username=os.environ.get("HOST_USERNAME", "lab"), password=os.environ.get("HOST_PASSWORD", "lab"), timeout=8, look_for_keys=False, allow_agent=False)
+            c.connect(host["mgmt_ip"], username=os.environ.get("HOST_USERNAME", "lab"), password=os.environ.get("HOST_PASSWORD", "lab"), timeout=20, look_for_keys=False, allow_agent=False)
             _, out, _ = c.exec_command("ip -4 -br addr show eth1; ip route | grep default", timeout=15); txt = out.read().decode(); c.close()
             return {"reachable": True, "detail": " ".join(txt.split())}
         except Exception as e:  # noqa: BLE001
@@ -84,10 +84,10 @@ class State:
                 for t in st["tenants"]:
                     for s in t["sites"]:
                         live_pe = pe_res.get(s["pe"]) or {}; tl = (live_pe.get("tenants") or {}).get(t["name"]) or {}
-                        ce_wan = str(ipaddress.ip_network(s["attachment_circuit"]).network_address + 2); sess = (tl.get("sessions") or {}).get(ce_wan, {})
+                        ce_wan = s.get("ce_wan_ip") or str(ipaddress.ip_network(s["attachment_circuit"]).network_address + 2); sess = (tl.get("sessions") or {}).get(ce_wan, {})
                         s["live"] = {"bgp": sess.get("state", "n/a"), "prefixes_from_ce": sess.get("prefixes"), "vrf_routes": tl.get("routes"), "srv6_routes": tl.get("srv6_routes"),
-                                     "dt4_sid": (live_pe.get("dt4") or {}).get(t["name"]), "host": host_res.get(s["host"], {}), "error": live_pe.get("error")}
-                    ok = [s for s in t["sites"] if s["live"]["bgp"] == "Established" and s["live"]["host"].get("reachable")]
+                                     "dt4_sid": (live_pe.get("dt4") or {}).get(t["name"]), "host": host_res.get(s["host"], {}) if s["host"] else {"reachable": None}, "error": live_pe.get("error")}
+                    ok = [s for s in t["sites"] if s["live"]["bgp"] == "Established" and (s["live"]["host"].get("reachable") or not s["host"])]
                     t["health"] = "up" if len(ok) == len(t["sites"]) else ("degraded" if ok else "down")
                 st["live_done"] = True
             st["steering"] = self.steering() if live else []

@@ -208,7 +208,7 @@ def prometheus_metrics():
 
 
 @app.get("/api/sd", tags=["state"], summary="Prometheus HTTP service discovery: every exporter of the lab")
-def prometheus_sd(): return M.targets(state.get(live=False))
+def prometheus_sd(): return M.targets(state._cache or state.model())   # never waits for a live refresh (the collector holds the state lock for a while)
 
 
 @app.get("/api/iperf", tags=["state"], summary="Throughput between two tenant hosts (iperf3, blocks for ~10 s)")

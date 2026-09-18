@@ -91,10 +91,12 @@ class _Renderer:
             out += [f"set protocols bgp neighbor {r['loopback6']} remote-as {self.SVC['core_as']}", f"set protocols bgp neighbor {r['loopback6']} description '{r['name']} route reflector'",
                     f"set protocols bgp neighbor {r['loopback6']} update-source {n['loopback6']}", f"set protocols bgp neighbor {r['loopback6']} capability extended-nexthop",
                     f"set protocols bgp neighbor {r['loopback6']} address-family ipv4-vpn"]
-        for ce_port in [p for p in n["ports"] if p["peer"] and self.NODES[p["peer"]]["role"] == "ce"]:
+        for ce_port in [p for p in n["ports"] if p["peer"] and self.NODES[p["peer"]]["role"] in ("ce", "ext-ce")]:
             vrf = ce_port["tenant"]; t = self.SVC["tenants"][vrf]; ce = self.NODES[ce_port["peer"]]
-            ce_ip = str(ipaddress.ip_interface(ce_port["ip"]).network.network_address + 2); rd = n["rd"][vrf]
-            out += [f"# tenant VRF {vrf} (table {t['table']}, RT {t['rt']}, RD {rd}): attachment circuit {ce_port['name']} to {ce['name']} {ce_port['peer_port']}",
+            me = ipaddress.ip_interface(ce_port["ip"]); net = me.network.network_address
+            ce_ip = str(net + 2 if me.ip == net + 1 else net + 1); rd = n["rd"][vrf]   # the other host of the /30 (an external CE is the first end)
+            ext = " (external CE, another lab's router)" if ce["role"] == "ext-ce" else ""
+            out += [f"# tenant VRF {vrf} (table {t['table']}, RT {t['rt']}, RD {rd}): attachment circuit {ce_port['name']} to {ce['name']} {ce_port['peer_port']}{ext}",
                     f"set vrf name {vrf} table {t['table']}", f"set interfaces ethernet {ce_port['name']} vrf {vrf}", f"set interfaces ethernet {ce_port['name']} address {ce_port['ip']}",
                     f"set interfaces ethernet {ce_port['name']} description '{vrf}: {ce['name']} {ce_port['peer_port']}'",
                     f"# Linux scopes the SRv6 encapsulation's outer lookup to the ingress VRF for forwarded packets: leak every remote locator into",
@@ -112,7 +114,11 @@ class _Renderer:
                     f"set vrf name {vrf} protocols bgp address-family ipv4-unicast route-target vpn both {t['rt']}",
                     f"set vrf name {vrf} protocols bgp address-family ipv4-unicast sid vpn export auto",
                     f"set vrf name {vrf} protocols bgp address-family ipv4-unicast import vpn", f"set vrf name {vrf} protocols bgp address-family ipv4-unicast export vpn"]
-        return out
+        seen, dedup = set(), []   # a VRF with two attachment circuits repeats its block: keep the first occurrence of each set line
+        for l in out:
+            if l.startswith("set") and l in seen: continue
+            seen.add(l); dedup.append(l)
+        return dedup
 
 
     def p(self, n):

@@ -16,6 +16,7 @@ Every device is in Nautobot with its role, location, platform and primary addres
         ${d}=    Nautobot Get    dcim/devices/    name=${n}    depth=1
         Should Be Equal As Integers    ${d}[count]    1    msg=${n} missing in Nautobot
         ${dev}=    Set Variable    ${d}[results][0]
+        IF    '${NODES}[${n}][role]' == 'ext-ce'    CONTINUE    # another lab's router: its seed owns role / location / platform
         Should Be Equal    ${dev}[role][name]    ${roles}[${NODES}[${n}][role]]
         ${want_loc}=    Set Variable If    '${NODES}[${n}][dc]' == 'core'    srv6-core    ${NODES}[${n}][dc]
         Should Be Equal    ${dev}[location][name]    ${want_loc}

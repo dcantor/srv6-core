@@ -168,8 +168,12 @@ for l in inv["links"]:
     if l.get("tenant"): vrf_prefix_ids[l["tenant"]].append(pf.id)
     link_prefix[(l["a"], l["a_port"])] = link_prefix[(l["b"], l["b_port"])] = (pf, l)
 for t in tenants:
-    for pf_id, pfx in zip(vrf_prefix_ids[t], [l["prefix"] for l in inv["links"] if l.get("tenant") == t]):
+    want = [l["prefix"] for l in inv["links"] if l.get("tenant") == t]
+    for pf_id, pfx in zip(vrf_prefix_ids[t], want):
         if pfx not in vrf_prefixes[t]: nb.ipam.vrf_prefix_assignments.create(vrf=vrfs[t].id, prefix=pf_id); created.append(f"vrf {t} += {pfx}")
+    for pfx in vrf_prefixes[t] - set(want):   # a renumbered circuit leaves its old prefix in the VRF: drop the assignment (the prefix itself may belong to another lab)
+        old = nb.ipam.prefixes.get(prefix=pfx, namespace=ns.id); va = old and nb.ipam.vrf_prefix_assignments.get(vrf=vrfs[t].id, prefix=old.id)
+        if va: va.delete(); created.append(f"vrf {t} -= {pfx}")
 
 # ---- devices, interfaces, addresses, cables -------------------------------------------------------------------------
 devs, ifs, ips = {}, {}, {}
@@ -177,12 +181,26 @@ def ensure_ip(address, description, iface=None, tenant=None):
     ip = nb.ipam.ip_addresses.get(address=address, namespace=ns.id)
     if ip is None: ip = nb.ipam.ip_addresses.create(address=address, namespace=ns.id, status=active.id, description=description, **({"tenant": tenant.id} if tenant else {})); created.append(f"ip:{address}")
     else: ensure(ip, description=description, **({"tenant": tenant.id} if tenant else {}))
-    if iface is not None and not nb.ipam.ip_address_to_interface.get(ip_address=ip.id, interface=iface.id):
-        nb.ipam.ip_address_to_interface.create(ip_address=ip.id, interface=iface.id); created.append(f"assign {address} -> {iface.device.name} {iface.name}")
+    if iface is not None:
+        for x in nb.ipam.ip_address_to_interface.filter(interface=iface.id):   # one address per lab interface: a renumbered link drops the old one
+            if str(getattr(x.ip_address, "id", x.ip_address)) != ip.id: x.delete(); created.append(f"unassign old address from {iface.device.name} {iface.name}")
+        if not nb.ipam.ip_address_to_interface.get(ip_address=ip.id, interface=iface.id):
+            nb.ipam.ip_address_to_interface.create(ip_address=ip.id, interface=iface.id); created.append(f"assign {address} -> {iface.device.name} {iface.name}")
     return ip
 
 for n in inv["nodes"]:
-    role = n["role"]; loc = loc_of(n)
+    role = n["role"]
+    if role == "ext-ce":   # another lab's router (its seed owns the device, OOB, other ports): only the attachment circuit port is ours
+        d = nb.dcim.devices.get(name=n["name"])
+        if d is None: sys.exit(f"{n['name']} (external CE, {n['lab']} lab) is not in Nautobot — seed that lab first")
+        devs[n["name"]] = d
+        for port in [pt for pt in n["ports"] if pt["peer"]]:
+            i = nb.dcim.interfaces.get(device=d.id, name=port["name"])
+            if i is None: sys.exit(f"{n['name']} {port['name']} does not exist in Nautobot — the {n['lab']} lab's seed creates it")
+            ensure(i, description=f"{port['tenant']}: {port['peer']} {port['peer_port']} (srv6-core)", enabled=True); ifs[(n["name"], port["name"])] = i
+            ensure_ip(port["ip"], f"{n['name']} {port['name']} ({port['tenant']}, srv6-core attachment)", i, tenants.get(port.get("tenant")))
+        continue
+    loc = loc_of(n)
     d = nb.dcim.devices.get(name=n["name"])
     fields = dict(role=drole[role].id, device_type=dt["alpine" if role == "host" else "vyos"].id, location=loc.id, platform=plat["linux" if role == "host" else "vyos"].id, status=active.id,
                   comments={"pe": "PE: IS-IS L2 + SRv6 locator, VPNv4 to both reflectors, one VRF per tenant (End.DT4)", "p": "P: IPv6 forwarding only" + (" + VPNv4 route reflector" if n["name"] in SVC["rrs"] else ""),
@@ -258,9 +276,16 @@ def ensure_asn(num, desc):
 ensure_asn(SVC["core_as"], "SRv6 core (PEs and route reflectors)")
 for n in inv["nodes"]:
     if n["role"] == "ce": ensure_asn(n["asn"], f"{n['name']} ({n['dc']}) — same AS for both tenant VRFs")
+    if n["role"] == "ext-ce":
+        asn[n["asn"]] = bgp.autonomous_systems.get(asn=n["asn"])
+        if asn[n["asn"]] is None: sys.exit(f"AS {n['asn']} of {n['name']} is not in Nautobot — seed the {n['lab']} lab first")
 ri = {}
 for n in inv["nodes"]:
     if not n.get("asn"): continue
+    if n["role"] == "ext-ce":   # routing instance owned by the other lab; peer endpoints are added to it below
+        ri[n["name"]] = bgp.routing_instances.get(device=devs[n["name"]].id)
+        if ri[n["name"]] is None: sys.exit(f"{n['name']} has no BGP routing instance in Nautobot — seed the {n['lab']} lab first")
+        continue
     rid_addr = f"{n['router_id']}/32" if n["role"] in ("pe", "p") else next(pt["ip"] for pt in n["ports"] if pt["peer"] and N[pt["peer"]]["role"] == "host" and pt["tenant"] == "tenant-a")
     rid = nb.ipam.ip_addresses.get(address=rid_addr, namespace=ns.id)
     inst = bgp.routing_instances.get(device=devs[n["name"]].id)
@@ -298,9 +323,10 @@ for pe in [n for n in inv["nodes"] if n["role"] == "pe"]:
     for r in SVC["rrs"]:
         ensure_peering(pe["name"], f"{pe['loopback6']}/128", "rr-client", f"VPNv4 to {r} (route reflector)", r, f"{N[r]['loopback6']}/128", "rr", f"VPNv4 client {pe['name']}", "vpnv4_unicast", f"{pe['name']}<->{r} vpnv4")
     for pt in pe["ports"]:
-        if pt["peer"] and N[pt["peer"]]["role"] == "ce":
+        if pt["peer"] and N[pt["peer"]]["role"] in ("ce", "ext-ce"):
             ce = N[pt["peer"]]; t = pt["tenant"]; ce_ip = next(x["ip"] for x in ce["ports"] if x["peer"] == pe["name"] and x["tenant"] == t)
-            ensure_peering(pe["name"], pt["ip"], "pe", f"eBGP {ce['name']} ({t})", ce["name"], ce_ip, "ce", f"eBGP {pe['name']} ({t})", "ipv4_unicast", f"{pe['name']}<->{ce['name']} {t}")
+            ext = " - SRv6 core attachment" if ce["role"] == "ext-ce" else ""
+            ensure_peering(pe["name"], pt["ip"], "pe", f"eBGP {ce['name']} ({t})", ce["name"], ce_ip, "ce", f"eBGP {pe['name']} ({t}){ext}", "ipv4_unicast", f"{pe['name']}<->{ce['name']} {t}")
 
 # ---- config context ---------------------------------------------------------------------------------------------------
 CTX = {"domain_name": "lab.local", "oob": {"network": OOB["network"], "gateway": OOB["gateway"], "nms": "10.3.0.10"},
