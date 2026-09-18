@@ -3,8 +3,8 @@
 For a class or a hands-on interview. Each has a check the audience can run and a solution. Credentials: VyOS `vyos/vyos`,
 hosts `lab/lab`, OOB addresses in `./lab.sh status`.
 
-1. **Find the SID.** Without looking at the config, find pe4's End.DT4 SID for tenant-b and explain each part of it.
-   *Check:* `ip -6 route show | grep End.DT4` on pe4; block fd00:c, node 4, function allocated by FRR.
+1. **Find the SID.** Without looking at the config, find pe4's End.DT46 SID for tenant-b and explain each part of it.
+   *Check:* `ip -6 route show | grep End.DT46` on pe4; block fd00:c, node 4, function allocated by FRR.
 2. **Follow a packet.** From dc2-h1, ping dc4-h1 and capture on the P router that carries it. Which P is it and why?
    *Solution:* pe2 → p2 → pe4 (pe2's shortest path to pe4's locator is via p2); `tcpdump -ni eth6 'ip6 and dst net fd00:c:4::/48'` on p2.
 3. **Break isolation on purpose — safely.** Predict what would happen if tenant-b's VRF also imported RT 65000:100 (do not apply it on a shared lab): which routes appear, what still isolates the hosts?

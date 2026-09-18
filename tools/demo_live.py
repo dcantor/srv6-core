@@ -60,7 +60,7 @@ def act(num, title, blurb, steps):
         if step(*s) is False: return
 
 
-def sid(pe, tenant): return shell(pe, f"ip -6 route show | grep -E 'End.DT4(6)? vrftable {tenant}' | cut -d' ' -f1").strip().splitlines()[0]
+def sid(pe, tenant): return shell(pe, f"ip -6 route show | grep -E 'End.DT46(6)? vrftable {tenant}' | cut -d' ' -f1").strip().splitlines()[0]
 
 
 def capture(src, dst):
@@ -75,7 +75,7 @@ lan = lambda h: h["ports"][0]["ip"].split("/")[0]
 
 if "1" in ACTS:
     act(1, "The underlay: IS-IS carries the locators; the SIDs live in the kernel",
-        "Whiteboard: 3 P routers, 4 PEs. IS-IS L2, IPv6 only. Every node owns a /48 locator under fd00:c::/32 (uSID: block 32 bits, node 16, function 16). A SID is an instruction: End = forward, End.X = out this link, End.DT4 = decapsulate into this VRF.",
+        "Whiteboard: 3 P routers, 4 PEs. IS-IS L2, IPv6 only. Every node owns a /48 locator under fd00:c::/32 (uSID: block 32 bits, node 16, function 16). A SID is an instruction: End = forward, End.X = out this link, End.DT46 = decapsulate into this VRF.",
         [("isis", "pe1", "show isis neighbor", lambda: vyos("pe1", "show isis neighbor"), "two adjacencies: pe1 is dual-homed to p1 and p2"),
          ("locators", "pe1", "show ipv6 route isis | grep fd00:c:", lambda: vyos("pe1", "show ipv6 route isis | grep fd00:c:"), "every other locator is an ordinary IS-IS route; metric 10 = one hop (p1, p2), 20 = two hops"),
          ("sids", "p2", "ip -6 route show | grep seg6local", lambda: shell("p2", "ip -6 route show | grep seg6local"), "the ENTIRE SRv6 data plane of a P router: uN (End, shift-and-forward) for its /48, one uA (End.X) per link — no VRF, no BGP"),
@@ -83,7 +83,7 @@ if "1" in ACTS:
 
 if "2" in ACTS:
     act(2, "The overlay: the BGP VPN you already know, with a SID where the label was",
-        "Whiteboard: PE <-> route reflectors p1 and p3 over IPv6 loopbacks (VPNv4 with extended next hop). RD per PE per VRF, RT per tenant. The Prefix-SID attribute carries the End.DT4 SID; the function bits ride in the label field (transposition).",
+        "Whiteboard: PE <-> route reflectors p1 and p3 over IPv6 loopbacks (VPNv4 with extended next hop). RD per PE per VRF, RT per tenant. The Prefix-SID attribute carries the End.DT46 SID; the function bits ride in the label field (transposition).",
         [("vpnv4", "pe1", "show bgp ipv4 vpn summary", lambda: vyos("pe1", "show bgp ipv4 vpn summary"), "both reflectors Established; 12 prefixes = 4 sites x 2 tenants + the ACs"),
          ("prefix", "pe1", f"show bgp ipv4 vpn {lan(h1['dc3']).rsplit('.', 1)[0]}.0/24", lambda: vyos("pe1", f"show bgp ipv4 vpn {lan(h1['dc3']).rsplit('.', 1)[0]}.0/24"), "Remote SID fd00:c:3:: + sid structure [32 16 16 0 16 48]; Remote label 917504 = 0xE000 << 4 -> reassembled SID fd00:c:3:e000::; two copies, one per reflector"),
          ("vrf route", "pe1", "ip route show vrf tenant-a", lambda: shell("pe1", "ip route show vrf tenant-a"), "encap seg6 ... segs 1 [ fd00:c:3:e000:: ] — no label table: 'wrap in IPv6 to this address'; the dc2 LAN has two next hops = ECMP from the IGP")])
@@ -110,7 +110,7 @@ if "4" in ACTS:
         "Whiteboard: fd00:c : 11 : 13 : 3 : e001 :: = block, p1, p3, pe3, function. Each node whose ID is first after the block shifts the address left 16 bits (uN, NEXT-C-SID) and forwards. No SRH grows, no state in the core.",
         [("steer", "lab host", f"tools/steer.py add pe1 tenant-b {prefix} p1 p3", lambda: local(f"tests/.venv/bin/python tools/steer.py add pe1 tenant-b {prefix} p1 p3"), "one segment: the carrier fd00:c:11:13:3:e001::, out eth1 towards p1 (the shortest path was p2)"),
          ("capture", "p1", "tcpdump -ni eth2 -vv 'ip6 and dst net fd00:c::/32'  (link to p3)", lambda: cap("p1", "eth2"), "destination is now fd00:c:13:3:e001:: — p1 consumed its own uSID and shifted; the SRH still shows the original carrier"),
-         ("capture", "p3", "tcpdump -ni eth3 -vv 'ip6 and dst net fd00:c::/32'  (link to pe3)", lambda: cap("p3", "eth3"), "fd00:c:3:e001:: — down to pe3's uDT4 SID, exactly what an unsteered packet carries; hop limit 61 = three routers"),
+         ("capture", "p3", "tcpdump -ni eth3 -vv 'ip6 and dst net fd00:c::/32'  (link to pe3)", lambda: cap("p3", "eth3"), "fd00:c:3:e001:: — down to pe3's uDT46 SID, exactly what an unsteered packet carries; hop limit 61 = three routers"),
          ("uncompressed", "lab host", f"tools/steer.py add pe1 tenant-b {prefix} p1 p3 --uncompressed", lambda: local(f"tests/.venv/bin/python tools/steer.py add pe1 tenant-b {prefix} p1 p3 --uncompressed"), "the same path the classic way: three full SIDs in an SRH (56 bytes) — what uSID saves"),
          ("clean up", "lab host", f"tools/steer.py del pe1 tenant-b {prefix}", lambda: local(f"tests/.venv/bin/python tools/steer.py del pe1 tenant-b {prefix}"), "back on the BGP route")])
 
