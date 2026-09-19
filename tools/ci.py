@@ -20,8 +20,8 @@ if not pw: sys.exit("no Gitea password (set GITEA_PASSWORD or make lab@10.0.0.10
 auth = (user, pw); api = f"{a.gitea}/api/v1"; repo = f"{api}/repos/{user}/{a.repo}"
 
 
-def runs(limit=10):
-    return requests.get(f"{repo}/actions/runs", auth=auth, params={"limit": limit}, timeout=30).json().get("workflow_runs", [])
+def runs(limit=10):   # Gitea 1.24 lists jobs ("tasks"), one per job of a run
+    return requests.get(f"{repo}/actions/tasks", auth=auth, params={"limit": limit}, timeout=30).json().get("workflow_runs", [])
 
 
 if a.cmd == "setup":
@@ -38,11 +38,11 @@ elif a.cmd == "sync":
     requests.post(f"{repo}/mirror-sync", auth=auth, timeout=30).raise_for_status(); print("mirror sync requested")
     for _ in range(12):
         time.sleep(5); new = [r for r in runs() if r["id"] not in before]
-        if new: print(f"workflow run started: {a.gitea}/{user}/{a.repo}/actions/runs/{new[0]['run_number']}"); sys.exit()
+        if new: print(f"workflow run started: {a.gitea}/{user}/{a.repo}/actions/runs/{new[0].get('run_number', '')}"); sys.exit()
     head = requests.get(f"{repo}/branches/main", auth=auth, timeout=30).json()["commit"]["id"]
     r = requests.post(f"{repo}/actions/workflows/{a.workflow}/dispatches", auth=auth, json={"ref": "main"}, timeout=30)
     print(f"mirror at {head[:8]}; workflow dispatched ({r.status_code})" if r.status_code < 300 else f"dispatch failed: {r.status_code} {r.text[:200]}")
 else:
     rr = runs()
-    for r in rr: print(f"{r['created_at'][:19]}  {r['status']:10s} {r.get('conclusion') or '-':10s} {r['head_branch']:6s} {r['head_sha'][:8]}  {r.get('display_title') or r.get('name') or ''}")
+    for r in rr: print(f"{r['created_at'][:19]}  run {r.get('run_number', '?'):>3}  {r['status']:10s} {r.get('head_branch', ''):6s} {r.get('head_sha', '')[:8]}  {r.get('name') or ''}")
     if not rr: print("no runs yet")
