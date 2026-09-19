@@ -1,8 +1,8 @@
 Area VyOS:
  System Id           Interface   L  State         Holdtime SNPA
- p1                  eth1        2  Up            28       2020.2020.2020
- p3                  eth2        2  Up            28       2020.2020.2020
+ p1                  eth1        2  Up            27       2020.2020.2020
+ p3                  eth2        2  Up            29       2020.2020.2020
  pe1                 eth3        2  Up            29       2020.2020.2020
- pe2                 eth4        2  Up            29       2020.2020.2020
+ pe2                 eth4        2  Up            28       2020.2020.2020
  pe3                 eth5        2  Up            28       2020.2020.2020
- pe4                 eth6        2  Up            27       2020.2020.2020
+ pe4                 eth6        2  Up            29       2020.2020.2020

@@ -27,7 +27,7 @@ The frr-exporter reports every BGP session of every PE as Established
     FOR    ${pe}    IN    @{PES}
         ${text}=    Http Get    http://${MGMT}[${pe}]:9342/metrics
         ${peers}=    Metric Samples    ${text}    frr_bgp_peer_state
-        ${expected}=    Evaluate    2 * (len($RRS) + len($TENANTS)) + len([s for s in $EXT_SITES.values() if s["pe"] == "${pe}"])    # dual-stack: frr-exporter lists a reflector session per VPN family and one CE session per family per tenant, plus external CEs
+        ${expected}=    Evaluate    2 * (len($RRS) + len($TENANTS)) + len([s for s in $EXT_SITES.values() if s["pe"] == "${pe}"]) + len([c for c in $INTERNET_CIRCUITS.values() if c["pe"] == "${pe}"])    # dual-stack: frr-exporter lists a reflector session per VPN family and one CE session per family per tenant, plus external CEs and the breakout firewall (IPv4 only)
         Length Should Be    ${peers}    ${expected}    msg=${pe}: expected ${expected} BGP peers in frr_bgp_peer_state
         FOR    ${p}    IN    @{peers}
             Should Be Equal As Numbers    ${p}[value]    1    msg=${pe}: peer ${p}[labels][peer] (${p}[labels][vrf]) is not Established
@@ -67,7 +67,7 @@ Prometheus scrapes every target of the lab successfully
 Prometheus has the alert rules loaded and none of the lab's alerts firing
     ${rules}=    Http Get    ${PROMETHEUS}/api/v1/rules
     ${names}=    Evaluate    [r["name"] for g in $rules["data"]["groups"] for r in g["rules"]]
-    FOR    ${a}    IN    ExporterDown    TenantHostUnreachable    TenantSiteBgpDown    TenantDegraded    IsisAdjacencyMissing    BfdSessionDown    VpnV4SessionDown    LabTestsFailed
+    FOR    ${a}    IN    ExporterDown    TenantHostUnreachable    TenantSiteBgpDown    TenantDegraded    IsisAdjacencyMissing    BfdSessionDown    VpnV4SessionDown    LabTestsFailed    InternetBreakoutDown
         Should Contain    ${names}    ${a}    msg=alert rule ${a} not loaded
     END
     Wait Until Keyword Succeeds    6 min    30 s    No Lab Alert Firing    # an earlier suite's failover clears from the collector / scrape / `for` pipeline within a few minutes
@@ -79,7 +79,7 @@ VictoriaMetrics holds the series remote-written by Prometheus
     ${health}=    Prometheus Query    ${VICTORIAMETRICS}    lab_tenant_health{lab="srv6-core"}
     Length Should Be    ${health}    ${{ len($TENANTS) }}
     ${bgp}=    Prometheus Query    ${VICTORIAMETRICS}    count(frr_bgp_peer_state{lab="srv6-core",role="pe"} == 1)
-    ${expected}=    Evaluate    len($PES) * 2 * (len($RRS) + len($TENANTS)) + len($EXT_SITES)   # per PE: (2 reflectors + 2 tenants) x 2 families
+    ${expected}=    Evaluate    len($PES) * 2 * (len($RRS) + len($TENANTS)) + len($EXT_SITES) + len($INTERNET_CIRCUITS)   # per PE: (2 reflectors + 2 tenants) x 2 families; + the breakout firewall (IPv4 only) per tenant
     Should Be Equal As Numbers    ${bgp}[0][value]    ${expected}    msg=${bgp}[0][value] Established PE BGP sessions in VictoriaMetrics, expected ${expected}
 
 Every VyOS node pushes Telegraf metrics into VictoriaMetrics, tagged with the lab, role and DC
@@ -126,20 +126,20 @@ A BGP session reset shows up in syslog and raises the log-derived alert within t
     Should Match Regexp    ${sum}    (?m)^${s}[ce_wan_ip]\\s+4\\s+\\d+\\s+.*\\s\\d+\\s+\\d+\\s+${s}[ce]    msg=${s}[pe]: session to ${s}[ce] did not come back
     Grafana Annotate    srv6-core: monitoring test — tenant-b session ${s}[pe]-${s}[ce] reset to prove syslog -> alert    monitoring    ${s}[pe]    start=${t0}
 
-sFlow from every PE and P reaches VictoriaLogs and shows the SRv6 paths in use
-    [Documentation]    hsflowd samples 1 in 16 packets on the core-facing ports; goflow2 decodes them into VictoriaLogs. A burst
-    ...                of pings dc1 -> dc3 must show up as outer IPv6 flows fd00:a::1 -> pe3's tenant-a uDT4 SID (proto IPv6-Route)
-    ...                sampled by pe1 and by a P router — the flow view of the packet walk.
+sFlow from every P router reaches VictoriaLogs and shows the SRv6 paths in use
+    [Documentation]    hsflowd samples 1 in 16 packets on the P routers' core ports (not on the PEs: pcap sampling cost them ~15 %
+    ...                of forwarding capacity); goflow2 decodes them into VictoriaLogs. A burst of pings dc1 -> dc3 must show up as
+    ...                outer IPv6 flows fd00:a::1 -> pe3's tenant-a End.DT46 SID (proto IPv6-Route) sampled by a P router on the
+    ...                path — the flow view of the packet walk.
     ${src}=    Set Variable    ${SITES}[tenant-a][dc1]
     ${dst}=    Set Variable    ${SITES}[tenant-a][dc3]
     Host Command    ${MGMT}[${src}[host]]    ping -c 300 -i 0.02 -s 1000 ${dst}[host_ip] >/dev/null; true
     Wait Until Keyword Succeeds    2 min    10 s    Flows Seen From Every Core Node
     ${sid}=    Vyos Shell    ${MGMT}[${dst}[pe]]    ip -6 route show | grep -E 'End.DT4(6)? vrftable tenant-a' | cut -d' ' -f1
-    ${r}=    Http Get    ${VICTORIALOGS}/select/logsql/query    query=_time:5m sampler_address:* proto:"IPv6-Route" src_addr:"${LOOPBACK}[${src}[pe]]" dst_addr:"${sid.strip()}" | stats by (sampler_address) count() as samples
-    ${samplers}=    Evaluate    sorted(__import__("json").loads(l)["sampler_address"] for l in str($r).splitlines() if l.strip())
-    Should Contain    ${samplers}    ${MGMT}[${src}[pe]]    msg=${src}[pe] did not sample the encapsulated flow to ${sid.strip()}
-    ${ps}=    Evaluate    [s for s in $samplers if s in [$MGMT[p] for p in $PS]]
-    Should Not Be Empty    ${ps}    msg=no P router sampled the flow ${LOOPBACK}[${src}[pe]] -> ${sid.strip()}: ${samplers}
+    ${rows}=    Logsql Rows    ${VICTORIALOGS}    _time:5m sampler_address:* proto:"IPv6-Route" src_addr:"${LOOPBACK}[${src}[pe]]" dst_addr:"${sid.strip()}" | stats by (sampler_address) count() as samples
+    ${samplers}=    Evaluate    sorted(r["sampler_address"] for r in $rows)
+    ${on_path}=    Evaluate    [$MGMT[p] for p in $PS if $MGMT[p] in $samplers]
+    Should Not Be Empty    ${on_path}    msg=no P router sampled the encapsulated flow ${LOOPBACK}[${src}[pe]] -> ${sid.strip()} (samplers: ${samplers})
 
 Grafana is healthy and serves the provisioned dashboards
     ${health}=    Http Get    ${GRAFANA}/api/health
@@ -185,9 +185,9 @@ Portal Metrics Show Everything Up
     END
 
 Flows Seen From Every Core Node
-    ${r}=    Http Get    ${VICTORIALOGS}/select/logsql/query    query=_time:5m sampler_address:* | stats by (sampler_address) count() as samples
-    ${seen}=    Evaluate    sorted(__import__("json").loads(l)["sampler_address"] for l in str($r).splitlines() if l.strip())
-    FOR    ${n}    IN    @{CORE}
+    ${rows}=    Logsql Rows    ${VICTORIALOGS}    _time:5m sampler_address:* | stats by (sampler_address) count() as samples
+    ${seen}=    Evaluate    sorted(r["sampler_address"] for r in $rows)
+    FOR    ${n}    IN    @{PS}
         Should Contain    ${seen}    ${MGMT}[${n}]    msg=no sFlow samples from ${n} in the last 5 minutes
     END
 

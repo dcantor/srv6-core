@@ -10,8 +10,9 @@ PES = sorted(n for n, v in NODES.items() if v["role"] == "pe")
 PS = sorted(n for n, v in NODES.items() if v["role"] == "p")
 CES = sorted(n for n, v in NODES.items() if v["role"] == "ce")
 HOSTS = sorted(n for n, v in NODES.items() if v["role"] == "host")
+FWS = sorted(n for n, v in NODES.items() if v["role"] == "fw")   # the internet breakout firewall (VyOS too)
 CORE = PES + PS
-VYOS = PES + PS + CES
+VYOS = PES + PS + CES + FWS
 MGMT = {n: v["mgmt_ip"] for n, v in NODES.items()}
 LOOPBACK = {n: NODES[n]["loopback6"] for n in CORE}
 LOCATOR = {n: NODES[n]["locator"] for n in CORE}
@@ -70,3 +71,15 @@ EXT_LANS = sorted(r["lan"] for r in EXT_LAB_ROUTERS.values() if r["lan"])       
 EXT_LAN_IP = {lan: lan.rsplit(".", 1)[0] + ".1" for lan in EXT_LANS}                 # the router's address in it (Loopback10 .1)
 # IS-IS system id (the 6 bytes between the area and the NSEL) as `show isis` prints it
 SYSID = {n: ".".join(NODES[n]["isis_net"].split(".")[-4:-1]) for n in CORE}
+# Internet breakout: the firewall is a CE of every tenant on one PE (VRF-lite, one circuit per tenant, IPv4 only) announcing a
+# default route; its uplink is the host's libvirt NAT network. INTERNET_CIRCUITS per tenant: PE / firewall ends of the circuit.
+INTERNET = SERVICE.get("internet")
+INTERNET_CIRCUITS = {}
+if INTERNET:
+    for l in LINKS:
+        if l["b"] == INTERNET["fw"]:
+            INTERNET_CIRCUITS[l["tenant"]] = {"pe": l["a"], "pe_port": l["a_port"], "pe_ip": l["a_ip"].split("/")[0], "fw": l["b"], "fw_port": l["b_port"], "fw_ip": l["b_ip"].split("/")[0],
+                                              "prefix": l["prefix"], "asn": INTERNET["asn"], "fw_mgmt": NODES[INTERNET["fw"]]["mgmt_ip"]}
+    INTERNET_UPLINK = next(p["name"] for p in NODES[INTERNET["fw"]]["ports"] if p.get("network"))
+INTERNET_PROBE = "1.1.1.1"     # a public address every host must reach through the breakout (ICMP), and a URL over TCP
+INTERNET_URL = "http://example.com"

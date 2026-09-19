@@ -1,8 +1,8 @@
 PING fd00:20:3::2 (fd00:20:3::2): 56 data bytes
-64 bytes from fd00:20:3::2: seq=0 ttl=61 time=2.329 ms
-64 bytes from fd00:20:3::2: seq=1 ttl=61 time=2.353 ms
-64 bytes from fd00:20:3::2: seq=2 ttl=61 time=2.089 ms
+64 bytes from fd00:20:3::2: seq=0 ttl=61 time=2.281 ms
+64 bytes from fd00:20:3::2: seq=1 ttl=61 time=2.213 ms
+64 bytes from fd00:20:3::2: seq=2 ttl=61 time=7.025 ms
 
 --- fd00:20:3::2 ping statistics ---
 3 packets transmitted, 3 packets received, 0% packet loss
-round-trip min/avg/max = 2.089/2.257/2.353 ms
+round-trip min/avg/max = 2.213/3.839/7.025 ms

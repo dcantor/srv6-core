@@ -31,6 +31,15 @@ def render(st, runs):
     out += ["# HELP lab_tenant_health 2 = up (every site BGP up and host reachable), 1 = degraded, 0 = down", "# TYPE lab_tenant_health gauge"]
     for t in st["tenants"]:
         if t.get("health"): out.append(line("lab_tenant_health", {"lab": "srv6-core", "tenant": t["name"], "sites": len(t["sites"])}, {"up": 2, "degraded": 1, "down": 0}[t["health"]]))
+    if st.get("internet") and st["internet"].get("circuits") and st["internet"]["circuits"][0].get("live"):
+        inet = st["internet"]
+        out += ["# HELP lab_internet_fw_reachable 1 if the internet breakout firewall answers SSH over the OOB network", "# TYPE lab_internet_fw_reachable gauge",
+                line("lab_internet_fw_reachable", {"lab": "srv6-core", "fw": inet["fw"]}, int(bool(inet.get("fw_reachable")))),
+                "# HELP lab_internet_bgp_up 1 if the PE's eBGP session to the breakout firewall in the tenant VRF is Established", "# TYPE lab_internet_bgp_up gauge",
+                "# HELP lab_internet_default_route 1 if the tenant VRF on the PE holds a default route (from the breakout)", "# TYPE lab_internet_default_route gauge"]
+        for c in inet["circuits"]:
+            out.append(line("lab_internet_bgp_up", {"lab": "srv6-core", "tenant": c["tenant"], "pe": c["pe"], "fw": inet["fw"]}, int(c["live"].get("bgp") == "Established")))
+            for pe, ok in (c["live"].get("default_route") or {}).items(): out.append(line("lab_internet_default_route", {"lab": "srv6-core", "tenant": c["tenant"], "pe": pe}, int(ok)))
     out += ["# HELP lab_isis_adjacencies_up IS-IS level-2 adjacencies in state Up on a core node", "# TYPE lab_isis_adjacencies_up gauge",
             "# HELP lab_isis_adjacencies_expected core links of the node (what should be Up)", "# TYPE lab_isis_adjacencies_expected gauge",
             "# HELP lab_bfd_sessions_up BFD sessions up on a core node", "# TYPE lab_bfd_sessions_up gauge"]

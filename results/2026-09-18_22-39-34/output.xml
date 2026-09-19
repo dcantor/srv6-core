@@ -1,0 +1,2892 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<robot generator="Robot 7.5 (Python 3.14.4 on linux)" generated="2026-09-18T22:43:14.478026" rpa="false" schemaversion="5">
+<suite id="s1" name="srv6 core lab" source="/home/dcantor/srv6-core/tests/suites/14_internet.robot">
+<kw name="Require Breakout" type="SETUP">
+<kw name="Skip If" owner="BuiltIn">
+<arg>not $INTERNET</arg>
+<arg>no internet breakout in lab.conf (INTERNET_FW)</arg>
+<doc>Conditionally stops the current test or task and sets its status to SKIP.</doc>
+<status status="PASS" start="2026-09-18T22:43:17.409810" elapsed="0.000387"/>
+</kw>
+<kw name="Tcp Port Should Be Open" owner="LabLib">
+<arg>${NODES}[${INTERNET}[fw]][mgmt_ip]</arg>
+<arg>22</arg>
+<status status="PASS" start="2026-09-18T22:43:17.410301" elapsed="0.000384"/>
+</kw>
+<status status="PASS" start="2026-09-18T22:43:17.409386" elapsed="0.001365"/>
+</kw>
+<test id="s1-t1" name="The firewall has an address from the host's NAT network on its uplink and its own default route through it" line="21">
+<kw name="Set Variable" owner="BuiltIn">
+<msg time="2026-09-18T22:43:17.411323" level="INFO">${fw} = fw-inet</msg>
+<var>${fw}</var>
+<arg>${INTERNET}[fw]</arg>
+<doc>Returns the given values which can then be assigned to a variable.</doc>
+<status status="PASS" start="2026-09-18T22:43:17.411103" elapsed="0.000246"/>
+</kw>
+<kw name="Vyos" owner="common">
+<kw name="Run Vyos Command" owner="LabLib">
+<msg time="2026-09-18T22:43:25.280707" level="INFO" html="true">&lt;pre&gt;10.3.0.61$ show interfaces
+Codes: S - State, L - Link, u - Up, D - Down, A - Admin Down
+Interface    IP Address          MAC                VRF         MTU  S/L    Description
+-----------  ------------------  -----------------  --------  -----  -----  ------------------------------------
+eth0         10.3.0.61/24        52:54:00:c6:14:00  default    1500  u/u    OOB management
+eth1         172.16.5.2/30       52:54:00:c6:14:01  tenant-a   1500  u/u    pe4 eth5 (tenant-a)
+eth2         172.18.5.2/30       52:54:00:c6:14:02  tenant-b   1500  u/u    pe4 eth6 (tenant-b)
+eth3         192.168.122.116/24  52:54:00:c6:14:03  default    1500  u/u    internet: libvirt default (host NAT)
+lo           127.0.0.1/8         00:00:00:00:00:00  default   65536  u/u
+             ::1/128&lt;/pre&gt;</msg>
+<msg time="2026-09-18T22:43:25.280874" level="INFO">${out} = Codes: S - State, L - Link, u - Up, D - Down, A - Admin Down
+Interface    IP Address          MAC                VRF         MTU  S/L    Description
+-----------  ------------------  ----------------- ...</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<arg>${timeout}</arg>
+<doc>Run an operational-mode command on a VyOS node and return its output.</doc>
+<status status="PASS" start="2026-09-18T22:43:17.411714" elapsed="7.869186"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-18T22:43:25.280968" elapsed="0.000066"/>
+</return>
+<msg time="2026-09-18T22:43:25.281181" level="INFO">${ifs} = Codes: S - State, L - Link, u - Up, D - Down, A - Admin Down
+Interface    IP Address          MAC                VRF         MTU  S/L    Description
+-----------  ------------------  ----------------- ...</msg>
+<var>${ifs}</var>
+<arg>${fw}</arg>
+<arg>show interfaces</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="PASS" start="2026-09-18T22:43:17.411473" elapsed="7.869727"/>
+</kw>
+<kw name="Should Match Regexp" owner="BuiltIn">
+<arg>${ifs}</arg>
+<arg>(?m)^${INTERNET_UPLINK}\\s+(\\d+\\.){3}\\d+/\\d+\\s.*u/u</arg>
+<arg>msg=${fw}: no DHCP address on ${INTERNET_UPLINK}</arg>
+<doc>Fails if the `string` does not match the regular expression `pattern`.</doc>
+<status status="PASS" start="2026-09-18T22:43:25.281342" elapsed="0.000551"/>
+</kw>
+<kw name="Vyos" owner="common">
+<kw name="Run Vyos Command" owner="LabLib">
+<msg time="2026-09-18T22:43:25.993814" level="INFO" html="true">&lt;pre&gt;10.3.0.61$ show ip route 0.0.0.0/0
+Routing entry for 0.0.0.0/0
+  Known via "static", distance 210, metric 0, tag 210, best
+  Last update 00:56:31 ago
+  Flags: Recursion Selected RR Distance 
+  Status: Installed 
+  * 192.168.122.1, via eth3, weight 1
+&lt;/pre&gt;</msg>
+<msg time="2026-09-18T22:43:25.993972" level="INFO">${out} = Routing entry for 0.0.0.0/0
+  Known via "static", distance 210, metric 0, tag 210, best
+  Last update 00:56:31 ago
+  Flags: Recursion Selected RR Distance 
+  Status: Installed 
+  * 192.168.122.1, via ...</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<arg>${timeout}</arg>
+<doc>Run an operational-mode command on a VyOS node and return its output.</doc>
+<status status="PASS" start="2026-09-18T22:43:25.282311" elapsed="0.711697"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-18T22:43:25.994095" elapsed="0.000062"/>
+</return>
+<msg time="2026-09-18T22:43:25.994294" level="INFO">${rt} = Routing entry for 0.0.0.0/0
+  Known via "static", distance 210, metric 0, tag 210, best
+  Last update 00:56:31 ago
+  Flags: Recursion Selected RR Distance 
+  Status: Installed 
+  * 192.168.122.1, via ...</msg>
+<var>${rt}</var>
+<arg>${fw}</arg>
+<arg>show ip route 0.0.0.0/0</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="PASS" start="2026-09-18T22:43:25.282042" elapsed="0.712276"/>
+</kw>
+<kw name="Should Match Regexp" owner="BuiltIn">
+<arg>${rt}</arg>
+<arg>(?s)Known via "static".*(\\d+\\.){3}\\d+, via ${INTERNET_UPLINK}</arg>
+<arg>msg=${fw}: default route is not DHCP's static via ${INTERNET_UPLINK}</arg>
+<doc>Fails if the `string` does not match the regular expression `pattern`.</doc>
+<status status="PASS" start="2026-09-18T22:43:25.994468" elapsed="0.000598"/>
+</kw>
+<kw name="Shell" owner="common">
+<kw name="Vyos Shell" owner="LabLib">
+<msg time="2026-09-18T22:43:28.759475" level="INFO" html="true">&lt;pre&gt;10.3.0.61# ping -c 3 -W 2 1.1.1.1; true
+rc=0
+PING 1.1.1.1 (1.1.1.1) 56(84) bytes of data.
+64 bytes from 1.1.1.1: icmp_seq=1 ttl=56 time=18.9 ms
+64 bytes from 1.1.1.1: icmp_seq=2 ttl=56 time=14.8 ms
+64 bytes from 1.1.1.1: icmp_seq=3 ttl=56 time=15.6 ms
+
+--- 1.1.1.1 ping statistics ---
+3 packets transmitted, 3 received, 0% packet loss, time 2004ms
+rtt min/avg/max/mdev = 14.754/16.415/18.894/1.786 ms
+&lt;/pre&gt;</msg>
+<msg time="2026-09-18T22:43:28.759690" level="INFO">${out} = PING 1.1.1.1 (1.1.1.1) 56(84) bytes of data.
+64 bytes from 1.1.1.1: icmp_seq=1 ttl=56 time=18.9 ms
+64 bytes from 1.1.1.1: icmp_seq=2 ttl=56 time=14.8 ms
+64 bytes from 1.1.1.1: icmp_seq=3 ttl=56 time=1...</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<doc>Run a Linux shell command on a VyOS node (e.g. `sudo ip -6 route`) and return stdout+stderr; fails on non-zero rc.</doc>
+<status status="PASS" start="2026-09-18T22:43:25.995512" elapsed="2.764200"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-18T22:43:28.759775" elapsed="0.000036"/>
+</return>
+<msg time="2026-09-18T22:43:28.759916" level="INFO">${out} = PING 1.1.1.1 (1.1.1.1) 56(84) bytes of data.
+64 bytes from 1.1.1.1: icmp_seq=1 ttl=56 time=18.9 ms
+64 bytes from 1.1.1.1: icmp_seq=2 ttl=56 time=14.8 ms
+64 bytes from 1.1.1.1: icmp_seq=3 ttl=56 time=1...</msg>
+<var>${out}</var>
+<arg>${fw}</arg>
+<arg>ping -c 3 -W 2 ${INTERNET_PROBE}; true</arg>
+<doc>Run a Linux shell command on a VyOS node by name (sudo allowed).</doc>
+<status status="PASS" start="2026-09-18T22:43:25.995207" elapsed="2.764734"/>
+</kw>
+<kw name="Ping Loss" owner="LabLib">
+<msg time="2026-09-18T22:43:28.760316" level="INFO">${lost} = 0</msg>
+<var>${lost}</var>
+<arg>${out}</arg>
+<doc>Packets lost according to a ping summary line ('N packets transmitted, M received, ...').</doc>
+<status status="PASS" start="2026-09-18T22:43:28.760064" elapsed="0.000277"/>
+</kw>
+<kw name="Should Be True" owner="BuiltIn">
+<arg>${lost} &lt; 3</arg>
+<arg>msg=${fw} itself cannot reach ${INTERNET_PROBE}</arg>
+<doc>Fails if the given condition is not true.</doc>
+<status status="PASS" start="2026-09-18T22:43:28.760424" elapsed="0.000425"/>
+</kw>
+<status status="PASS" start="2026-09-18T22:43:17.410805" elapsed="11.350144"/>
+</test>
+<test id="s1-t2" name="The firewall is a CE of every tenant on the breakout PE, Established in the tenant VRF, sending exactly one prefix — the default route" line="31">
+<for flavor="IN">
+<iter>
+<kw name="Set Variable" owner="BuiltIn">
+<msg time="2026-09-18T22:43:28.761931" level="INFO">${c} = {'pe': 'pe4', 'pe_port': 'eth5', 'pe_ip': '172.16.5.1', 'fw': 'fw-inet', 'fw_port': 'eth1', 'fw_ip': '172.16.5.2', 'prefix': '172.16.5.0/30', 'asn': 65010, 'fw_mgmt': '10.3.0.61'}</msg>
+<var>${c}</var>
+<arg>${INTERNET_CIRCUITS}[${t}]</arg>
+<doc>Returns the given values which can then be assigned to a variable.</doc>
+<status status="PASS" start="2026-09-18T22:43:28.761701" elapsed="0.000251"/>
+</kw>
+<kw name="Vyos" owner="common">
+<kw name="Run Vyos Command" owner="LabLib">
+<msg time="2026-09-18T22:43:36.789211" level="INFO" html="true">&lt;pre&gt;10.3.0.14$ show bgp vrf tenant-a summary
+
+IPv4 Unicast Summary:
+BGP router identifier 10.255.0.4, local AS number 65000 VRF tenant-a vrf-id 10
+BGP table version 8269
+RIB entries 55, using 8800 bytes of memory
+Peers 2, using 58 KiB of memory
+
+Neighbor        V         AS   MsgRcvd   MsgSent   TblVer  InQ OutQ  Up/Down State/PfxRcd   PfxSnt Desc
+172.16.4.2      4      65004      2797      3202     8269    0    0 1d00h37m            1       10 ce4 (tenant-a)
+172.16.5.2      4      65010        91        96     8269    0    0 00:56:35            1       10 fw-inet (tenant-a,
+
+Total number of neighbors 2
+
+IPv6 Unicast Summary:
+BGP router identifier 10.255.0.4, local AS number 65000 VRF tenant-a vrf-id 10
+BGP table version 180
+RIB entries 15, using 2400 bytes of memory
+Peers 1, using 29 KiB of memory
+
+Neighbor        V         AS   MsgRcvd   MsgSent   TblVer  InQ OutQ  Up/Down State/PfxRcd   PfxSnt Desc
+fd00:16:4::2    4      65004       429       541      180    0    0 06:31:02            1        8 ce4 (tenant-a,
+
+Total number of neighbors 1&lt;/pre&gt;</msg>
+<msg time="2026-09-18T22:43:36.789364" level="INFO">${out} = 
+IPv4 Unicast Summary:
+BGP router identifier 10.255.0.4, local AS number 65000 VRF tenant-a vrf-id 10
+BGP table version 8269
+RIB entries 55, using 8800 bytes of memory
+Peers 2, using 58 KiB of memory
+...</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<arg>${timeout}</arg>
+<doc>Run an operational-mode command on a VyOS node and return its output.</doc>
+<status status="PASS" start="2026-09-18T22:43:28.762290" elapsed="8.027107"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-18T22:43:36.789464" elapsed="0.000041"/>
+</return>
+<msg time="2026-09-18T22:43:36.789624" level="INFO">${sum} = 
+IPv4 Unicast Summary:
+BGP router identifier 10.255.0.4, local AS number 65000 VRF tenant-a vrf-id 10
+BGP table version 8269
+RIB entries 55, using 8800 bytes of memory
+Peers 2, using 58 KiB of memory
+...</msg>
+<var>${sum}</var>
+<arg>${c}[pe]</arg>
+<arg>show bgp vrf ${t} summary</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="PASS" start="2026-09-18T22:43:28.762066" elapsed="8.027581"/>
+</kw>
+<kw name="Get Lines Containing String" owner="String">
+<msg time="2026-09-18T22:43:36.789989" level="INFO">1 out of 23 lines matched.</msg>
+<msg time="2026-09-18T22:43:36.790052" level="INFO">${line} = 172.16.5.2      4      65010        91        96     8269    0    0 00:56:35            1       10 fw-inet (tenant-a,</msg>
+<var>${line}</var>
+<arg>${sum}</arg>
+<arg>${c}[fw_ip]</arg>
+<doc>Returns lines of the given `string` that contain the `pattern`.</doc>
+<status status="PASS" start="2026-09-18T22:43:36.789815" elapsed="0.000254"/>
+</kw>
+<kw name="Should Match Regexp" owner="BuiltIn">
+<arg>${line}</arg>
+<arg>^${c}[fw_ip]\\s+4\\s+${c}[asn]\\s+.*\\s1\\s+\\d+\\s+${c}[fw]</arg>
+<arg>msg=${c}[pe]: session to ${c}[fw] (${c}[fw_ip], AS ${c}[asn]) in ${t} not Established with 1 prefix</arg>
+<doc>Fails if the `string` does not match the regular expression `pattern`.</doc>
+<status status="PASS" start="2026-09-18T22:43:36.790170" elapsed="0.000487"/>
+</kw>
+<kw name="Vyos" owner="common">
+<kw name="Run Vyos Command" owner="LabLib">
+<msg time="2026-09-18T22:43:37.502438" level="INFO" html="true">&lt;pre&gt;10.3.0.14$ show bgp vrf tenant-a ipv4 0.0.0.0/0
+BGP routing table entry for 0.0.0.0/0, version 8269
+Paths: (1 available, best #1, vrf tenant-a)
+  Advertised to peers:
+  172.16.4.2 172.16.5.2
+  65010
+    172.16.5.2 from 172.16.5.2 (172.16.5.2)
+      Origin IGP, metric 0, valid, external, best (First path received)
+      Last update: Sat Sep 19 01:47:03 2026&lt;/pre&gt;</msg>
+<msg time="2026-09-18T22:43:37.502600" level="INFO">${out} = BGP routing table entry for 0.0.0.0/0, version 8269
+Paths: (1 available, best #1, vrf tenant-a)
+  Advertised to peers:
+  172.16.4.2 172.16.5.2
+  65010
+    172.16.5.2 from 172.16.5.2 (172.16.5.2)
+     ...</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<arg>${timeout}</arg>
+<doc>Run an operational-mode command on a VyOS node and return its output.</doc>
+<status status="PASS" start="2026-09-18T22:43:36.791017" elapsed="0.711615"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-18T22:43:37.502715" elapsed="0.000046"/>
+</return>
+<msg time="2026-09-18T22:43:37.502867" level="INFO">${d} = BGP routing table entry for 0.0.0.0/0, version 8269
+Paths: (1 available, best #1, vrf tenant-a)
+  Advertised to peers:
+  172.16.4.2 172.16.5.2
+  65010
+    172.16.5.2 from 172.16.5.2 (172.16.5.2)
+     ...</msg>
+<var>${d}</var>
+<arg>${c}[pe]</arg>
+<arg>show bgp vrf ${t} ipv4 0.0.0.0/0</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="PASS" start="2026-09-18T22:43:36.790782" elapsed="0.712104"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${d}</arg>
+<arg>${c}[fw_ip] from ${c}[fw_ip]</arg>
+<arg>msg=${c}[pe]: the ${t} default route is not from ${c}[fw]</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T22:43:37.503024" elapsed="0.000558"/>
+</kw>
+<kw name="Vyos" owner="common">
+<kw name="Run Vyos Command" owner="LabLib">
+<msg time="2026-09-18T22:43:38.215250" level="INFO" html="true">&lt;pre&gt;10.3.0.61$ show bgp vrf tenant-a summary
+
+IPv4 Unicast Summary:
+BGP router identifier 172.16.5.2, local AS number 65010 VRF tenant-a vrf-id 7
+BGP table version 12
+RIB entries 18, using 2880 bytes of memory
+Peers 1, using 29 KiB of memory
+
+Neighbor        V         AS   MsgRcvd   MsgSent   TblVer  InQ OutQ  Up/Down State/PfxRcd   PfxSnt Desc
+172.16.5.1      4      65000        69        67       12    0    0 00:56:37            9        1 pe4 (tenant-a)
+
+Total number of neighbors 1&lt;/pre&gt;</msg>
+<msg time="2026-09-18T22:43:38.215419" level="INFO">${out} = 
+IPv4 Unicast Summary:
+BGP router identifier 172.16.5.2, local AS number 65010 VRF tenant-a vrf-id 7
+BGP table version 12
+RIB entries 18, using 2880 bytes of memory
+Peers 1, using 29 KiB of memory
+
+Ne...</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<arg>${timeout}</arg>
+<doc>Run an operational-mode command on a VyOS node and return its output.</doc>
+<status status="PASS" start="2026-09-18T22:43:37.503993" elapsed="0.711452"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-18T22:43:38.215525" elapsed="0.000043"/>
+</return>
+<msg time="2026-09-18T22:43:38.215694" level="INFO">${fsum} = 
+IPv4 Unicast Summary:
+BGP router identifier 172.16.5.2, local AS number 65010 VRF tenant-a vrf-id 7
+BGP table version 12
+RIB entries 18, using 2880 bytes of memory
+Peers 1, using 29 KiB of memory
+
+Ne...</msg>
+<var>${fsum}</var>
+<arg>${c}[fw]</arg>
+<arg>show bgp vrf ${t} summary</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="PASS" start="2026-09-18T22:43:37.503751" elapsed="0.711961"/>
+</kw>
+<kw name="Should Match Regexp" owner="BuiltIn">
+<arg>${fsum}</arg>
+<arg>(?m)^${c}[pe_ip]\\s+4\\s+${CORE_AS}\\s+.*\\s\\d+\\s+\\d+\\s+${c}[pe]</arg>
+<arg>msg=${c}[fw]: session to ${c}[pe] in ${t} not Established</arg>
+<doc>Fails if the `string` does not match the regular expression `pattern`.</doc>
+<status status="PASS" start="2026-09-18T22:43:38.215874" elapsed="0.000543"/>
+</kw>
+<var name="${t}">tenant-a</var>
+<status status="PASS" start="2026-09-18T22:43:28.761620" elapsed="9.454836"/>
+</iter>
+<iter>
+<kw name="Set Variable" owner="BuiltIn">
+<msg time="2026-09-18T22:43:38.216909" level="INFO">${c} = {'pe': 'pe4', 'pe_port': 'eth6', 'pe_ip': '172.18.5.1', 'fw': 'fw-inet', 'fw_port': 'eth2', 'fw_ip': '172.18.5.2', 'prefix': '172.18.5.0/30', 'asn': 65010, 'fw_mgmt': '10.3.0.61'}</msg>
+<var>${c}</var>
+<arg>${INTERNET_CIRCUITS}[${t}]</arg>
+<doc>Returns the given values which can then be assigned to a variable.</doc>
+<status status="PASS" start="2026-09-18T22:43:38.216662" elapsed="0.000267"/>
+</kw>
+<kw name="Vyos" owner="common">
+<kw name="Run Vyos Command" owner="LabLib">
+<msg time="2026-09-18T22:43:38.928733" level="INFO" html="true">&lt;pre&gt;10.3.0.14$ show bgp vrf tenant-b summary
+
+IPv4 Unicast Summary:
+BGP router identifier 10.255.0.4, local AS number 65000 VRF tenant-b vrf-id 12
+BGP table version 2211
+RIB entries 24, using 3840 bytes of memory
+Peers 2, using 58 KiB of memory
+
+Neighbor        V         AS   MsgRcvd   MsgSent   TblVer  InQ OutQ  Up/Down State/PfxRcd   PfxSnt Desc
+172.18.4.2      4      65004      1910      2262     2211    0    0 04:42:38            1       10 ce4 (tenant-b)
+172.18.5.2      4      65010        91        96     2211    0    0 00:56:38            1       10 fw-inet (tenant-b,
+
+Total number of neighbors 2
+
+IPv6 Unicast Summary:
+BGP router identifier 10.255.0.4, local AS number 65000 VRF tenant-b vrf-id 12
+BGP table version 180
+RIB entries 15, using 2400 bytes of memory
+Peers 1, using 29 KiB of memory
+
+Neighbor        V         AS   MsgRcvd   MsgSent   TblVer  InQ OutQ  Up/Down State/PfxRcd   PfxSnt Desc
+fd00:18:4::2    4      65004       432       542      180    0    0 06:31:05            1        8 ce4 (tenant-b,
+
+Total number of neighbors 1&lt;/pre&gt;</msg>
+<msg time="2026-09-18T22:43:38.928953" level="INFO">${out} = 
+IPv4 Unicast Summary:
+BGP router identifier 10.255.0.4, local AS number 65000 VRF tenant-b vrf-id 12
+BGP table version 2211
+RIB entries 24, using 3840 bytes of memory
+Peers 2, using 58 KiB of memory
+...</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<arg>${timeout}</arg>
+<doc>Run an operational-mode command on a VyOS node and return its output.</doc>
+<status status="PASS" start="2026-09-18T22:43:38.217301" elapsed="0.711685"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-18T22:43:38.929060" elapsed="0.000050"/>
+</return>
+<msg time="2026-09-18T22:43:38.929262" level="INFO">${sum} = 
+IPv4 Unicast Summary:
+BGP router identifier 10.255.0.4, local AS number 65000 VRF tenant-b vrf-id 12
+BGP table version 2211
+RIB entries 24, using 3840 bytes of memory
+Peers 2, using 58 KiB of memory
+...</msg>
+<var>${sum}</var>
+<arg>${c}[pe]</arg>
+<arg>show bgp vrf ${t} summary</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="PASS" start="2026-09-18T22:43:38.217058" elapsed="0.712228"/>
+</kw>
+<kw name="Get Lines Containing String" owner="String">
+<msg time="2026-09-18T22:43:38.929651" level="INFO">1 out of 23 lines matched.</msg>
+<msg time="2026-09-18T22:43:38.929717" level="INFO">${line} = 172.18.5.2      4      65010        91        96     2211    0    0 00:56:38            1       10 fw-inet (tenant-b,</msg>
+<var>${line}</var>
+<arg>${sum}</arg>
+<arg>${c}[fw_ip]</arg>
+<doc>Returns lines of the given `string` that contain the `pattern`.</doc>
+<status status="PASS" start="2026-09-18T22:43:38.929439" elapsed="0.000297"/>
+</kw>
+<kw name="Should Match Regexp" owner="BuiltIn">
+<arg>${line}</arg>
+<arg>^${c}[fw_ip]\\s+4\\s+${c}[asn]\\s+.*\\s1\\s+\\d+\\s+${c}[fw]</arg>
+<arg>msg=${c}[pe]: session to ${c}[fw] (${c}[fw_ip], AS ${c}[asn]) in ${t} not Established with 1 prefix</arg>
+<doc>Fails if the `string` does not match the regular expression `pattern`.</doc>
+<status status="PASS" start="2026-09-18T22:43:38.929883" elapsed="0.000515"/>
+</kw>
+<kw name="Vyos" owner="common">
+<kw name="Run Vyos Command" owner="LabLib">
+<msg time="2026-09-18T22:43:39.642298" level="INFO" html="true">&lt;pre&gt;10.3.0.14$ show bgp vrf tenant-b ipv4 0.0.0.0/0
+BGP routing table entry for 0.0.0.0/0, version 2211
+Paths: (1 available, best #1, vrf tenant-b)
+  Advertised to peers:
+  172.18.4.2 172.18.5.2
+  65010
+    172.18.5.2 from 172.18.5.2 (172.18.5.2)
+      Origin IGP, metric 0, valid, external, best (First path received)
+      Last update: Sat Sep 19 01:47:03 2026&lt;/pre&gt;</msg>
+<msg time="2026-09-18T22:43:39.642434" level="INFO">${out} = BGP routing table entry for 0.0.0.0/0, version 2211
+Paths: (1 available, best #1, vrf tenant-b)
+  Advertised to peers:
+  172.18.4.2 172.18.5.2
+  65010
+    172.18.5.2 from 172.18.5.2 (172.18.5.2)
+     ...</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<arg>${timeout}</arg>
+<doc>Run an operational-mode command on a VyOS node and return its output.</doc>
+<status status="PASS" start="2026-09-18T22:43:38.930866" elapsed="0.711590"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-18T22:43:39.642513" elapsed="0.000038"/>
+</return>
+<msg time="2026-09-18T22:43:39.642703" level="INFO">${d} = BGP routing table entry for 0.0.0.0/0, version 2211
+Paths: (1 available, best #1, vrf tenant-b)
+  Advertised to peers:
+  172.18.4.2 172.18.5.2
+  65010
+    172.18.5.2 from 172.18.5.2 (172.18.5.2)
+     ...</msg>
+<var>${d}</var>
+<arg>${c}[pe]</arg>
+<arg>show bgp vrf ${t} ipv4 0.0.0.0/0</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="PASS" start="2026-09-18T22:43:38.930554" elapsed="0.712178"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${d}</arg>
+<arg>${c}[fw_ip] from ${c}[fw_ip]</arg>
+<arg>msg=${c}[pe]: the ${t} default route is not from ${c}[fw]</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T22:43:39.642883" elapsed="0.000433"/>
+</kw>
+<kw name="Vyos" owner="common">
+<kw name="Run Vyos Command" owner="LabLib">
+<msg time="2026-09-18T22:43:40.355073" level="INFO" html="true">&lt;pre&gt;10.3.0.61$ show bgp vrf tenant-b summary
+
+IPv4 Unicast Summary:
+BGP router identifier 172.18.5.2, local AS number 65010 VRF tenant-b vrf-id 9
+BGP table version 12
+RIB entries 18, using 2880 bytes of memory
+Peers 1, using 29 KiB of memory
+
+Neighbor        V         AS   MsgRcvd   MsgSent   TblVer  InQ OutQ  Up/Down State/PfxRcd   PfxSnt Desc
+172.18.5.1      4      65000        69        67       12    0    0 00:56:39            9        1 pe4 (tenant-b)
+
+Total number of neighbors 1&lt;/pre&gt;</msg>
+<msg time="2026-09-18T22:43:40.355226" level="INFO">${out} = 
+IPv4 Unicast Summary:
+BGP router identifier 172.18.5.2, local AS number 65010 VRF tenant-b vrf-id 9
+BGP table version 12
+RIB entries 18, using 2880 bytes of memory
+Peers 1, using 29 KiB of memory
+
+Ne...</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<arg>${timeout}</arg>
+<doc>Run an operational-mode command on a VyOS node and return its output.</doc>
+<status status="PASS" start="2026-09-18T22:43:39.643796" elapsed="0.711457"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-18T22:43:40.355315" elapsed="0.000042"/>
+</return>
+<msg time="2026-09-18T22:43:40.355460" level="INFO">${fsum} = 
+IPv4 Unicast Summary:
+BGP router identifier 172.18.5.2, local AS number 65010 VRF tenant-b vrf-id 9
+BGP table version 12
+RIB entries 18, using 2880 bytes of memory
+Peers 1, using 29 KiB of memory
+
+Ne...</msg>
+<var>${fsum}</var>
+<arg>${c}[fw]</arg>
+<arg>show bgp vrf ${t} summary</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="PASS" start="2026-09-18T22:43:39.643494" elapsed="0.711984"/>
+</kw>
+<kw name="Should Match Regexp" owner="BuiltIn">
+<arg>${fsum}</arg>
+<arg>(?m)^${c}[pe_ip]\\s+4\\s+${CORE_AS}\\s+.*\\s\\d+\\s+\\d+\\s+${c}[pe]</arg>
+<arg>msg=${c}[fw]: session to ${c}[pe] in ${t} not Established</arg>
+<doc>Fails if the `string` does not match the regular expression `pattern`.</doc>
+<status status="PASS" start="2026-09-18T22:43:40.355649" elapsed="0.000480"/>
+</kw>
+<var name="${t}">tenant-b</var>
+<status status="PASS" start="2026-09-18T22:43:38.216576" elapsed="2.139583"/>
+</iter>
+<var>${t}</var>
+<value>@{TENANTS}</value>
+<status status="PASS" start="2026-09-18T22:43:28.761425" elapsed="11.594773"/>
+</for>
+<status status="PASS" start="2026-09-18T22:43:28.761139" elapsed="11.595179"/>
+</test>
+<test id="s1-t3" name="Every PE holds the default route in every tenant VRF as an SRv6 route to the breakout PE's End.DT46 SID for that tenant" line="43">
+<for flavor="IN">
+<iter>
+<kw name="Set Variable" owner="BuiltIn">
+<msg time="2026-09-18T22:43:40.357198" level="INFO">${c} = {'pe': 'pe4', 'pe_port': 'eth5', 'pe_ip': '172.16.5.1', 'fw': 'fw-inet', 'fw_port': 'eth1', 'fw_ip': '172.16.5.2', 'prefix': '172.16.5.0/30', 'asn': 65010, 'fw_mgmt': '10.3.0.61'}</msg>
+<var>${c}</var>
+<arg>${INTERNET_CIRCUITS}[${t}]</arg>
+<doc>Returns the given values which can then be assigned to a variable.</doc>
+<status status="PASS" start="2026-09-18T22:43:40.356965" elapsed="0.000259"/>
+</kw>
+<kw name="Shell" owner="common">
+<kw name="Vyos Shell" owner="LabLib">
+<msg time="2026-09-18T22:43:41.081822" level="INFO" html="true">&lt;pre&gt;10.3.0.14# sudo ip -6 route show | grep 'End.DT46 vrftable tenant-a' | cut -d' ' -f1
+rc=0
+fd00:c:4:e002::
+&lt;/pre&gt;</msg>
+<msg time="2026-09-18T22:43:41.082008" level="INFO">${out} = fd00:c:4:e002::
+</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<doc>Run a Linux shell command on a VyOS node (e.g. `sudo ip -6 route`) and return stdout+stderr; fails on non-zero rc.</doc>
+<status status="PASS" start="2026-09-18T22:43:40.357521" elapsed="0.724510"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-18T22:43:41.082091" elapsed="0.000039"/>
+</return>
+<msg time="2026-09-18T22:43:41.082232" level="INFO">${sid} = fd00:c:4:e002::
+</msg>
+<var>${sid}</var>
+<arg>${c}[pe]</arg>
+<arg>sudo ip -6 route show | grep 'End.DT46 vrftable ${t}' | cut -d' ' -f1</arg>
+<doc>Run a Linux shell command on a VyOS node by name (sudo allowed).</doc>
+<status status="PASS" start="2026-09-18T22:43:40.357333" elapsed="0.724918"/>
+</kw>
+<for flavor="IN">
+<iter>
+<kw name="Shell" owner="common">
+<kw name="Vyos Shell" owner="LabLib">
+<msg time="2026-09-18T22:43:41.877722" level="INFO" html="true">&lt;pre&gt;10.3.0.11# sudo ip -c=never route show vrf tenant-a default
+rc=0
+default nhid 1612  encap seg6 mode encap segs 1 [ fd00:c:4:e002:: ] via inet6 fe80::5054:ff:fec6:603 dev eth2 proto bgp metric 20 
+&lt;/pre&gt;</msg>
+<msg time="2026-09-18T22:43:41.877915" level="INFO">${out} = default nhid 1612  encap seg6 mode encap segs 1 [ fd00:c:4:e002:: ] via inet6 fe80::5054:ff:fec6:603 dev eth2 proto bgp metric 20 
+</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<doc>Run a Linux shell command on a VyOS node (e.g. `sudo ip -6 route`) and return stdout+stderr; fails on non-zero rc.</doc>
+<status status="PASS" start="2026-09-18T22:43:41.082913" elapsed="0.795032"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-18T22:43:41.878018" elapsed="0.000049"/>
+</return>
+<msg time="2026-09-18T22:43:41.878219" level="INFO">${rt} = default nhid 1612  encap seg6 mode encap segs 1 [ fd00:c:4:e002:: ] via inet6 fe80::5054:ff:fec6:603 dev eth2 proto bgp metric 20 
+</msg>
+<var>${rt}</var>
+<arg>${pe}</arg>
+<arg>sudo ip -c=never route show vrf ${t} default</arg>
+<doc>Run a Linux shell command on a VyOS node by name (sudo allowed).</doc>
+<status status="PASS" start="2026-09-18T22:43:41.082600" elapsed="0.795647"/>
+</kw>
+<if>
+<branch type="IF" condition="'${pe}' == '${c}[pe]'">
+<kw name="Should Match Regexp" owner="BuiltIn">
+<arg>${rt}</arg>
+<arg>^default .*via ${c}[fw_ip] dev ${c}[pe_port]</arg>
+<arg>msg=${pe}: ${t} default route is not via ${c}[fw] on ${c}[pe_port]</arg>
+<doc>Fails if the `string` does not match the regular expression `pattern`.</doc>
+<status status="NOT RUN" start="2026-09-18T22:43:41.878717" elapsed="0.000020"/>
+</kw>
+<status status="NOT RUN" start="2026-09-18T22:43:41.878365" elapsed="0.000400"/>
+</branch>
+<branch type="ELSE">
+<kw name="Should Match Regexp" owner="BuiltIn">
+<arg>${rt}</arg>
+<arg>(?s)^default .*encap seg6 mode encap segs 1 \\[ ${sid.strip()} \\]</arg>
+<arg>msg=${pe}: ${t} default route is not SRv6-encapsulated to ${sid.strip()} (${c}[pe] ${t})</arg>
+<doc>Fails if the `string` does not match the regular expression `pattern`.</doc>
+<status status="PASS" start="2026-09-18T22:43:41.878877" elapsed="0.000601"/>
+</kw>
+<status status="PASS" start="2026-09-18T22:43:41.878789" elapsed="0.000727"/>
+</branch>
+<status status="PASS" start="2026-09-18T22:43:41.878335" elapsed="0.001206"/>
+</if>
+<var name="${pe}">pe1</var>
+<status status="PASS" start="2026-09-18T22:43:41.082469" elapsed="0.797104"/>
+</iter>
+<iter>
+<kw name="Shell" owner="common">
+<kw name="Vyos Shell" owner="LabLib">
+<msg time="2026-09-18T22:43:42.677372" level="INFO" html="true">&lt;pre&gt;10.3.0.12# sudo ip -c=never route show vrf tenant-a default
+rc=0
+default nhid 1202  encap seg6 mode encap segs 1 [ fd00:c:4:e002:: ] via inet6 fe80::5054:ff:fec6:604 dev eth2 proto bgp metric 20 
+&lt;/pre&gt;</msg>
+<msg time="2026-09-18T22:43:42.677543" level="INFO">${out} = default nhid 1202  encap seg6 mode encap segs 1 [ fd00:c:4:e002:: ] via inet6 fe80::5054:ff:fec6:604 dev eth2 proto bgp metric 20 
+</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<doc>Run a Linux shell command on a VyOS node (e.g. `sudo ip -6 route`) and return stdout+stderr; fails on non-zero rc.</doc>
+<status status="PASS" start="2026-09-18T22:43:41.880036" elapsed="0.797528"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-18T22:43:42.677652" elapsed="0.000048"/>
+</return>
+<msg time="2026-09-18T22:43:42.677808" level="INFO">${rt} = default nhid 1202  encap seg6 mode encap segs 1 [ fd00:c:4:e002:: ] via inet6 fe80::5054:ff:fec6:604 dev eth2 proto bgp metric 20 
+</msg>
+<var>${rt}</var>
+<arg>${pe}</arg>
+<arg>sudo ip -c=never route show vrf ${t} default</arg>
+<doc>Run a Linux shell command on a VyOS node by name (sudo allowed).</doc>
+<status status="PASS" start="2026-09-18T22:43:41.879802" elapsed="0.798024"/>
+</kw>
+<if>
+<branch type="IF" condition="'${pe}' == '${c}[pe]'">
+<kw name="Should Match Regexp" owner="BuiltIn">
+<arg>${rt}</arg>
+<arg>^default .*via ${c}[fw_ip] dev ${c}[pe_port]</arg>
+<arg>msg=${pe}: ${t} default route is not via ${c}[fw] on ${c}[pe_port]</arg>
+<doc>Fails if the `string` does not match the regular expression `pattern`.</doc>
+<status status="NOT RUN" start="2026-09-18T22:43:42.678144" elapsed="0.000022"/>
+</kw>
+<status status="NOT RUN" start="2026-09-18T22:43:42.677899" elapsed="0.000301"/>
+</branch>
+<branch type="ELSE">
+<kw name="Should Match Regexp" owner="BuiltIn">
+<arg>${rt}</arg>
+<arg>(?s)^default .*encap seg6 mode encap segs 1 \\[ ${sid.strip()} \\]</arg>
+<arg>msg=${pe}: ${t} default route is not SRv6-encapsulated to ${sid.strip()} (${c}[pe] ${t})</arg>
+<doc>Fails if the `string` does not match the regular expression `pattern`.</doc>
+<status status="PASS" start="2026-09-18T22:43:42.678338" elapsed="0.000543"/>
+</kw>
+<status status="PASS" start="2026-09-18T22:43:42.678232" elapsed="0.000680"/>
+</branch>
+<status status="PASS" start="2026-09-18T22:43:42.677880" elapsed="0.001051"/>
+</if>
+<var name="${pe}">pe2</var>
+<status status="PASS" start="2026-09-18T22:43:41.879706" elapsed="0.799249"/>
+</iter>
+<iter>
+<kw name="Shell" owner="common">
+<kw name="Vyos Shell" owner="LabLib">
+<msg time="2026-09-18T22:43:43.489587" level="INFO" html="true">&lt;pre&gt;10.3.0.13# sudo ip -c=never route show vrf tenant-a default
+rc=0
+default nhid 1284 proto bgp metric 20 
+	nexthop  encap seg6 mode encap segs 1 [ fd00:c:4:e002:: ] via inet6 fe80::5054:ff:fec6:605 dev eth1 weight 1 
+	nexthop  encap seg6 mode encap segs 1 [ fd00:c:4:e002:: ] via inet6 fe80::5054:ff:fec6:703 dev eth2 weight 1 
+&lt;/pre&gt;</msg>
+<msg time="2026-09-18T22:43:43.489785" level="INFO">${out} = default nhid 1284 proto bgp metric 20 
+	nexthop  encap seg6 mode encap segs 1 [ fd00:c:4:e002:: ] via inet6 fe80::5054:ff:fec6:605 dev eth1 weight 1 
+	nexthop  encap seg6 mode encap segs 1 [ fd00:c:4:...</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<doc>Run a Linux shell command on a VyOS node (e.g. `sudo ip -6 route`) and return stdout+stderr; fails on non-zero rc.</doc>
+<status status="PASS" start="2026-09-18T22:43:42.679392" elapsed="0.810417"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-18T22:43:43.489888" elapsed="0.000038"/>
+</return>
+<msg time="2026-09-18T22:43:43.490035" level="INFO">${rt} = default nhid 1284 proto bgp metric 20 
+	nexthop  encap seg6 mode encap segs 1 [ fd00:c:4:e002:: ] via inet6 fe80::5054:ff:fec6:605 dev eth1 weight 1 
+	nexthop  encap seg6 mode encap segs 1 [ fd00:c:4:...</msg>
+<var>${rt}</var>
+<arg>${pe}</arg>
+<arg>sudo ip -c=never route show vrf ${t} default</arg>
+<doc>Run a Linux shell command on a VyOS node by name (sudo allowed).</doc>
+<status status="PASS" start="2026-09-18T22:43:42.679171" elapsed="0.810882"/>
+</kw>
+<if>
+<branch type="IF" condition="'${pe}' == '${c}[pe]'">
+<kw name="Should Match Regexp" owner="BuiltIn">
+<arg>${rt}</arg>
+<arg>^default .*via ${c}[fw_ip] dev ${c}[pe_port]</arg>
+<arg>msg=${pe}: ${t} default route is not via ${c}[fw] on ${c}[pe_port]</arg>
+<doc>Fails if the `string` does not match the regular expression `pattern`.</doc>
+<status status="NOT RUN" start="2026-09-18T22:43:43.490366" elapsed="0.000018"/>
+</kw>
+<status status="NOT RUN" start="2026-09-18T22:43:43.490124" elapsed="0.000288"/>
+</branch>
+<branch type="ELSE">
+<kw name="Should Match Regexp" owner="BuiltIn">
+<arg>${rt}</arg>
+<arg>(?s)^default .*encap seg6 mode encap segs 1 \\[ ${sid.strip()} \\]</arg>
+<arg>msg=${pe}: ${t} default route is not SRv6-encapsulated to ${sid.strip()} (${c}[pe] ${t})</arg>
+<doc>Fails if the `string` does not match the regular expression `pattern`.</doc>
+<status status="PASS" start="2026-09-18T22:43:43.490527" elapsed="0.000517"/>
+</kw>
+<status status="PASS" start="2026-09-18T22:43:43.490433" elapsed="0.000642"/>
+</branch>
+<status status="PASS" start="2026-09-18T22:43:43.490103" elapsed="0.000991"/>
+</if>
+<var name="${pe}">pe3</var>
+<status status="PASS" start="2026-09-18T22:43:42.679070" elapsed="0.812043"/>
+</iter>
+<iter>
+<kw name="Shell" owner="common">
+<kw name="Vyos Shell" owner="LabLib">
+<msg time="2026-09-18T22:43:44.217373" level="INFO" html="true">&lt;pre&gt;10.3.0.14# sudo ip -c=never route show vrf tenant-a default
+rc=0
+default nhid 7653 via 172.16.5.2 dev eth5 proto bgp metric 20 
+&lt;/pre&gt;</msg>
+<msg time="2026-09-18T22:43:44.217540" level="INFO">${out} = default nhid 7653 via 172.16.5.2 dev eth5 proto bgp metric 20 
+</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<doc>Run a Linux shell command on a VyOS node (e.g. `sudo ip -6 route`) and return stdout+stderr; fails on non-zero rc.</doc>
+<status status="PASS" start="2026-09-18T22:43:43.491739" elapsed="0.725832"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-18T22:43:44.217657" elapsed="0.000039"/>
+</return>
+<msg time="2026-09-18T22:43:44.217807" level="INFO">${rt} = default nhid 7653 via 172.16.5.2 dev eth5 proto bgp metric 20 
+</msg>
+<var>${rt}</var>
+<arg>${pe}</arg>
+<arg>sudo ip -c=never route show vrf ${t} default</arg>
+<doc>Run a Linux shell command on a VyOS node by name (sudo allowed).</doc>
+<status status="PASS" start="2026-09-18T22:43:43.491399" elapsed="0.726427"/>
+</kw>
+<if>
+<branch type="IF" condition="'${pe}' == '${c}[pe]'">
+<kw name="Should Match Regexp" owner="BuiltIn">
+<arg>${rt}</arg>
+<arg>^default .*via ${c}[fw_ip] dev ${c}[pe_port]</arg>
+<arg>msg=${pe}: ${t} default route is not via ${c}[fw] on ${c}[pe_port]</arg>
+<doc>Fails if the `string` does not match the regular expression `pattern`.</doc>
+<status status="PASS" start="2026-09-18T22:43:44.218117" elapsed="0.000422"/>
+</kw>
+<status status="PASS" start="2026-09-18T22:43:44.217898" elapsed="0.000683"/>
+</branch>
+<branch type="ELSE">
+<kw name="Should Match Regexp" owner="BuiltIn">
+<arg>${rt}</arg>
+<arg>(?s)^default .*encap seg6 mode encap segs 1 \\[ ${sid.strip()} \\]</arg>
+<arg>msg=${pe}: ${t} default route is not SRv6-encapsulated to ${sid.strip()} (${c}[pe] ${t})</arg>
+<doc>Fails if the `string` does not match the regular expression `pattern`.</doc>
+<status status="NOT RUN" start="2026-09-18T22:43:44.218738" elapsed="0.000016"/>
+</kw>
+<status status="NOT RUN" start="2026-09-18T22:43:44.218625" elapsed="0.000153"/>
+</branch>
+<status status="PASS" start="2026-09-18T22:43:44.217876" elapsed="0.000916"/>
+</if>
+<var name="${pe}">pe4</var>
+<status status="PASS" start="2026-09-18T22:43:43.491253" elapsed="0.727557"/>
+</iter>
+<var>${pe}</var>
+<value>@{PES}</value>
+<status status="PASS" start="2026-09-18T22:43:41.082299" elapsed="3.136535"/>
+</for>
+<var name="${t}">tenant-a</var>
+<status status="PASS" start="2026-09-18T22:43:40.356901" elapsed="3.861963"/>
+</iter>
+<iter>
+<kw name="Set Variable" owner="BuiltIn">
+<msg time="2026-09-18T22:43:44.219296" level="INFO">${c} = {'pe': 'pe4', 'pe_port': 'eth6', 'pe_ip': '172.18.5.1', 'fw': 'fw-inet', 'fw_port': 'eth2', 'fw_ip': '172.18.5.2', 'prefix': '172.18.5.0/30', 'asn': 65010, 'fw_mgmt': '10.3.0.61'}</msg>
+<var>${c}</var>
+<arg>${INTERNET_CIRCUITS}[${t}]</arg>
+<doc>Returns the given values which can then be assigned to a variable.</doc>
+<status status="PASS" start="2026-09-18T22:43:44.219063" elapsed="0.000253"/>
+</kw>
+<kw name="Shell" owner="common">
+<kw name="Vyos Shell" owner="LabLib">
+<msg time="2026-09-18T22:43:44.950087" level="INFO" html="true">&lt;pre&gt;10.3.0.14# sudo ip -6 route show | grep 'End.DT46 vrftable tenant-b' | cut -d' ' -f1
+rc=0
+fd00:c:4:e003::
+&lt;/pre&gt;</msg>
+<msg time="2026-09-18T22:43:44.950311" level="INFO">${out} = fd00:c:4:e003::
+</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<doc>Run a Linux shell command on a VyOS node (e.g. `sudo ip -6 route`) and return stdout+stderr; fails on non-zero rc.</doc>
+<status status="PASS" start="2026-09-18T22:43:44.219667" elapsed="0.730690"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-18T22:43:44.950441" elapsed="0.000056"/>
+</return>
+<msg time="2026-09-18T22:43:44.950718" level="INFO">${sid} = fd00:c:4:e003::
+</msg>
+<var>${sid}</var>
+<arg>${c}[pe]</arg>
+<arg>sudo ip -6 route show | grep 'End.DT46 vrftable ${t}' | cut -d' ' -f1</arg>
+<doc>Run a Linux shell command on a VyOS node by name (sudo allowed).</doc>
+<status status="PASS" start="2026-09-18T22:43:44.219424" elapsed="0.731323"/>
+</kw>
+<for flavor="IN">
+<iter>
+<kw name="Shell" owner="common">
+<kw name="Vyos Shell" owner="LabLib">
+<msg time="2026-09-18T22:43:45.686682" level="INFO" html="true">&lt;pre&gt;10.3.0.11# sudo ip -c=never route show vrf tenant-b default
+rc=0
+default nhid 1615  encap seg6 mode encap segs 1 [ fd00:c:4:e003:: ] via inet6 fe80::5054:ff:fec6:603 dev eth2 proto bgp metric 20 
+&lt;/pre&gt;</msg>
+<msg time="2026-09-18T22:43:45.686844" level="INFO">${out} = default nhid 1615  encap seg6 mode encap segs 1 [ fd00:c:4:e003:: ] via inet6 fe80::5054:ff:fec6:603 dev eth2 proto bgp metric 20 
+</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<doc>Run a Linux shell command on a VyOS node (e.g. `sudo ip -6 route`) and return stdout+stderr; fails on non-zero rc.</doc>
+<status status="PASS" start="2026-09-18T22:43:44.951645" elapsed="0.735220"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-18T22:43:45.686922" elapsed="0.000038"/>
+</return>
+<msg time="2026-09-18T22:43:45.687066" level="INFO">${rt} = default nhid 1615  encap seg6 mode encap segs 1 [ fd00:c:4:e003:: ] via inet6 fe80::5054:ff:fec6:603 dev eth2 proto bgp metric 20 
+</msg>
+<var>${rt}</var>
+<arg>${pe}</arg>
+<arg>sudo ip -c=never route show vrf ${t} default</arg>
+<doc>Run a Linux shell command on a VyOS node by name (sudo allowed).</doc>
+<status status="PASS" start="2026-09-18T22:43:44.951242" elapsed="0.735842"/>
+</kw>
+<if>
+<branch type="IF" condition="'${pe}' == '${c}[pe]'">
+<kw name="Should Match Regexp" owner="BuiltIn">
+<arg>${rt}</arg>
+<arg>^default .*via ${c}[fw_ip] dev ${c}[pe_port]</arg>
+<arg>msg=${pe}: ${t} default route is not via ${c}[fw] on ${c}[pe_port]</arg>
+<doc>Fails if the `string` does not match the regular expression `pattern`.</doc>
+<status status="NOT RUN" start="2026-09-18T22:43:45.687375" elapsed="0.000018"/>
+</kw>
+<status status="NOT RUN" start="2026-09-18T22:43:45.687155" elapsed="0.000261"/>
+</branch>
+<branch type="ELSE">
+<kw name="Should Match Regexp" owner="BuiltIn">
+<arg>${rt}</arg>
+<arg>(?s)^default .*encap seg6 mode encap segs 1 \\[ ${sid.strip()} \\]</arg>
+<arg>msg=${pe}: ${t} default route is not SRv6-encapsulated to ${sid.strip()} (${c}[pe] ${t})</arg>
+<doc>Fails if the `string` does not match the regular expression `pattern`.</doc>
+<status status="PASS" start="2026-09-18T22:43:45.687540" elapsed="0.000596"/>
+</kw>
+<status status="PASS" start="2026-09-18T22:43:45.687434" elapsed="0.000733"/>
+</branch>
+<status status="PASS" start="2026-09-18T22:43:45.687136" elapsed="0.001048"/>
+</if>
+<var name="${pe}">pe1</var>
+<status status="PASS" start="2026-09-18T22:43:44.951067" elapsed="0.737136"/>
+</iter>
+<iter>
+<kw name="Shell" owner="common">
+<kw name="Vyos Shell" owner="LabLib">
+<msg time="2026-09-18T22:43:46.415348" level="INFO" html="true">&lt;pre&gt;10.3.0.12# sudo ip -c=never route show vrf tenant-b default
+rc=0
+default nhid 1203  encap seg6 mode encap segs 1 [ fd00:c:4:e003:: ] via inet6 fe80::5054:ff:fec6:604 dev eth2 proto bgp metric 20 
+&lt;/pre&gt;</msg>
+<msg time="2026-09-18T22:43:46.415557" level="INFO">${out} = default nhid 1203  encap seg6 mode encap segs 1 [ fd00:c:4:e003:: ] via inet6 fe80::5054:ff:fec6:604 dev eth2 proto bgp metric 20 
+</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<doc>Run a Linux shell command on a VyOS node (e.g. `sudo ip -6 route`) and return stdout+stderr; fails on non-zero rc.</doc>
+<status status="PASS" start="2026-09-18T22:43:45.688681" elapsed="0.726914"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-18T22:43:46.415719" elapsed="0.000054"/>
+</return>
+<msg time="2026-09-18T22:43:46.415929" level="INFO">${rt} = default nhid 1203  encap seg6 mode encap segs 1 [ fd00:c:4:e003:: ] via inet6 fe80::5054:ff:fec6:604 dev eth2 proto bgp metric 20 
+</msg>
+<var>${rt}</var>
+<arg>${pe}</arg>
+<arg>sudo ip -c=never route show vrf ${t} default</arg>
+<doc>Run a Linux shell command on a VyOS node by name (sudo allowed).</doc>
+<status status="PASS" start="2026-09-18T22:43:45.688406" elapsed="0.727553"/>
+</kw>
+<if>
+<branch type="IF" condition="'${pe}' == '${c}[pe]'">
+<kw name="Should Match Regexp" owner="BuiltIn">
+<arg>${rt}</arg>
+<arg>^default .*via ${c}[fw_ip] dev ${c}[pe_port]</arg>
+<arg>msg=${pe}: ${t} default route is not via ${c}[fw] on ${c}[pe_port]</arg>
+<doc>Fails if the `string` does not match the regular expression `pattern`.</doc>
+<status status="NOT RUN" start="2026-09-18T22:43:46.416346" elapsed="0.000026"/>
+</kw>
+<status status="NOT RUN" start="2026-09-18T22:43:46.416056" elapsed="0.000357"/>
+</branch>
+<branch type="ELSE">
+<kw name="Should Match Regexp" owner="BuiltIn">
+<arg>${rt}</arg>
+<arg>(?s)^default .*encap seg6 mode encap segs 1 \\[ ${sid.strip()} \\]</arg>
+<arg>msg=${pe}: ${t} default route is not SRv6-encapsulated to ${sid.strip()} (${c}[pe] ${t})</arg>
+<doc>Fails if the `string` does not match the regular expression `pattern`.</doc>
+<status status="PASS" start="2026-09-18T22:43:46.416613" elapsed="0.000656"/>
+</kw>
+<status status="PASS" start="2026-09-18T22:43:46.416444" elapsed="0.000864"/>
+</branch>
+<status status="PASS" start="2026-09-18T22:43:46.416028" elapsed="0.001307"/>
+</if>
+<var name="${pe}">pe2</var>
+<status status="PASS" start="2026-09-18T22:43:45.688312" elapsed="0.729056"/>
+</iter>
+<iter>
+<kw name="Shell" owner="common">
+<kw name="Vyos Shell" owner="LabLib">
+<msg time="2026-09-18T22:43:47.154036" level="INFO" html="true">&lt;pre&gt;10.3.0.13# sudo ip -c=never route show vrf tenant-b default
+rc=0
+default nhid 1285 proto bgp metric 20 
+	nexthop  encap seg6 mode encap segs 1 [ fd00:c:4:e003:: ] via inet6 fe80::5054:ff:fec6:605 dev eth1 weight 1 
+	nexthop  encap seg6 mode encap segs 1 [ fd00:c:4:e003:: ] via inet6 fe80::5054:ff:fec6:703 dev eth2 weight 1 
+&lt;/pre&gt;</msg>
+<msg time="2026-09-18T22:43:47.154198" level="INFO">${out} = default nhid 1285 proto bgp metric 20 
+	nexthop  encap seg6 mode encap segs 1 [ fd00:c:4:e003:: ] via inet6 fe80::5054:ff:fec6:605 dev eth1 weight 1 
+	nexthop  encap seg6 mode encap segs 1 [ fd00:c:4:...</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<doc>Run a Linux shell command on a VyOS node (e.g. `sudo ip -6 route`) and return stdout+stderr; fails on non-zero rc.</doc>
+<status status="PASS" start="2026-09-18T22:43:46.417992" elapsed="0.736228"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-18T22:43:47.154279" elapsed="0.000036"/>
+</return>
+<msg time="2026-09-18T22:43:47.154413" level="INFO">${rt} = default nhid 1285 proto bgp metric 20 
+	nexthop  encap seg6 mode encap segs 1 [ fd00:c:4:e003:: ] via inet6 fe80::5054:ff:fec6:605 dev eth1 weight 1 
+	nexthop  encap seg6 mode encap segs 1 [ fd00:c:4:...</msg>
+<var>${rt}</var>
+<arg>${pe}</arg>
+<arg>sudo ip -c=never route show vrf ${t} default</arg>
+<doc>Run a Linux shell command on a VyOS node by name (sudo allowed).</doc>
+<status status="PASS" start="2026-09-18T22:43:46.417679" elapsed="0.736752"/>
+</kw>
+<if>
+<branch type="IF" condition="'${pe}' == '${c}[pe]'">
+<kw name="Should Match Regexp" owner="BuiltIn">
+<arg>${rt}</arg>
+<arg>^default .*via ${c}[fw_ip] dev ${c}[pe_port]</arg>
+<arg>msg=${pe}: ${t} default route is not via ${c}[fw] on ${c}[pe_port]</arg>
+<doc>Fails if the `string` does not match the regular expression `pattern`.</doc>
+<status status="NOT RUN" start="2026-09-18T22:43:47.154737" elapsed="0.000026"/>
+</kw>
+<status status="NOT RUN" start="2026-09-18T22:43:47.154495" elapsed="0.000303"/>
+</branch>
+<branch type="ELSE">
+<kw name="Should Match Regexp" owner="BuiltIn">
+<arg>${rt}</arg>
+<arg>(?s)^default .*encap seg6 mode encap segs 1 \\[ ${sid.strip()} \\]</arg>
+<arg>msg=${pe}: ${t} default route is not SRv6-encapsulated to ${sid.strip()} (${c}[pe] ${t})</arg>
+<doc>Fails if the `string` does not match the regular expression `pattern`.</doc>
+<status status="PASS" start="2026-09-18T22:43:47.154914" elapsed="0.000422"/>
+</kw>
+<status status="PASS" start="2026-09-18T22:43:47.154824" elapsed="0.000540"/>
+</branch>
+<status status="PASS" start="2026-09-18T22:43:47.154478" elapsed="0.000903"/>
+</if>
+<var name="${pe}">pe3</var>
+<status status="PASS" start="2026-09-18T22:43:46.417529" elapsed="0.737873"/>
+</iter>
+<iter>
+<kw name="Shell" owner="common">
+<kw name="Vyos Shell" owner="LabLib">
+<msg time="2026-09-18T22:43:48.004953" level="INFO" html="true">&lt;pre&gt;10.3.0.14# sudo ip -c=never route show vrf tenant-b default
+rc=0
+default nhid 7652 via 172.18.5.2 dev eth6 proto bgp metric 20 
+&lt;/pre&gt;</msg>
+<msg time="2026-09-18T22:43:48.005163" level="INFO">${out} = default nhid 7652 via 172.18.5.2 dev eth6 proto bgp metric 20 
+</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<doc>Run a Linux shell command on a VyOS node (e.g. `sudo ip -6 route`) and return stdout+stderr; fails on non-zero rc.</doc>
+<status status="PASS" start="2026-09-18T22:43:47.155895" elapsed="0.849301"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-18T22:43:48.005276" elapsed="0.000050"/>
+</return>
+<msg time="2026-09-18T22:43:48.005464" level="INFO">${rt} = default nhid 7652 via 172.18.5.2 dev eth6 proto bgp metric 20 
+</msg>
+<var>${rt}</var>
+<arg>${pe}</arg>
+<arg>sudo ip -c=never route show vrf ${t} default</arg>
+<doc>Run a Linux shell command on a VyOS node by name (sudo allowed).</doc>
+<status status="PASS" start="2026-09-18T22:43:47.155644" elapsed="0.849844"/>
+</kw>
+<if>
+<branch type="IF" condition="'${pe}' == '${c}[pe]'">
+<kw name="Should Match Regexp" owner="BuiltIn">
+<arg>${rt}</arg>
+<arg>^default .*via ${c}[fw_ip] dev ${c}[pe_port]</arg>
+<arg>msg=${pe}: ${t} default route is not via ${c}[fw] on ${c}[pe_port]</arg>
+<doc>Fails if the `string` does not match the regular expression `pattern`.</doc>
+<status status="PASS" start="2026-09-18T22:43:48.005904" elapsed="0.000607"/>
+</kw>
+<status status="PASS" start="2026-09-18T22:43:48.005580" elapsed="0.000974"/>
+</branch>
+<branch type="ELSE">
+<kw name="Should Match Regexp" owner="BuiltIn">
+<arg>${rt}</arg>
+<arg>(?s)^default .*encap seg6 mode encap segs 1 \\[ ${sid.strip()} \\]</arg>
+<arg>msg=${pe}: ${t} default route is not SRv6-encapsulated to ${sid.strip()} (${c}[pe] ${t})</arg>
+<doc>Fails if the `string` does not match the regular expression `pattern`.</doc>
+<status status="NOT RUN" start="2026-09-18T22:43:48.006738" elapsed="0.000025"/>
+</kw>
+<status status="NOT RUN" start="2026-09-18T22:43:48.006583" elapsed="0.000239"/>
+</branch>
+<status status="PASS" start="2026-09-18T22:43:48.005557" elapsed="0.001288"/>
+</if>
+<var name="${pe}">pe4</var>
+<status status="PASS" start="2026-09-18T22:43:47.155516" elapsed="0.851357"/>
+</iter>
+<var>${pe}</var>
+<value>@{PES}</value>
+<status status="PASS" start="2026-09-18T22:43:44.950824" elapsed="3.056083"/>
+</for>
+<var name="${t}">tenant-b</var>
+<status status="PASS" start="2026-09-18T22:43:44.218995" elapsed="3.787950"/>
+</iter>
+<var>${t}</var>
+<value>@{TENANTS}</value>
+<status status="PASS" start="2026-09-18T22:43:40.356730" elapsed="7.650247"/>
+</for>
+<status status="PASS" start="2026-09-18T22:43:40.356471" elapsed="7.650611"/>
+</test>
+<test id="s1-t4" name="The reflectors carry one default route per tenant, under the breakout PE's RD for that tenant" line="57">
+<for flavor="IN">
+<iter>
+<kw name="Vyos" owner="common">
+<kw name="Run Vyos Command" owner="LabLib">
+<msg time="2026-09-18T22:43:56.048510" level="INFO" html="true">&lt;pre&gt;10.3.0.21$ show bgp ipv4 vpn 0.0.0.0/0
+BGP routing table entry for 65000:104:0.0.0.0/0, version 80
+not allocated
+Paths: (1 available, best #1)
+  Advertised to peers:
+  fd00:a::1 fd00:a::2 fd00:a::3 fd00:a::4
+  65010, (Received from a RR-client)
+    0.0.0.0 (metric 20) from fd00:a::4 (10.255.0.4)
+      Origin IGP, metric 0, localpref 100, valid, internal, best (First path received)
+      Extended Community: RT:65000:100
+      Remote labels: 917536
+      Remote SID: fd00:c:4::, sid structure=[32 16 16 0 16 48]
+      Last update: Sat Sep 19 01:47:03 2026
+BGP routing table entry for 65000:204:0.0.0.0/0, version 98
+not allocated
+Paths: (1 available, best #1)
+  Advertised to peers:
+  fd00:a::1 fd00:a::2 fd00:a::3 fd00:a::4
+  65010, (Received from a RR-client)
+    0.0.0.0 (metric 20) from fd00:a::4 (10.255.0.4)
+      Origin IGP, metric 0, localpref 100, valid, internal, best (First path received)
+      Extended Community: RT:65000:200
+      Remote labels: 917552
+      Remote SID: fd00:c:4::, sid structure=[32 16 16 0 16 48]
+      Last update: Sat Sep 19 01:47:03 2026&lt;/pre&gt;</msg>
+<msg time="2026-09-18T22:43:56.048681" level="INFO">${out} = BGP routing table entry for 65000:104:0.0.0.0/0, version 80
+not allocated
+Paths: (1 available, best #1)
+  Advertised to peers:
+  fd00:a::1 fd00:a::2 fd00:a::3 fd00:a::4
+  65010, (Received from a RR-cl...</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<arg>${timeout}</arg>
+<doc>Run an operational-mode command on a VyOS node and return its output.</doc>
+<status status="PASS" start="2026-09-18T22:43:48.008171" elapsed="8.040532"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-18T22:43:56.048771" elapsed="0.000041"/>
+</return>
+<msg time="2026-09-18T22:43:56.048921" level="INFO">${vpn} = BGP routing table entry for 65000:104:0.0.0.0/0, version 80
+not allocated
+Paths: (1 available, best #1)
+  Advertised to peers:
+  fd00:a::1 fd00:a::2 fd00:a::3 fd00:a::4
+  65010, (Received from a RR-cl...</msg>
+<var>${vpn}</var>
+<arg>${rr}</arg>
+<arg>show bgp ipv4 vpn 0.0.0.0/0</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="PASS" start="2026-09-18T22:43:48.007867" elapsed="8.041072"/>
+</kw>
+<for flavor="IN">
+<iter>
+<kw name="Set Variable" owner="BuiltIn">
+<msg time="2026-09-18T22:43:56.049458" level="INFO">${c} = {'pe': 'pe4', 'pe_port': 'eth5', 'pe_ip': '172.16.5.1', 'fw': 'fw-inet', 'fw_port': 'eth1', 'fw_ip': '172.16.5.2', 'prefix': '172.16.5.0/30', 'asn': 65010, 'fw_mgmt': '10.3.0.61'}</msg>
+<var>${c}</var>
+<arg>${INTERNET_CIRCUITS}[${t}]</arg>
+<doc>Returns the given values which can then be assigned to a variable.</doc>
+<status status="PASS" start="2026-09-18T22:43:56.049189" elapsed="0.000288"/>
+</kw>
+<kw name="Set Variable" owner="BuiltIn">
+<msg time="2026-09-18T22:43:56.049754" level="INFO">${rd} = 65000:104</msg>
+<var>${rd}</var>
+<arg>${NODES}[${c}[pe]][rd][${t}]</arg>
+<doc>Returns the given values which can then be assigned to a variable.</doc>
+<status status="PASS" start="2026-09-18T22:43:56.049553" elapsed="0.000218"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${vpn}</arg>
+<arg>BGP routing table entry for ${rd}:0.0.0.0/0</arg>
+<arg>msg=${rr}: no default route under RD ${rd} (${c}[pe] ${t})</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T22:43:56.049842" elapsed="0.000261"/>
+</kw>
+<var name="${t}">tenant-a</var>
+<status status="PASS" start="2026-09-18T22:43:56.049090" elapsed="0.001040"/>
+</iter>
+<iter>
+<kw name="Set Variable" owner="BuiltIn">
+<msg time="2026-09-18T22:43:56.050436" level="INFO">${c} = {'pe': 'pe4', 'pe_port': 'eth6', 'pe_ip': '172.18.5.1', 'fw': 'fw-inet', 'fw_port': 'eth2', 'fw_ip': '172.18.5.2', 'prefix': '172.18.5.0/30', 'asn': 65010, 'fw_mgmt': '10.3.0.61'}</msg>
+<var>${c}</var>
+<arg>${INTERNET_CIRCUITS}[${t}]</arg>
+<doc>Returns the given values which can then be assigned to a variable.</doc>
+<status status="PASS" start="2026-09-18T22:43:56.050250" elapsed="0.000204"/>
+</kw>
+<kw name="Set Variable" owner="BuiltIn">
+<msg time="2026-09-18T22:43:56.050797" level="INFO">${rd} = 65000:204</msg>
+<var>${rd}</var>
+<arg>${NODES}[${c}[pe]][rd][${t}]</arg>
+<doc>Returns the given values which can then be assigned to a variable.</doc>
+<status status="PASS" start="2026-09-18T22:43:56.050519" elapsed="0.000301"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${vpn}</arg>
+<arg>BGP routing table entry for ${rd}:0.0.0.0/0</arg>
+<arg>msg=${rr}: no default route under RD ${rd} (${c}[pe] ${t})</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T22:43:56.050922" elapsed="0.000255"/>
+</kw>
+<var name="${t}">tenant-b</var>
+<status status="PASS" start="2026-09-18T22:43:56.050194" elapsed="0.001011"/>
+</iter>
+<var>${t}</var>
+<value>@{TENANTS}</value>
+<status status="PASS" start="2026-09-18T22:43:56.048987" elapsed="0.002237"/>
+</for>
+<kw name="Get Count" owner="BuiltIn">
+<msg time="2026-09-18T22:43:56.051457" level="INFO">Item found from container 2 times.</msg>
+<msg time="2026-09-18T22:43:56.051505" level="INFO">${n} = 2</msg>
+<var>${n}</var>
+<arg>${vpn}</arg>
+<arg>BGP routing table entry for</arg>
+<doc>Returns and logs how many times the `item` is found from the `container`.</doc>
+<status status="PASS" start="2026-09-18T22:43:56.051290" elapsed="0.000231"/>
+</kw>
+<kw name="Should Be Equal As Integers" owner="BuiltIn">
+<arg>${n}</arg>
+<arg>${{ len($TENANTS) }}</arg>
+<arg>msg=${rr}: ${n} RDs carry a default route, expected one per tenant</arg>
+<doc>Fails if objects are unequal after converting them to integers.</doc>
+<status status="PASS" start="2026-09-18T22:43:56.051590" elapsed="0.000353"/>
+</kw>
+<var name="${rr}">p1</var>
+<status status="PASS" start="2026-09-18T22:43:48.007734" elapsed="8.044236"/>
+</iter>
+<iter>
+<kw name="Vyos" owner="common">
+<kw name="Run Vyos Command" owner="LabLib">
+<msg time="2026-09-18T22:44:03.809049" level="INFO" html="true">&lt;pre&gt;10.3.0.23$ show bgp ipv4 vpn 0.0.0.0/0
+BGP routing table entry for 65000:104:0.0.0.0/0, version 72
+not allocated
+Paths: (1 available, best #1)
+  Advertised to peers:
+  fd00:a::1 fd00:a::2 fd00:a::3 fd00:a::4
+  65010, (Received from a RR-client)
+    0.0.0.0 (metric 10) from fd00:a::4 (10.255.0.4)
+      Origin IGP, metric 0, localpref 100, valid, internal, best (First path received)
+      Extended Community: RT:65000:100
+      Remote labels: 917536
+      Remote SID: fd00:c:4::, sid structure=[32 16 16 0 16 48]
+      Last update: Sat Sep 19 01:47:02 2026
+BGP routing table entry for 65000:204:0.0.0.0/0, version 89
+not allocated
+Paths: (1 available, best #1)
+  Advertised to peers:
+  fd00:a::1 fd00:a::2 fd00:a::3 fd00:a::4
+  65010, (Received from a RR-client)
+    0.0.0.0 (metric 10) from fd00:a::4 (10.255.0.4)
+      Origin IGP, metric 0, localpref 100, valid, internal, best (First path received)
+      Extended Community: RT:65000:200
+      Remote labels: 917552
+      Remote SID: fd00:c:4::, sid structure=[32 16 16 0 16 48]
+      Last update: Sat Sep 19 01:47:02 2026&lt;/pre&gt;</msg>
+<msg time="2026-09-18T22:44:03.809232" level="INFO">${out} = BGP routing table entry for 65000:104:0.0.0.0/0, version 72
+not allocated
+Paths: (1 available, best #1)
+  Advertised to peers:
+  fd00:a::1 fd00:a::2 fd00:a::3 fd00:a::4
+  65010, (Received from a RR-cl...</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<arg>${timeout}</arg>
+<doc>Run an operational-mode command on a VyOS node and return its output.</doc>
+<status status="PASS" start="2026-09-18T22:43:56.052366" elapsed="7.756888"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-18T22:44:03.809320" elapsed="0.000042"/>
+</return>
+<msg time="2026-09-18T22:44:03.809460" level="INFO">${vpn} = BGP routing table entry for 65000:104:0.0.0.0/0, version 72
+not allocated
+Paths: (1 available, best #1)
+  Advertised to peers:
+  fd00:a::1 fd00:a::2 fd00:a::3 fd00:a::4
+  65010, (Received from a RR-cl...</msg>
+<var>${vpn}</var>
+<arg>${rr}</arg>
+<arg>show bgp ipv4 vpn 0.0.0.0/0</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="PASS" start="2026-09-18T22:43:56.052146" elapsed="7.757332"/>
+</kw>
+<for flavor="IN">
+<iter>
+<kw name="Set Variable" owner="BuiltIn">
+<msg time="2026-09-18T22:44:03.810033" level="INFO">${c} = {'pe': 'pe4', 'pe_port': 'eth5', 'pe_ip': '172.16.5.1', 'fw': 'fw-inet', 'fw_port': 'eth1', 'fw_ip': '172.16.5.2', 'prefix': '172.16.5.0/30', 'asn': 65010, 'fw_mgmt': '10.3.0.61'}</msg>
+<var>${c}</var>
+<arg>${INTERNET_CIRCUITS}[${t}]</arg>
+<doc>Returns the given values which can then be assigned to a variable.</doc>
+<status status="PASS" start="2026-09-18T22:44:03.809750" elapsed="0.000304"/>
+</kw>
+<kw name="Set Variable" owner="BuiltIn">
+<msg time="2026-09-18T22:44:03.810319" level="INFO">${rd} = 65000:104</msg>
+<var>${rd}</var>
+<arg>${NODES}[${c}[pe]][rd][${t}]</arg>
+<doc>Returns the given values which can then be assigned to a variable.</doc>
+<status status="PASS" start="2026-09-18T22:44:03.810127" elapsed="0.000221"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${vpn}</arg>
+<arg>BGP routing table entry for ${rd}:0.0.0.0/0</arg>
+<arg>msg=${rr}: no default route under RD ${rd} (${c}[pe] ${t})</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T22:44:03.810465" elapsed="0.000378"/>
+</kw>
+<var name="${t}">tenant-a</var>
+<status status="PASS" start="2026-09-18T22:44:03.809652" elapsed="0.001225"/>
+</iter>
+<iter>
+<kw name="Set Variable" owner="BuiltIn">
+<msg time="2026-09-18T22:44:03.811279" level="INFO">${c} = {'pe': 'pe4', 'pe_port': 'eth6', 'pe_ip': '172.18.5.1', 'fw': 'fw-inet', 'fw_port': 'eth2', 'fw_ip': '172.18.5.2', 'prefix': '172.18.5.0/30', 'asn': 65010, 'fw_mgmt': '10.3.0.61'}</msg>
+<var>${c}</var>
+<arg>${INTERNET_CIRCUITS}[${t}]</arg>
+<doc>Returns the given values which can then be assigned to a variable.</doc>
+<status status="PASS" start="2026-09-18T22:44:03.811035" elapsed="0.000275"/>
+</kw>
+<kw name="Set Variable" owner="BuiltIn">
+<msg time="2026-09-18T22:44:03.811673" level="INFO">${rd} = 65000:204</msg>
+<var>${rd}</var>
+<arg>${NODES}[${c}[pe]][rd][${t}]</arg>
+<doc>Returns the given values which can then be assigned to a variable.</doc>
+<status status="PASS" start="2026-09-18T22:44:03.811405" elapsed="0.000291"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${vpn}</arg>
+<arg>BGP routing table entry for ${rd}:0.0.0.0/0</arg>
+<arg>msg=${rr}: no default route under RD ${rd} (${c}[pe] ${t})</arg>
+<doc>Fails if the `container` does not contain the `item` one or more times.</doc>
+<status status="PASS" start="2026-09-18T22:44:03.811790" elapsed="0.000281"/>
+</kw>
+<var name="${t}">tenant-b</var>
+<status status="PASS" start="2026-09-18T22:44:03.810956" elapsed="0.001152"/>
+</iter>
+<var>${t}</var>
+<value>@{TENANTS}</value>
+<status status="PASS" start="2026-09-18T22:44:03.809525" elapsed="0.002614"/>
+</for>
+<kw name="Get Count" owner="BuiltIn">
+<msg time="2026-09-18T22:44:03.812472" level="INFO">Item found from container 2 times.</msg>
+<msg time="2026-09-18T22:44:03.812533" level="INFO">${n} = 2</msg>
+<var>${n}</var>
+<arg>${vpn}</arg>
+<arg>BGP routing table entry for</arg>
+<doc>Returns and logs how many times the `item` is found from the `container`.</doc>
+<status status="PASS" start="2026-09-18T22:44:03.812239" elapsed="0.000311"/>
+</kw>
+<kw name="Should Be Equal As Integers" owner="BuiltIn">
+<arg>${n}</arg>
+<arg>${{ len($TENANTS) }}</arg>
+<arg>msg=${rr}: ${n} RDs carry a default route, expected one per tenant</arg>
+<doc>Fails if objects are unequal after converting them to integers.</doc>
+<status status="PASS" start="2026-09-18T22:44:03.812632" elapsed="0.000333"/>
+</kw>
+<var name="${rr}">p3</var>
+<status status="PASS" start="2026-09-18T22:43:56.052057" elapsed="7.760937"/>
+</iter>
+<var>${rr}</var>
+<value>@{RRS}</value>
+<status status="PASS" start="2026-09-18T22:43:48.007546" elapsed="15.805468"/>
+</for>
+<status status="PASS" start="2026-09-18T22:43:48.007265" elapsed="15.805821"/>
+</test>
+<test id="s1-t5" name="Every host of every tenant reaches the internet: ICMP to a public address and HTTP over the breakout" line="69">
+<for flavor="IN">
+<iter>
+<for flavor="IN">
+<iter>
+<kw name="Set Variable" owner="BuiltIn">
+<msg time="2026-09-18T22:44:03.813977" level="INFO">${s} = {'tenant': 'tenant-a', 'ce': 'ce1', 'pe': 'pe1', 'host': 'dc1-h1', 'lan': '172.20.1.0/24', 'host_ip': '172.20.1.2', 'ce_lan_ip': '172.20.1.1', 'pe_ce_prefix': '172.16.1.0/30', 'ce_wan_ip': '172.16.1.2...</msg>
+<var>${s}</var>
+<arg>${SITES}[${t}][${dc}]</arg>
+<doc>Returns the given values which can then be assigned to a variable.</doc>
+<status status="PASS" start="2026-09-18T22:44:03.813771" elapsed="0.000225"/>
+</kw>
+<kw name="Host" owner="common">
+<kw name="Host Command" owner="LabLib">
+<msg time="2026-09-18T22:44:05.940086" level="INFO" html="true">&lt;pre&gt;10.3.0.41$ ping -c 3 -W 2 1.1.1.1; true
+rc=0
+PING 1.1.1.1 (1.1.1.1): 56 data bytes
+64 bytes from 1.1.1.1: seq=0 ttl=42 time=20.140 ms
+64 bytes from 1.1.1.1: seq=1 ttl=42 time=17.231 ms
+64 bytes from 1.1.1.1: seq=2 ttl=42 time=18.354 ms
+
+--- 1.1.1.1 ping statistics ---
+3 packets transmitted, 3 packets received, 0% packet loss
+round-trip min/avg/max = 17.231/18.575/20.140 ms
+&lt;/pre&gt;</msg>
+<msg time="2026-09-18T22:44:05.940262" level="INFO">${out} = PING 1.1.1.1 (1.1.1.1): 56 data bytes
+64 bytes from 1.1.1.1: seq=0 ttl=42 time=20.140 ms
+64 bytes from 1.1.1.1: seq=1 ttl=42 time=17.231 ms
+64 bytes from 1.1.1.1: seq=2 ttl=42 time=18.354 ms
+
+--- 1.1....</msg>
+<var>${out}</var>
+<arg>${MGMT}[${host}]</arg>
+<arg>${command}</arg>
+<doc>Run a shell command on a tenant host; returns the output, fails on non-zero rc.</doc>
+<status status="PASS" start="2026-09-18T22:44:03.814311" elapsed="2.125977"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-18T22:44:05.940350" elapsed="0.000040"/>
+</return>
+<msg time="2026-09-18T22:44:05.940500" level="INFO">${out} = PING 1.1.1.1 (1.1.1.1): 56 data bytes
+64 bytes from 1.1.1.1: seq=0 ttl=42 time=20.140 ms
+64 bytes from 1.1.1.1: seq=1 ttl=42 time=17.231 ms
+64 bytes from 1.1.1.1: seq=2 ttl=42 time=18.354 ms
+
+--- 1.1....</msg>
+<var>${out}</var>
+<arg>${s}[host]</arg>
+<arg>ping -c 3 -W 2 ${INTERNET_PROBE}; true</arg>
+<doc>Run a command on a tenant host by name.</doc>
+<status status="PASS" start="2026-09-18T22:44:03.814109" elapsed="2.126410"/>
+</kw>
+<kw name="Ping Loss" owner="LabLib">
+<msg time="2026-09-18T22:44:05.940915" level="INFO">${lost} = 0</msg>
+<var>${lost}</var>
+<arg>${out}</arg>
+<doc>Packets lost according to a ping summary line ('N packets transmitted, M received, ...').</doc>
+<status status="PASS" start="2026-09-18T22:44:05.940688" elapsed="0.000253"/>
+</kw>
+<kw name="Should Be True" owner="BuiltIn">
+<arg>${lost} &lt; 3</arg>
+<arg>msg=${s}[host] (${t}, ${dc}): ${INTERNET_PROBE} unreachable through the breakout</arg>
+<doc>Fails if the given condition is not true.</doc>
+<status status="PASS" start="2026-09-18T22:44:05.941039" elapsed="0.000396"/>
+</kw>
+<kw name="Host" owner="common">
+<kw name="Host Command" owner="LabLib">
+<msg time="2026-09-18T22:44:06.114853" level="INFO" html="true">&lt;pre&gt;10.3.0.41$ wget -q -O- --timeout=10 http://example.com | head -c 200; true
+rc=0
+&lt;!doctype html&gt;&lt;html lang="en"&gt;&lt;head&gt;&lt;title&gt;Example Domain&lt;/title&gt;&lt;link rel="icon" href="data:,"&gt;&lt;meta name="viewport" content="width=device-width, initial-scale=1"&gt;&lt;style&gt;body{background:#eee;width:6&lt;/pre&gt;</msg>
+<msg time="2026-09-18T22:44:06.115087" level="INFO">${out} = &lt;!doctype html&gt;&lt;html lang="en"&gt;&lt;head&gt;&lt;title&gt;Example Domain&lt;/title&gt;&lt;link rel="icon" href="data:,"&gt;&lt;meta name="viewport" content="width=device-width, initial-scale=1"&gt;&lt;style&gt;body{background:#eee;width:6</msg>
+<var>${out}</var>
+<arg>${MGMT}[${host}]</arg>
+<arg>${command}</arg>
+<doc>Run a shell command on a tenant host; returns the output, fails on non-zero rc.</doc>
+<status status="PASS" start="2026-09-18T22:44:05.941822" elapsed="0.173296"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-18T22:44:06.115194" elapsed="0.000053"/>
+</return>
+<msg time="2026-09-18T22:44:06.115385" level="INFO">${page} = &lt;!doctype html&gt;&lt;html lang="en"&gt;&lt;head&gt;&lt;title&gt;Example Domain&lt;/title&gt;&lt;link rel="icon" href="data:,"&gt;&lt;meta name="viewport" content="width=device-width, initial-scale=1"&gt;&lt;style&gt;body{background:#eee;width:6</msg>
+<var>${page}</var>
+<arg>${s}[host]</arg>
+<arg>wget -q -O- --timeout=10 ${INTERNET_URL} | head -c 200; true</arg>
+<doc>Run a command on a tenant host by name.</doc>
+<status status="PASS" start="2026-09-18T22:44:05.941562" elapsed="0.173854"/>
+</kw>
+<kw name="Should Match Regexp" owner="BuiltIn">
+<arg>${page}</arg>
+<arg>(?i)&lt;(!doctype|html)</arg>
+<arg>msg=${s}[host] (${t}, ${dc}): no HTML from ${INTERNET_URL} through the breakout:\n${page}</arg>
+<doc>Fails if the `string` does not match the regular expression `pattern`.</doc>
+<status status="PASS" start="2026-09-18T22:44:06.115598" elapsed="0.000555"/>
+</kw>
+<var name="${dc}">dc1</var>
+<status status="PASS" start="2026-09-18T22:44:03.813711" elapsed="2.302480"/>
+</iter>
+<iter>
+<kw name="Set Variable" owner="BuiltIn">
+<msg time="2026-09-18T22:44:06.116545" level="INFO">${s} = {'tenant': 'tenant-a', 'ce': 'ce2', 'pe': 'pe2', 'host': 'dc2-h1', 'lan': '172.20.2.0/24', 'host_ip': '172.20.2.2', 'ce_lan_ip': '172.20.2.1', 'pe_ce_prefix': '172.16.2.0/30', 'ce_wan_ip': '172.16.2.2...</msg>
+<var>${s}</var>
+<arg>${SITES}[${t}][${dc}]</arg>
+<doc>Returns the given values which can then be assigned to a variable.</doc>
+<status status="PASS" start="2026-09-18T22:44:06.116345" elapsed="0.000219"/>
+</kw>
+<kw name="Host" owner="common">
+<kw name="Host Command" owner="LabLib">
+<msg time="2026-09-18T22:44:08.242622" level="INFO" html="true">&lt;pre&gt;10.3.0.42$ ping -c 3 -W 2 1.1.1.1; true
+rc=0
+PING 1.1.1.1 (1.1.1.1): 56 data bytes
+64 bytes from 1.1.1.1: seq=0 ttl=42 time=19.954 ms
+64 bytes from 1.1.1.1: seq=1 ttl=42 time=17.062 ms
+64 bytes from 1.1.1.1: seq=2 ttl=42 time=18.013 ms
+
+--- 1.1.1.1 ping statistics ---
+3 packets transmitted, 3 packets received, 0% packet loss
+round-trip min/avg/max = 17.062/18.343/19.954 ms
+&lt;/pre&gt;</msg>
+<msg time="2026-09-18T22:44:08.242794" level="INFO">${out} = PING 1.1.1.1 (1.1.1.1): 56 data bytes
+64 bytes from 1.1.1.1: seq=0 ttl=42 time=19.954 ms
+64 bytes from 1.1.1.1: seq=1 ttl=42 time=17.062 ms
+64 bytes from 1.1.1.1: seq=2 ttl=42 time=18.013 ms
+
+--- 1.1....</msg>
+<var>${out}</var>
+<arg>${MGMT}[${host}]</arg>
+<arg>${command}</arg>
+<doc>Run a shell command on a tenant host; returns the output, fails on non-zero rc.</doc>
+<status status="PASS" start="2026-09-18T22:44:06.116907" elapsed="2.125914"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-18T22:44:08.242883" elapsed="0.000043"/>
+</return>
+<msg time="2026-09-18T22:44:08.243035" level="INFO">${out} = PING 1.1.1.1 (1.1.1.1): 56 data bytes
+64 bytes from 1.1.1.1: seq=0 ttl=42 time=19.954 ms
+64 bytes from 1.1.1.1: seq=1 ttl=42 time=17.062 ms
+64 bytes from 1.1.1.1: seq=2 ttl=42 time=18.013 ms
+
+--- 1.1....</msg>
+<var>${out}</var>
+<arg>${s}[host]</arg>
+<arg>ping -c 3 -W 2 ${INTERNET_PROBE}; true</arg>
+<doc>Run a command on a tenant host by name.</doc>
+<status status="PASS" start="2026-09-18T22:44:06.116682" elapsed="2.126371"/>
+</kw>
+<kw name="Ping Loss" owner="LabLib">
+<msg time="2026-09-18T22:44:08.243325" level="INFO">${lost} = 0</msg>
+<var>${lost}</var>
+<arg>${out}</arg>
+<doc>Packets lost according to a ping summary line ('N packets transmitted, M received, ...').</doc>
+<status status="PASS" start="2026-09-18T22:44:08.243164" elapsed="0.000178"/>
+</kw>
+<kw name="Should Be True" owner="BuiltIn">
+<arg>${lost} &lt; 3</arg>
+<arg>msg=${s}[host] (${t}, ${dc}): ${INTERNET_PROBE} unreachable through the breakout</arg>
+<doc>Fails if the given condition is not true.</doc>
+<status status="PASS" start="2026-09-18T22:44:08.243432" elapsed="0.000428"/>
+</kw>
+<kw name="Host" owner="common">
+<kw name="Host Command" owner="LabLib">
+<msg time="2026-09-18T22:44:08.399787" level="INFO" html="true">&lt;pre&gt;10.3.0.42$ wget -q -O- --timeout=10 http://example.com | head -c 200; true
+rc=0
+&lt;!doctype html&gt;&lt;html lang="en"&gt;&lt;head&gt;&lt;title&gt;Example Domain&lt;/title&gt;&lt;link rel="icon" href="data:,"&gt;&lt;meta name="viewport" content="width=device-width, initial-scale=1"&gt;&lt;style&gt;body{background:#eee;width:6&lt;/pre&gt;</msg>
+<msg time="2026-09-18T22:44:08.400002" level="INFO">${out} = &lt;!doctype html&gt;&lt;html lang="en"&gt;&lt;head&gt;&lt;title&gt;Example Domain&lt;/title&gt;&lt;link rel="icon" href="data:,"&gt;&lt;meta name="viewport" content="width=device-width, initial-scale=1"&gt;&lt;style&gt;body{background:#eee;width:6</msg>
+<var>${out}</var>
+<arg>${MGMT}[${host}]</arg>
+<arg>${command}</arg>
+<doc>Run a shell command on a tenant host; returns the output, fails on non-zero rc.</doc>
+<status status="PASS" start="2026-09-18T22:44:08.244287" elapsed="0.155766"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-18T22:44:08.400120" elapsed="0.000044"/>
+</return>
+<msg time="2026-09-18T22:44:08.400286" level="INFO">${page} = &lt;!doctype html&gt;&lt;html lang="en"&gt;&lt;head&gt;&lt;title&gt;Example Domain&lt;/title&gt;&lt;link rel="icon" href="data:,"&gt;&lt;meta name="viewport" content="width=device-width, initial-scale=1"&gt;&lt;style&gt;body{background:#eee;width:6</msg>
+<var>${page}</var>
+<arg>${s}[host]</arg>
+<arg>wget -q -O- --timeout=10 ${INTERNET_URL} | head -c 200; true</arg>
+<doc>Run a command on a tenant host by name.</doc>
+<status status="PASS" start="2026-09-18T22:44:08.244002" elapsed="0.156319"/>
+</kw>
+<kw name="Should Match Regexp" owner="BuiltIn">
+<arg>${page}</arg>
+<arg>(?i)&lt;(!doctype|html)</arg>
+<arg>msg=${s}[host] (${t}, ${dc}): no HTML from ${INTERNET_URL} through the breakout:\n${page}</arg>
+<doc>Fails if the `string` does not match the regular expression `pattern`.</doc>
+<status status="PASS" start="2026-09-18T22:44:08.400480" elapsed="0.000399"/>
+</kw>
+<var name="${dc}">dc2</var>
+<status status="PASS" start="2026-09-18T22:44:06.116279" elapsed="2.284632"/>
+</iter>
+<iter>
+<kw name="Set Variable" owner="BuiltIn">
+<msg time="2026-09-18T22:44:08.401314" level="INFO">${s} = {'tenant': 'tenant-a', 'ce': 'ce3', 'pe': 'pe3', 'host': 'dc3-h1', 'lan': '172.20.3.0/24', 'host_ip': '172.20.3.2', 'ce_lan_ip': '172.20.3.1', 'pe_ce_prefix': '172.16.3.0/30', 'ce_wan_ip': '172.16.3.2...</msg>
+<var>${s}</var>
+<arg>${SITES}[${t}][${dc}]</arg>
+<doc>Returns the given values which can then be assigned to a variable.</doc>
+<status status="PASS" start="2026-09-18T22:44:08.401079" elapsed="0.000264"/>
+</kw>
+<kw name="Host" owner="common">
+<kw name="Host Command" owner="LabLib">
+<msg time="2026-09-18T22:44:10.528789" level="INFO" html="true">&lt;pre&gt;10.3.0.43$ ping -c 3 -W 2 1.1.1.1; true
+rc=0
+PING 1.1.1.1 (1.1.1.1): 56 data bytes
+64 bytes from 1.1.1.1: seq=0 ttl=42 time=24.321 ms
+64 bytes from 1.1.1.1: seq=1 ttl=42 time=18.891 ms
+64 bytes from 1.1.1.1: seq=2 ttl=42 time=17.041 ms
+
+--- 1.1.1.1 ping statistics ---
+3 packets transmitted, 3 packets received, 0% packet loss
+round-trip min/avg/max = 17.041/20.084/24.321 ms
+&lt;/pre&gt;</msg>
+<msg time="2026-09-18T22:44:10.528984" level="INFO">${out} = PING 1.1.1.1 (1.1.1.1): 56 data bytes
+64 bytes from 1.1.1.1: seq=0 ttl=42 time=24.321 ms
+64 bytes from 1.1.1.1: seq=1 ttl=42 time=18.891 ms
+64 bytes from 1.1.1.1: seq=2 ttl=42 time=17.041 ms
+
+--- 1.1....</msg>
+<var>${out}</var>
+<arg>${MGMT}[${host}]</arg>
+<arg>${command}</arg>
+<doc>Run a shell command on a tenant host; returns the output, fails on non-zero rc.</doc>
+<status status="PASS" start="2026-09-18T22:44:08.401696" elapsed="2.127313"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-18T22:44:10.529097" elapsed="0.000043"/>
+</return>
+<msg time="2026-09-18T22:44:10.529274" level="INFO">${out} = PING 1.1.1.1 (1.1.1.1): 56 data bytes
+64 bytes from 1.1.1.1: seq=0 ttl=42 time=24.321 ms
+64 bytes from 1.1.1.1: seq=1 ttl=42 time=18.891 ms
+64 bytes from 1.1.1.1: seq=2 ttl=42 time=17.041 ms
+
+--- 1.1....</msg>
+<var>${out}</var>
+<arg>${s}[host]</arg>
+<arg>ping -c 3 -W 2 ${INTERNET_PROBE}; true</arg>
+<doc>Run a command on a tenant host by name.</doc>
+<status status="PASS" start="2026-09-18T22:44:08.401467" elapsed="2.127828"/>
+</kw>
+<kw name="Ping Loss" owner="LabLib">
+<msg time="2026-09-18T22:44:10.529550" level="INFO">${lost} = 0</msg>
+<var>${lost}</var>
+<arg>${out}</arg>
+<doc>Packets lost according to a ping summary line ('N packets transmitted, M received, ...').</doc>
+<status status="PASS" start="2026-09-18T22:44:10.529406" elapsed="0.000162"/>
+</kw>
+<kw name="Should Be True" owner="BuiltIn">
+<arg>${lost} &lt; 3</arg>
+<arg>msg=${s}[host] (${t}, ${dc}): ${INTERNET_PROBE} unreachable through the breakout</arg>
+<doc>Fails if the given condition is not true.</doc>
+<status status="PASS" start="2026-09-18T22:44:10.529677" elapsed="0.000371"/>
+</kw>
+<kw name="Host" owner="common">
+<kw name="Host Command" owner="LabLib">
+<msg time="2026-09-18T22:44:10.684113" level="INFO" html="true">&lt;pre&gt;10.3.0.43$ wget -q -O- --timeout=10 http://example.com | head -c 200; true
+rc=0
+&lt;!doctype html&gt;&lt;html lang="en"&gt;&lt;head&gt;&lt;title&gt;Example Domain&lt;/title&gt;&lt;link rel="icon" href="data:,"&gt;&lt;meta name="viewport" content="width=device-width, initial-scale=1"&gt;&lt;style&gt;body{background:#eee;width:6&lt;/pre&gt;</msg>
+<msg time="2026-09-18T22:44:10.684314" level="INFO">${out} = &lt;!doctype html&gt;&lt;html lang="en"&gt;&lt;head&gt;&lt;title&gt;Example Domain&lt;/title&gt;&lt;link rel="icon" href="data:,"&gt;&lt;meta name="viewport" content="width=device-width, initial-scale=1"&gt;&lt;style&gt;body{background:#eee;width:6</msg>
+<var>${out}</var>
+<arg>${MGMT}[${host}]</arg>
+<arg>${command}</arg>
+<doc>Run a shell command on a tenant host; returns the output, fails on non-zero rc.</doc>
+<status status="PASS" start="2026-09-18T22:44:10.530433" elapsed="0.153912"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-18T22:44:10.684406" elapsed="0.000041"/>
+</return>
+<msg time="2026-09-18T22:44:10.684561" level="INFO">${page} = &lt;!doctype html&gt;&lt;html lang="en"&gt;&lt;head&gt;&lt;title&gt;Example Domain&lt;/title&gt;&lt;link rel="icon" href="data:,"&gt;&lt;meta name="viewport" content="width=device-width, initial-scale=1"&gt;&lt;style&gt;body{background:#eee;width:6</msg>
+<var>${page}</var>
+<arg>${s}[host]</arg>
+<arg>wget -q -O- --timeout=10 ${INTERNET_URL} | head -c 200; true</arg>
+<doc>Run a command on a tenant host by name.</doc>
+<status status="PASS" start="2026-09-18T22:44:10.530180" elapsed="0.154401"/>
+</kw>
+<kw name="Should Match Regexp" owner="BuiltIn">
+<arg>${page}</arg>
+<arg>(?i)&lt;(!doctype|html)</arg>
+<arg>msg=${s}[host] (${t}, ${dc}): no HTML from ${INTERNET_URL} through the breakout:\n${page}</arg>
+<doc>Fails if the `string` does not match the regular expression `pattern`.</doc>
+<status status="PASS" start="2026-09-18T22:44:10.684771" elapsed="0.000378"/>
+</kw>
+<var name="${dc}">dc3</var>
+<status status="PASS" start="2026-09-18T22:44:08.401000" elapsed="2.284182"/>
+</iter>
+<iter>
+<kw name="Set Variable" owner="BuiltIn">
+<msg time="2026-09-18T22:44:10.685653" level="INFO">${s} = {'tenant': 'tenant-a', 'ce': 'ce4', 'pe': 'pe4', 'host': 'dc4-h1', 'lan': '172.20.4.0/24', 'host_ip': '172.20.4.2', 'ce_lan_ip': '172.20.4.1', 'pe_ce_prefix': '172.16.4.0/30', 'ce_wan_ip': '172.16.4.2...</msg>
+<var>${s}</var>
+<arg>${SITES}[${t}][${dc}]</arg>
+<doc>Returns the given values which can then be assigned to a variable.</doc>
+<status status="PASS" start="2026-09-18T22:44:10.685357" elapsed="0.000321"/>
+</kw>
+<kw name="Host" owner="common">
+<kw name="Host Command" owner="LabLib">
+<msg time="2026-09-18T22:44:12.814525" level="INFO" html="true">&lt;pre&gt;10.3.0.44$ ping -c 3 -W 2 1.1.1.1; true
+rc=0
+PING 1.1.1.1 (1.1.1.1): 56 data bytes
+64 bytes from 1.1.1.1: seq=0 ttl=42 time=21.368 ms
+64 bytes from 1.1.1.1: seq=1 ttl=42 time=17.246 ms
+64 bytes from 1.1.1.1: seq=2 ttl=42 time=20.753 ms
+
+--- 1.1.1.1 ping statistics ---
+3 packets transmitted, 3 packets received, 0% packet loss
+round-trip min/avg/max = 17.246/19.789/21.368 ms
+&lt;/pre&gt;</msg>
+<msg time="2026-09-18T22:44:12.814698" level="INFO">${out} = PING 1.1.1.1 (1.1.1.1): 56 data bytes
+64 bytes from 1.1.1.1: seq=0 ttl=42 time=21.368 ms
+64 bytes from 1.1.1.1: seq=1 ttl=42 time=17.246 ms
+64 bytes from 1.1.1.1: seq=2 ttl=42 time=20.753 ms
+
+--- 1.1....</msg>
+<var>${out}</var>
+<arg>${MGMT}[${host}]</arg>
+<arg>${command}</arg>
+<doc>Run a shell command on a tenant host; returns the output, fails on non-zero rc.</doc>
+<status status="PASS" start="2026-09-18T22:44:10.686040" elapsed="2.128680"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-18T22:44:12.814779" elapsed="0.000035"/>
+</return>
+<msg time="2026-09-18T22:44:12.814914" level="INFO">${out} = PING 1.1.1.1 (1.1.1.1): 56 data bytes
+64 bytes from 1.1.1.1: seq=0 ttl=42 time=21.368 ms
+64 bytes from 1.1.1.1: seq=1 ttl=42 time=17.246 ms
+64 bytes from 1.1.1.1: seq=2 ttl=42 time=20.753 ms
+
+--- 1.1....</msg>
+<var>${out}</var>
+<arg>${s}[host]</arg>
+<arg>ping -c 3 -W 2 ${INTERNET_PROBE}; true</arg>
+<doc>Run a command on a tenant host by name.</doc>
+<status status="PASS" start="2026-09-18T22:44:10.685829" elapsed="2.129103"/>
+</kw>
+<kw name="Ping Loss" owner="LabLib">
+<msg time="2026-09-18T22:44:12.815162" level="INFO">${lost} = 0</msg>
+<var>${lost}</var>
+<arg>${out}</arg>
+<doc>Packets lost according to a ping summary line ('N packets transmitted, M received, ...').</doc>
+<status status="PASS" start="2026-09-18T22:44:12.815036" elapsed="0.000148"/>
+</kw>
+<kw name="Should Be True" owner="BuiltIn">
+<arg>${lost} &lt; 3</arg>
+<arg>msg=${s}[host] (${t}, ${dc}): ${INTERNET_PROBE} unreachable through the breakout</arg>
+<doc>Fails if the given condition is not true.</doc>
+<status status="PASS" start="2026-09-18T22:44:12.815288" elapsed="0.000355"/>
+</kw>
+<kw name="Host" owner="common">
+<kw name="Host Command" owner="LabLib">
+<msg time="2026-09-18T22:44:12.981381" level="INFO" html="true">&lt;pre&gt;10.3.0.44$ wget -q -O- --timeout=10 http://example.com | head -c 200; true
+rc=0
+&lt;!doctype html&gt;&lt;html lang="en"&gt;&lt;head&gt;&lt;title&gt;Example Domain&lt;/title&gt;&lt;link rel="icon" href="data:,"&gt;&lt;meta name="viewport" content="width=device-width, initial-scale=1"&gt;&lt;style&gt;body{background:#eee;width:6&lt;/pre&gt;</msg>
+<msg time="2026-09-18T22:44:12.981559" level="INFO">${out} = &lt;!doctype html&gt;&lt;html lang="en"&gt;&lt;head&gt;&lt;title&gt;Example Domain&lt;/title&gt;&lt;link rel="icon" href="data:,"&gt;&lt;meta name="viewport" content="width=device-width, initial-scale=1"&gt;&lt;style&gt;body{background:#eee;width:6</msg>
+<var>${out}</var>
+<arg>${MGMT}[${host}]</arg>
+<arg>${command}</arg>
+<doc>Run a shell command on a tenant host; returns the output, fails on non-zero rc.</doc>
+<status status="PASS" start="2026-09-18T22:44:12.815979" elapsed="0.165609"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-18T22:44:12.981688" elapsed="0.000042"/>
+</return>
+<msg time="2026-09-18T22:44:12.981859" level="INFO">${page} = &lt;!doctype html&gt;&lt;html lang="en"&gt;&lt;head&gt;&lt;title&gt;Example Domain&lt;/title&gt;&lt;link rel="icon" href="data:,"&gt;&lt;meta name="viewport" content="width=device-width, initial-scale=1"&gt;&lt;style&gt;body{background:#eee;width:6</msg>
+<var>${page}</var>
+<arg>${s}[host]</arg>
+<arg>wget -q -O- --timeout=10 ${INTERNET_URL} | head -c 200; true</arg>
+<doc>Run a command on a tenant host by name.</doc>
+<status status="PASS" start="2026-09-18T22:44:12.815762" elapsed="0.166134"/>
+</kw>
+<kw name="Should Match Regexp" owner="BuiltIn">
+<arg>${page}</arg>
+<arg>(?i)&lt;(!doctype|html)</arg>
+<arg>msg=${s}[host] (${t}, ${dc}): no HTML from ${INTERNET_URL} through the breakout:\n${page}</arg>
+<doc>Fails if the `string` does not match the regular expression `pattern`.</doc>
+<status status="PASS" start="2026-09-18T22:44:12.982078" elapsed="0.000413"/>
+</kw>
+<var name="${dc}">dc4</var>
+<status status="PASS" start="2026-09-18T22:44:10.685279" elapsed="2.297251"/>
+</iter>
+<var>${dc}</var>
+<value>@{SITES}[${t}]</value>
+<status status="PASS" start="2026-09-18T22:44:03.813552" elapsed="9.169007"/>
+</for>
+<var name="${t}">tenant-a</var>
+<status status="PASS" start="2026-09-18T22:44:03.813533" elapsed="9.169053"/>
+</iter>
+<iter>
+<for flavor="IN">
+<iter>
+<kw name="Set Variable" owner="BuiltIn">
+<msg time="2026-09-18T22:44:12.983169" level="INFO">${s} = {'tenant': 'tenant-b', 'ce': 'ce1', 'pe': 'pe1', 'host': 'dc1-h2', 'lan': '172.21.1.0/24', 'host_ip': '172.21.1.2', 'ce_lan_ip': '172.21.1.1', 'pe_ce_prefix': '172.18.1.0/30', 'ce_wan_ip': '172.18.1.2...</msg>
+<var>${s}</var>
+<arg>${SITES}[${t}][${dc}]</arg>
+<doc>Returns the given values which can then be assigned to a variable.</doc>
+<status status="PASS" start="2026-09-18T22:44:12.982935" elapsed="0.000255"/>
+</kw>
+<kw name="Host" owner="common">
+<kw name="Host Command" owner="LabLib">
+<msg time="2026-09-18T22:44:15.110779" level="INFO" html="true">&lt;pre&gt;10.3.0.51$ ping -c 3 -W 2 1.1.1.1; true
+rc=0
+PING 1.1.1.1 (1.1.1.1): 56 data bytes
+64 bytes from 1.1.1.1: seq=0 ttl=42 time=23.574 ms
+64 bytes from 1.1.1.1: seq=1 ttl=42 time=17.079 ms
+64 bytes from 1.1.1.1: seq=2 ttl=42 time=17.701 ms
+
+--- 1.1.1.1 ping statistics ---
+3 packets transmitted, 3 packets received, 0% packet loss
+round-trip min/avg/max = 17.079/19.451/23.574 ms
+&lt;/pre&gt;</msg>
+<msg time="2026-09-18T22:44:15.110998" level="INFO">${out} = PING 1.1.1.1 (1.1.1.1): 56 data bytes
+64 bytes from 1.1.1.1: seq=0 ttl=42 time=23.574 ms
+64 bytes from 1.1.1.1: seq=1 ttl=42 time=17.079 ms
+64 bytes from 1.1.1.1: seq=2 ttl=42 time=17.701 ms
+
+--- 1.1....</msg>
+<var>${out}</var>
+<arg>${MGMT}[${host}]</arg>
+<arg>${command}</arg>
+<doc>Run a shell command on a tenant host; returns the output, fails on non-zero rc.</doc>
+<status status="PASS" start="2026-09-18T22:44:12.983578" elapsed="2.127454"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-18T22:44:15.111112" elapsed="0.000055"/>
+</return>
+<msg time="2026-09-18T22:44:15.111320" level="INFO">${out} = PING 1.1.1.1 (1.1.1.1): 56 data bytes
+64 bytes from 1.1.1.1: seq=0 ttl=42 time=23.574 ms
+64 bytes from 1.1.1.1: seq=1 ttl=42 time=17.079 ms
+64 bytes from 1.1.1.1: seq=2 ttl=42 time=17.701 ms
+
+--- 1.1....</msg>
+<var>${out}</var>
+<arg>${s}[host]</arg>
+<arg>ping -c 3 -W 2 ${INTERNET_PROBE}; true</arg>
+<doc>Run a command on a tenant host by name.</doc>
+<status status="PASS" start="2026-09-18T22:44:12.983327" elapsed="2.128022"/>
+</kw>
+<kw name="Ping Loss" owner="LabLib">
+<msg time="2026-09-18T22:44:15.111658" level="INFO">${lost} = 0</msg>
+<var>${lost}</var>
+<arg>${out}</arg>
+<doc>Packets lost according to a ping summary line ('N packets transmitted, M received, ...').</doc>
+<status status="PASS" start="2026-09-18T22:44:15.111460" elapsed="0.000222"/>
+</kw>
+<kw name="Should Be True" owner="BuiltIn">
+<arg>${lost} &lt; 3</arg>
+<arg>msg=${s}[host] (${t}, ${dc}): ${INTERNET_PROBE} unreachable through the breakout</arg>
+<doc>Fails if the given condition is not true.</doc>
+<status status="PASS" start="2026-09-18T22:44:15.111772" elapsed="0.000417"/>
+</kw>
+<kw name="Host" owner="common">
+<kw name="Host Command" owner="LabLib">
+<msg time="2026-09-18T22:44:15.272455" level="INFO" html="true">&lt;pre&gt;10.3.0.51$ wget -q -O- --timeout=10 http://example.com | head -c 200; true
+rc=0
+&lt;!doctype html&gt;&lt;html lang="en"&gt;&lt;head&gt;&lt;title&gt;Example Domain&lt;/title&gt;&lt;link rel="icon" href="data:,"&gt;&lt;meta name="viewport" content="width=device-width, initial-scale=1"&gt;&lt;style&gt;body{background:#eee;width:6&lt;/pre&gt;</msg>
+<msg time="2026-09-18T22:44:15.272669" level="INFO">${out} = &lt;!doctype html&gt;&lt;html lang="en"&gt;&lt;head&gt;&lt;title&gt;Example Domain&lt;/title&gt;&lt;link rel="icon" href="data:,"&gt;&lt;meta name="viewport" content="width=device-width, initial-scale=1"&gt;&lt;style&gt;body{background:#eee;width:6</msg>
+<var>${out}</var>
+<arg>${MGMT}[${host}]</arg>
+<arg>${command}</arg>
+<doc>Run a shell command on a tenant host; returns the output, fails on non-zero rc.</doc>
+<status status="PASS" start="2026-09-18T22:44:15.112601" elapsed="0.160108"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-18T22:44:15.272771" elapsed="0.000043"/>
+</return>
+<msg time="2026-09-18T22:44:15.272960" level="INFO">${page} = &lt;!doctype html&gt;&lt;html lang="en"&gt;&lt;head&gt;&lt;title&gt;Example Domain&lt;/title&gt;&lt;link rel="icon" href="data:,"&gt;&lt;meta name="viewport" content="width=device-width, initial-scale=1"&gt;&lt;style&gt;body{background:#eee;width:6</msg>
+<var>${page}</var>
+<arg>${s}[host]</arg>
+<arg>wget -q -O- --timeout=10 ${INTERNET_URL} | head -c 200; true</arg>
+<doc>Run a command on a tenant host by name.</doc>
+<status status="PASS" start="2026-09-18T22:44:15.112347" elapsed="0.160650"/>
+</kw>
+<kw name="Should Match Regexp" owner="BuiltIn">
+<arg>${page}</arg>
+<arg>(?i)&lt;(!doctype|html)</arg>
+<arg>msg=${s}[host] (${t}, ${dc}): no HTML from ${INTERNET_URL} through the breakout:\n${page}</arg>
+<doc>Fails if the `string` does not match the regular expression `pattern`.</doc>
+<status status="PASS" start="2026-09-18T22:44:15.273134" elapsed="0.000403"/>
+</kw>
+<var name="${dc}">dc1</var>
+<status status="PASS" start="2026-09-18T22:44:12.982857" elapsed="2.290712"/>
+</iter>
+<iter>
+<kw name="Set Variable" owner="BuiltIn">
+<msg time="2026-09-18T22:44:15.274034" level="INFO">${s} = {'tenant': 'tenant-b', 'ce': 'ce2', 'pe': 'pe2', 'host': 'dc2-h2', 'lan': '172.21.2.0/24', 'host_ip': '172.21.2.2', 'ce_lan_ip': '172.21.2.1', 'pe_ce_prefix': '172.18.2.0/30', 'ce_wan_ip': '172.18.2.2...</msg>
+<var>${s}</var>
+<arg>${SITES}[${t}][${dc}]</arg>
+<doc>Returns the given values which can then be assigned to a variable.</doc>
+<status status="PASS" start="2026-09-18T22:44:15.273794" elapsed="0.000259"/>
+</kw>
+<kw name="Host" owner="common">
+<kw name="Host Command" owner="LabLib">
+<msg time="2026-09-18T22:44:17.401092" level="INFO" html="true">&lt;pre&gt;10.3.0.52$ ping -c 3 -W 2 1.1.1.1; true
+rc=0
+PING 1.1.1.1 (1.1.1.1): 56 data bytes
+64 bytes from 1.1.1.1: seq=0 ttl=42 time=21.215 ms
+64 bytes from 1.1.1.1: seq=1 ttl=42 time=18.062 ms
+64 bytes from 1.1.1.1: seq=2 ttl=42 time=18.259 ms
+
+--- 1.1.1.1 ping statistics ---
+3 packets transmitted, 3 packets received, 0% packet loss
+round-trip min/avg/max = 18.062/19.178/21.215 ms
+&lt;/pre&gt;</msg>
+<msg time="2026-09-18T22:44:17.401311" level="INFO">${out} = PING 1.1.1.1 (1.1.1.1): 56 data bytes
+64 bytes from 1.1.1.1: seq=0 ttl=42 time=21.215 ms
+64 bytes from 1.1.1.1: seq=1 ttl=42 time=18.062 ms
+64 bytes from 1.1.1.1: seq=2 ttl=42 time=18.259 ms
+
+--- 1.1....</msg>
+<var>${out}</var>
+<arg>${MGMT}[${host}]</arg>
+<arg>${command}</arg>
+<doc>Run a shell command on a tenant host; returns the output, fails on non-zero rc.</doc>
+<status status="PASS" start="2026-09-18T22:44:15.274378" elapsed="2.126972"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-18T22:44:17.401426" elapsed="0.000052"/>
+</return>
+<msg time="2026-09-18T22:44:17.401643" level="INFO">${out} = PING 1.1.1.1 (1.1.1.1): 56 data bytes
+64 bytes from 1.1.1.1: seq=0 ttl=42 time=21.215 ms
+64 bytes from 1.1.1.1: seq=1 ttl=42 time=18.062 ms
+64 bytes from 1.1.1.1: seq=2 ttl=42 time=18.259 ms
+
+--- 1.1....</msg>
+<var>${out}</var>
+<arg>${s}[host]</arg>
+<arg>ping -c 3 -W 2 ${INTERNET_PROBE}; true</arg>
+<doc>Run a command on a tenant host by name.</doc>
+<status status="PASS" start="2026-09-18T22:44:15.274168" elapsed="2.127505"/>
+</kw>
+<kw name="Ping Loss" owner="LabLib">
+<msg time="2026-09-18T22:44:17.401944" level="INFO">${lost} = 0</msg>
+<var>${lost}</var>
+<arg>${out}</arg>
+<doc>Packets lost according to a ping summary line ('N packets transmitted, M received, ...').</doc>
+<status status="PASS" start="2026-09-18T22:44:17.401803" elapsed="0.000159"/>
+</kw>
+<kw name="Should Be True" owner="BuiltIn">
+<arg>${lost} &lt; 3</arg>
+<arg>msg=${s}[host] (${t}, ${dc}): ${INTERNET_PROBE} unreachable through the breakout</arg>
+<doc>Fails if the given condition is not true.</doc>
+<status status="PASS" start="2026-09-18T22:44:17.402081" elapsed="0.000369"/>
+</kw>
+<kw name="Host" owner="common">
+<kw name="Host Command" owner="LabLib">
+<msg time="2026-09-18T22:44:17.560396" level="INFO" html="true">&lt;pre&gt;10.3.0.52$ wget -q -O- --timeout=10 http://example.com | head -c 200; true
+rc=0
+&lt;!doctype html&gt;&lt;html lang="en"&gt;&lt;head&gt;&lt;title&gt;Example Domain&lt;/title&gt;&lt;link rel="icon" href="data:,"&gt;&lt;meta name="viewport" content="width=device-width, initial-scale=1"&gt;&lt;style&gt;body{background:#eee;width:6&lt;/pre&gt;</msg>
+<msg time="2026-09-18T22:44:17.560623" level="INFO">${out} = &lt;!doctype html&gt;&lt;html lang="en"&gt;&lt;head&gt;&lt;title&gt;Example Domain&lt;/title&gt;&lt;link rel="icon" href="data:,"&gt;&lt;meta name="viewport" content="width=device-width, initial-scale=1"&gt;&lt;style&gt;body{background:#eee;width:6</msg>
+<var>${out}</var>
+<arg>${MGMT}[${host}]</arg>
+<arg>${command}</arg>
+<doc>Run a shell command on a tenant host; returns the output, fails on non-zero rc.</doc>
+<status status="PASS" start="2026-09-18T22:44:17.402838" elapsed="0.157834"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-18T22:44:17.560751" elapsed="0.000043"/>
+</return>
+<msg time="2026-09-18T22:44:17.560919" level="INFO">${page} = &lt;!doctype html&gt;&lt;html lang="en"&gt;&lt;head&gt;&lt;title&gt;Example Domain&lt;/title&gt;&lt;link rel="icon" href="data:,"&gt;&lt;meta name="viewport" content="width=device-width, initial-scale=1"&gt;&lt;style&gt;body{background:#eee;width:6</msg>
+<var>${page}</var>
+<arg>${s}[host]</arg>
+<arg>wget -q -O- --timeout=10 ${INTERNET_URL} | head -c 200; true</arg>
+<doc>Run a command on a tenant host by name.</doc>
+<status status="PASS" start="2026-09-18T22:44:17.402580" elapsed="0.158360"/>
+</kw>
+<kw name="Should Match Regexp" owner="BuiltIn">
+<arg>${page}</arg>
+<arg>(?i)&lt;(!doctype|html)</arg>
+<arg>msg=${s}[host] (${t}, ${dc}): no HTML from ${INTERNET_URL} through the breakout:\n${page}</arg>
+<doc>Fails if the `string` does not match the regular expression `pattern`.</doc>
+<status status="PASS" start="2026-09-18T22:44:17.561086" elapsed="0.000373"/>
+</kw>
+<var name="${dc}">dc2</var>
+<status status="PASS" start="2026-09-18T22:44:15.273704" elapsed="2.287788"/>
+</iter>
+<iter>
+<kw name="Set Variable" owner="BuiltIn">
+<msg time="2026-09-18T22:44:17.561966" level="INFO">${s} = {'tenant': 'tenant-b', 'ce': 'ce3', 'pe': 'pe3', 'host': 'dc3-h2', 'lan': '172.21.3.0/24', 'host_ip': '172.21.3.2', 'ce_lan_ip': '172.21.3.1', 'pe_ce_prefix': '172.18.3.0/30', 'ce_wan_ip': '172.18.3.2...</msg>
+<var>${s}</var>
+<arg>${SITES}[${t}][${dc}]</arg>
+<doc>Returns the given values which can then be assigned to a variable.</doc>
+<status status="PASS" start="2026-09-18T22:44:17.561720" elapsed="0.000266"/>
+</kw>
+<kw name="Host" owner="common">
+<kw name="Host Command" owner="LabLib">
+<msg time="2026-09-18T22:44:19.691071" level="INFO" html="true">&lt;pre&gt;10.3.0.53$ ping -c 3 -W 2 1.1.1.1; true
+rc=0
+PING 1.1.1.1 (1.1.1.1): 56 data bytes
+64 bytes from 1.1.1.1: seq=0 ttl=42 time=18.868 ms
+64 bytes from 1.1.1.1: seq=1 ttl=42 time=17.752 ms
+64 bytes from 1.1.1.1: seq=2 ttl=42 time=20.382 ms
+
+--- 1.1.1.1 ping statistics ---
+3 packets transmitted, 3 packets received, 0% packet loss
+round-trip min/avg/max = 17.752/19.000/20.382 ms
+&lt;/pre&gt;</msg>
+<msg time="2026-09-18T22:44:19.691261" level="INFO">${out} = PING 1.1.1.1 (1.1.1.1): 56 data bytes
+64 bytes from 1.1.1.1: seq=0 ttl=42 time=18.868 ms
+64 bytes from 1.1.1.1: seq=1 ttl=42 time=17.752 ms
+64 bytes from 1.1.1.1: seq=2 ttl=42 time=20.382 ms
+
+--- 1.1....</msg>
+<var>${out}</var>
+<arg>${MGMT}[${host}]</arg>
+<arg>${command}</arg>
+<doc>Run a shell command on a tenant host; returns the output, fails on non-zero rc.</doc>
+<status status="PASS" start="2026-09-18T22:44:17.562308" elapsed="2.128990"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-18T22:44:19.691360" elapsed="0.000047"/>
+</return>
+<msg time="2026-09-18T22:44:19.691520" level="INFO">${out} = PING 1.1.1.1 (1.1.1.1): 56 data bytes
+64 bytes from 1.1.1.1: seq=0 ttl=42 time=18.868 ms
+64 bytes from 1.1.1.1: seq=1 ttl=42 time=17.752 ms
+64 bytes from 1.1.1.1: seq=2 ttl=42 time=20.382 ms
+
+--- 1.1....</msg>
+<var>${out}</var>
+<arg>${s}[host]</arg>
+<arg>ping -c 3 -W 2 ${INTERNET_PROBE}; true</arg>
+<doc>Run a command on a tenant host by name.</doc>
+<status status="PASS" start="2026-09-18T22:44:17.562104" elapsed="2.129441"/>
+</kw>
+<kw name="Ping Loss" owner="LabLib">
+<msg time="2026-09-18T22:44:19.691856" level="INFO">${lost} = 0</msg>
+<var>${lost}</var>
+<arg>${out}</arg>
+<doc>Packets lost according to a ping summary line ('N packets transmitted, M received, ...').</doc>
+<status status="PASS" start="2026-09-18T22:44:19.691692" elapsed="0.000182"/>
+</kw>
+<kw name="Should Be True" owner="BuiltIn">
+<arg>${lost} &lt; 3</arg>
+<arg>msg=${s}[host] (${t}, ${dc}): ${INTERNET_PROBE} unreachable through the breakout</arg>
+<doc>Fails if the given condition is not true.</doc>
+<status status="PASS" start="2026-09-18T22:44:19.691961" elapsed="0.000414"/>
+</kw>
+<kw name="Host" owner="common">
+<kw name="Host Command" owner="LabLib">
+<msg time="2026-09-18T22:44:19.851466" level="INFO" html="true">&lt;pre&gt;10.3.0.53$ wget -q -O- --timeout=10 http://example.com | head -c 200; true
+rc=0
+&lt;!doctype html&gt;&lt;html lang="en"&gt;&lt;head&gt;&lt;title&gt;Example Domain&lt;/title&gt;&lt;link rel="icon" href="data:,"&gt;&lt;meta name="viewport" content="width=device-width, initial-scale=1"&gt;&lt;style&gt;body{background:#eee;width:6&lt;/pre&gt;</msg>
+<msg time="2026-09-18T22:44:19.851677" level="INFO">${out} = &lt;!doctype html&gt;&lt;html lang="en"&gt;&lt;head&gt;&lt;title&gt;Example Domain&lt;/title&gt;&lt;link rel="icon" href="data:,"&gt;&lt;meta name="viewport" content="width=device-width, initial-scale=1"&gt;&lt;style&gt;body{background:#eee;width:6</msg>
+<var>${out}</var>
+<arg>${MGMT}[${host}]</arg>
+<arg>${command}</arg>
+<doc>Run a shell command on a tenant host; returns the output, fails on non-zero rc.</doc>
+<status status="PASS" start="2026-09-18T22:44:19.692790" elapsed="0.158925"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-18T22:44:19.851775" elapsed="0.000040"/>
+</return>
+<msg time="2026-09-18T22:44:19.851936" level="INFO">${page} = &lt;!doctype html&gt;&lt;html lang="en"&gt;&lt;head&gt;&lt;title&gt;Example Domain&lt;/title&gt;&lt;link rel="icon" href="data:,"&gt;&lt;meta name="viewport" content="width=device-width, initial-scale=1"&gt;&lt;style&gt;body{background:#eee;width:6</msg>
+<var>${page}</var>
+<arg>${s}[host]</arg>
+<arg>wget -q -O- --timeout=10 ${INTERNET_URL} | head -c 200; true</arg>
+<doc>Run a command on a tenant host by name.</doc>
+<status status="PASS" start="2026-09-18T22:44:19.692501" elapsed="0.159465"/>
+</kw>
+<kw name="Should Match Regexp" owner="BuiltIn">
+<arg>${page}</arg>
+<arg>(?i)&lt;(!doctype|html)</arg>
+<arg>msg=${s}[host] (${t}, ${dc}): no HTML from ${INTERNET_URL} through the breakout:\n${page}</arg>
+<doc>Fails if the `string` does not match the regular expression `pattern`.</doc>
+<status status="PASS" start="2026-09-18T22:44:19.852117" elapsed="0.000371"/>
+</kw>
+<var name="${dc}">dc3</var>
+<status status="PASS" start="2026-09-18T22:44:17.561634" elapsed="2.290886"/>
+</iter>
+<iter>
+<kw name="Set Variable" owner="BuiltIn">
+<msg time="2026-09-18T22:44:19.852928" level="INFO">${s} = {'tenant': 'tenant-b', 'ce': 'ce4', 'pe': 'pe4', 'host': 'dc4-h2', 'lan': '172.21.4.0/24', 'host_ip': '172.21.4.2', 'ce_lan_ip': '172.21.4.1', 'pe_ce_prefix': '172.18.4.0/30', 'ce_wan_ip': '172.18.4.2...</msg>
+<var>${s}</var>
+<arg>${SITES}[${t}][${dc}]</arg>
+<doc>Returns the given values which can then be assigned to a variable.</doc>
+<status status="PASS" start="2026-09-18T22:44:19.852707" elapsed="0.000248"/>
+</kw>
+<kw name="Host" owner="common">
+<kw name="Host Command" owner="LabLib">
+<msg time="2026-09-18T22:44:21.976292" level="INFO" html="true">&lt;pre&gt;10.3.0.54$ ping -c 3 -W 2 1.1.1.1; true
+rc=0
+PING 1.1.1.1 (1.1.1.1): 56 data bytes
+64 bytes from 1.1.1.1: seq=0 ttl=42 time=18.618 ms
+64 bytes from 1.1.1.1: seq=1 ttl=42 time=16.755 ms
+64 bytes from 1.1.1.1: seq=2 ttl=42 time=16.473 ms
+
+--- 1.1.1.1 ping statistics ---
+3 packets transmitted, 3 packets received, 0% packet loss
+round-trip min/avg/max = 16.473/17.282/18.618 ms
+&lt;/pre&gt;</msg>
+<msg time="2026-09-18T22:44:21.976535" level="INFO">${out} = PING 1.1.1.1 (1.1.1.1): 56 data bytes
+64 bytes from 1.1.1.1: seq=0 ttl=42 time=18.618 ms
+64 bytes from 1.1.1.1: seq=1 ttl=42 time=16.755 ms
+64 bytes from 1.1.1.1: seq=2 ttl=42 time=16.473 ms
+
+--- 1.1....</msg>
+<var>${out}</var>
+<arg>${MGMT}[${host}]</arg>
+<arg>${command}</arg>
+<doc>Run a shell command on a tenant host; returns the output, fails on non-zero rc.</doc>
+<status status="PASS" start="2026-09-18T22:44:19.853311" elapsed="2.123275"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-18T22:44:21.976685" elapsed="0.000044"/>
+</return>
+<msg time="2026-09-18T22:44:21.976861" level="INFO">${out} = PING 1.1.1.1 (1.1.1.1): 56 data bytes
+64 bytes from 1.1.1.1: seq=0 ttl=42 time=18.618 ms
+64 bytes from 1.1.1.1: seq=1 ttl=42 time=16.755 ms
+64 bytes from 1.1.1.1: seq=2 ttl=42 time=16.473 ms
+
+--- 1.1....</msg>
+<var>${out}</var>
+<arg>${s}[host]</arg>
+<arg>ping -c 3 -W 2 ${INTERNET_PROBE}; true</arg>
+<doc>Run a command on a tenant host by name.</doc>
+<status status="PASS" start="2026-09-18T22:44:19.853086" elapsed="2.123796"/>
+</kw>
+<kw name="Ping Loss" owner="LabLib">
+<msg time="2026-09-18T22:44:21.977172" level="INFO">${lost} = 0</msg>
+<var>${lost}</var>
+<arg>${out}</arg>
+<doc>Packets lost according to a ping summary line ('N packets transmitted, M received, ...').</doc>
+<status status="PASS" start="2026-09-18T22:44:21.976998" elapsed="0.000199"/>
+</kw>
+<kw name="Should Be True" owner="BuiltIn">
+<arg>${lost} &lt; 3</arg>
+<arg>msg=${s}[host] (${t}, ${dc}): ${INTERNET_PROBE} unreachable through the breakout</arg>
+<doc>Fails if the given condition is not true.</doc>
+<status status="PASS" start="2026-09-18T22:44:21.977339" elapsed="0.000489"/>
+</kw>
+<kw name="Host" owner="common">
+<kw name="Host Command" owner="LabLib">
+<msg time="2026-09-18T22:44:22.130484" level="INFO" html="true">&lt;pre&gt;10.3.0.54$ wget -q -O- --timeout=10 http://example.com | head -c 200; true
+rc=0
+&lt;!doctype html&gt;&lt;html lang="en"&gt;&lt;head&gt;&lt;title&gt;Example Domain&lt;/title&gt;&lt;link rel="icon" href="data:,"&gt;&lt;meta name="viewport" content="width=device-width, initial-scale=1"&gt;&lt;style&gt;body{background:#eee;width:6&lt;/pre&gt;</msg>
+<msg time="2026-09-18T22:44:22.130669" level="INFO">${out} = &lt;!doctype html&gt;&lt;html lang="en"&gt;&lt;head&gt;&lt;title&gt;Example Domain&lt;/title&gt;&lt;link rel="icon" href="data:,"&gt;&lt;meta name="viewport" content="width=device-width, initial-scale=1"&gt;&lt;style&gt;body{background:#eee;width:6</msg>
+<var>${out}</var>
+<arg>${MGMT}[${host}]</arg>
+<arg>${command}</arg>
+<doc>Run a shell command on a tenant host; returns the output, fails on non-zero rc.</doc>
+<status status="PASS" start="2026-09-18T22:44:21.978273" elapsed="0.152428"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-18T22:44:22.130756" elapsed="0.000039"/>
+</return>
+<msg time="2026-09-18T22:44:22.130902" level="INFO">${page} = &lt;!doctype html&gt;&lt;html lang="en"&gt;&lt;head&gt;&lt;title&gt;Example Domain&lt;/title&gt;&lt;link rel="icon" href="data:,"&gt;&lt;meta name="viewport" content="width=device-width, initial-scale=1"&gt;&lt;style&gt;body{background:#eee;width:6</msg>
+<var>${page}</var>
+<arg>${s}[host]</arg>
+<arg>wget -q -O- --timeout=10 ${INTERNET_URL} | head -c 200; true</arg>
+<doc>Run a command on a tenant host by name.</doc>
+<status status="PASS" start="2026-09-18T22:44:21.978003" elapsed="0.152919"/>
+</kw>
+<kw name="Should Match Regexp" owner="BuiltIn">
+<arg>${page}</arg>
+<arg>(?i)&lt;(!doctype|html)</arg>
+<arg>msg=${s}[host] (${t}, ${dc}): no HTML from ${INTERNET_URL} through the breakout:\n${page}</arg>
+<doc>Fails if the `string` does not match the regular expression `pattern`.</doc>
+<status status="PASS" start="2026-09-18T22:44:22.131057" elapsed="0.000366"/>
+</kw>
+<var name="${dc}">dc4</var>
+<status status="PASS" start="2026-09-18T22:44:19.852626" elapsed="2.278828"/>
+</iter>
+<var>${dc}</var>
+<value>@{SITES}[${t}]</value>
+<status status="PASS" start="2026-09-18T22:44:12.982757" elapsed="9.148724"/>
+</for>
+<var name="${t}">tenant-b</var>
+<status status="PASS" start="2026-09-18T22:44:12.982726" elapsed="9.148782"/>
+</iter>
+<var>${t}</var>
+<value>@{TENANTS}</value>
+<status status="PASS" start="2026-09-18T22:44:03.813418" elapsed="18.318107"/>
+</for>
+<status status="PASS" start="2026-09-18T22:44:03.813216" elapsed="18.318376"/>
+</test>
+<test id="s1-t6" name="Tenant traffic leaves the firewall masqueraded with its uplink address, and the path from a remote site goes through the breakout PE and the firewall" line="81">
+<kw name="Set Variable" owner="BuiltIn">
+<msg time="2026-09-18T22:44:22.132456" level="INFO">${t} = tenant-a</msg>
+<var>${t}</var>
+<arg>${TENANTS}[0]</arg>
+<doc>Returns the given values which can then be assigned to a variable.</doc>
+<status status="PASS" start="2026-09-18T22:44:22.132069" elapsed="0.000406"/>
+</kw>
+<kw name="Set Variable" owner="BuiltIn">
+<msg time="2026-09-18T22:44:22.132779" level="INFO">${c} = {'pe': 'pe4', 'pe_port': 'eth5', 'pe_ip': '172.16.5.1', 'fw': 'fw-inet', 'fw_port': 'eth1', 'fw_ip': '172.16.5.2', 'prefix': '172.16.5.0/30', 'asn': 65010, 'fw_mgmt': '10.3.0.61'}</msg>
+<var>${c}</var>
+<arg>${INTERNET_CIRCUITS}[${t}]</arg>
+<doc>Returns the given values which can then be assigned to a variable.</doc>
+<status status="PASS" start="2026-09-18T22:44:22.132560" elapsed="0.000238"/>
+</kw>
+<kw name="Evaluate" owner="BuiltIn">
+<msg time="2026-09-18T22:44:22.133250" level="INFO">${remote} = {'tenant': 'tenant-a', 'ce': 'ce1', 'pe': 'pe1', 'host': 'dc1-h1', 'lan': '172.20.1.0/24', 'host_ip': '172.20.1.2', 'ce_lan_ip': '172.20.1.1', 'pe_ce_prefix': '172.16.1.0/30', 'ce_wan_ip': '172.16.1.2...</msg>
+<var>${remote}</var>
+<arg>next(s for s in $SITES[$t].values() if s["pe"] != "${c}[pe]")</arg>
+<doc>Evaluates the given expression in Python and returns the result.</doc>
+<status status="PASS" start="2026-09-18T22:44:22.132881" elapsed="0.000390"/>
+</kw>
+<kw name="Shell" owner="common">
+<kw name="Vyos Shell" owner="LabLib">
+<msg time="2026-09-18T22:44:22.847575" level="INFO" html="true">&lt;pre&gt;10.3.0.61# ip -4 -o addr show eth3 | awk '{print $4}' | cut -d/ -f1
+rc=0
+192.168.122.116
+&lt;/pre&gt;</msg>
+<msg time="2026-09-18T22:44:22.847778" level="INFO">${out} = 192.168.122.116
+</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<doc>Run a Linux shell command on a VyOS node (e.g. `sudo ip -6 route`) and return stdout+stderr; fails on non-zero rc.</doc>
+<status status="PASS" start="2026-09-18T22:44:22.133579" elapsed="0.714233"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-18T22:44:22.847871" elapsed="0.000050"/>
+</return>
+<msg time="2026-09-18T22:44:22.848069" level="INFO">${fw_up} = 192.168.122.116
+</msg>
+<var>${fw_up}</var>
+<arg>${c}[fw]</arg>
+<arg>ip -4 -o addr show ${INTERNET_UPLINK} | awk '{print $4}' | cut -d/ -f1</arg>
+<doc>Run a Linux shell command on a VyOS node by name (sudo allowed).</doc>
+<status status="PASS" start="2026-09-18T22:44:22.133383" elapsed="0.714706"/>
+</kw>
+<kw name="Start Background" owner="LabLib">
+<msg time="2026-09-18T22:44:25.069142" level="INFO">${h} = 10.3.0.61:1</msg>
+<var>${h}</var>
+<arg>${MGMT}[${c}[fw]]</arg>
+<arg>sudo timeout 20 tcpdump -ni ${INTERNET_UPLINK} -c 2 icmp and dst host ${INTERNET_PROBE} 2&gt;/dev/null</arg>
+<doc>Start a command over SSH and return a handle; collect its output with `Finish Background`.</doc>
+<status status="PASS" start="2026-09-18T22:44:22.848214" elapsed="2.220985"/>
+</kw>
+<kw name="Sleep" owner="BuiltIn">
+<msg time="2026-09-18T22:44:27.069836" level="INFO">Slept 2 seconds.</msg>
+<arg>2s</arg>
+<doc>Pauses execution for the given time.</doc>
+<status status="PASS" start="2026-09-18T22:44:25.069362" elapsed="2.000615"/>
+</kw>
+<kw name="Host" owner="common">
+<kw name="Host Command" owner="LabLib">
+<msg time="2026-09-18T22:44:28.093888" level="INFO" html="true">&lt;pre&gt;10.3.0.41$ ping -c 4 -i 0.3 -W 2 1.1.1.1 &gt;/dev/null; true
+rc=0
+&lt;/pre&gt;</msg>
+<msg time="2026-09-18T22:44:28.094093" level="INFO">${out} = </msg>
+<var>${out}</var>
+<arg>${MGMT}[${host}]</arg>
+<arg>${command}</arg>
+<doc>Run a shell command on a tenant host; returns the output, fails on non-zero rc.</doc>
+<status status="PASS" start="2026-09-18T22:44:27.070499" elapsed="1.023621"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-18T22:44:28.094188" elapsed="0.000055"/>
+</return>
+<arg>${remote}[host]</arg>
+<arg>ping -c 4 -i 0.3 -W 2 ${INTERNET_PROBE} &gt;/dev/null; true</arg>
+<doc>Run a command on a tenant host by name.</doc>
+<status status="PASS" start="2026-09-18T22:44:27.070212" elapsed="1.024166"/>
+</kw>
+<kw name="Finish Background" owner="LabLib">
+<msg time="2026-09-18T22:44:28.094672" level="INFO" html="true">&lt;pre&gt;[background 10.3.0.61:1] sudo timeout 20 tcpdump -ni eth3 -c 2 icmp and dst host 1.1.1.1 2&gt;/dev/null
+02:44:26.697158 IP 192.168.122.116 &gt; 1.1.1.1: ICMP echo request, id 89, seq 0, length 64
+02:44:26.997381 IP 192.168.122.116 &gt; 1.1.1.1: ICMP echo request, id 89, seq 1, length 64
+&lt;/pre&gt;</msg>
+<msg time="2026-09-18T22:44:28.094763" level="INFO">${cap} = 02:44:26.697158 IP 192.168.122.116 &gt; 1.1.1.1: ICMP echo request, id 89, seq 0, length 64
+02:44:26.997381 IP 192.168.122.116 &gt; 1.1.1.1: ICMP echo request, id 89, seq 1, length 64
+</msg>
+<var>${cap}</var>
+<arg>${h}</arg>
+<status status="PASS" start="2026-09-18T22:44:28.094487" elapsed="0.000295"/>
+</kw>
+<kw name="Should Match Regexp" owner="BuiltIn">
+<arg>${cap}</arg>
+<arg>IP ${fw_up.strip()} &gt; ${INTERNET_PROBE}: ICMP echo request</arg>
+<arg>msg=${c}[fw]: outbound packets are not masqueraded with ${fw_up.strip()}:\n${cap}</arg>
+<doc>Fails if the `string` does not match the regular expression `pattern`.</doc>
+<status status="PASS" start="2026-09-18T22:44:28.094894" elapsed="0.000589"/>
+</kw>
+<kw name="Should Not Contain" owner="BuiltIn">
+<arg>${cap}</arg>
+<arg>${remote}[host_ip] &gt;</arg>
+<arg>msg=${c}[fw]: a tenant address leaked onto the uplink un-NATed</arg>
+<doc>Fails if the `container` contains the `item`.</doc>
+<status status="PASS" start="2026-09-18T22:44:28.095612" elapsed="0.000287"/>
+</kw>
+<kw name="Host" owner="common">
+<kw name="Host Command" owner="LabLib">
+<msg time="2026-09-18T22:44:31.263087" level="INFO" html="true">&lt;pre&gt;10.3.0.41$ traceroute -n -w 1 -m 6 1.1.1.1 2&gt;&amp;1; true
+rc=0
+traceroute to 1.1.1.1 (1.1.1.1), 6 hops max, 46 byte packets
+ 1  172.20.1.1  0.357 ms  0.255 ms  0.238 ms
+ 2  *  *  *
+ 3  172.16.5.2  1.783 ms  1.637 ms  1.384 ms
+ 4  192.168.122.1  1.445 ms  1.406 ms  1.414 ms
+ 5  192.168.50.1  1.831 ms  1.807 ms  1.703 ms
+ 6  142.254.153.129  12.979 ms  14.317 ms  12.312 ms
+&lt;/pre&gt;</msg>
+<msg time="2026-09-18T22:44:31.263284" level="INFO">${out} = traceroute to 1.1.1.1 (1.1.1.1), 6 hops max, 46 byte packets
+ 1  172.20.1.1  0.357 ms  0.255 ms  0.238 ms
+ 2  *  *  *
+ 3  172.16.5.2  1.783 ms  1.637 ms  1.384 ms
+ 4  192.168.122.1  1.445 ms  1.406 ms...</msg>
+<var>${out}</var>
+<arg>${MGMT}[${host}]</arg>
+<arg>${command}</arg>
+<doc>Run a shell command on a tenant host; returns the output, fails on non-zero rc.</doc>
+<status status="PASS" start="2026-09-18T22:44:28.096271" elapsed="3.167044"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-18T22:44:31.263373" elapsed="0.000042"/>
+</return>
+<msg time="2026-09-18T22:44:31.263528" level="INFO">${tr} = traceroute to 1.1.1.1 (1.1.1.1), 6 hops max, 46 byte packets
+ 1  172.20.1.1  0.357 ms  0.255 ms  0.238 ms
+ 2  *  *  *
+ 3  172.16.5.2  1.783 ms  1.637 ms  1.384 ms
+ 4  192.168.122.1  1.445 ms  1.406 ms...</msg>
+<var>${tr}</var>
+<arg>${remote}[host]</arg>
+<arg>traceroute -n -w 1 -m 6 ${INTERNET_PROBE} 2&gt;&amp;1; true</arg>
+<doc>Run a command on a tenant host by name.</doc>
+<status status="PASS" start="2026-09-18T22:44:28.096033" elapsed="3.167516"/>
+</kw>
+<kw name="Should Match Regexp" owner="BuiltIn">
+<arg>${tr}</arg>
+<arg>(?m)^\\s*\\d+\\s+${c}[fw_ip]\\s</arg>
+<arg>msg=${remote}[host]: the path to the internet does not cross ${c}[fw] (${c}[fw_ip]):\n${tr}</arg>
+<doc>Fails if the `string` does not match the regular expression `pattern`.</doc>
+<status status="PASS" start="2026-09-18T22:44:31.263703" elapsed="0.000463"/>
+</kw>
+<status status="PASS" start="2026-09-18T22:44:22.131762" elapsed="9.132486"/>
+</test>
+<test id="s1-t7" name="The tenants still never meet: a tenant host cannot reach the other tenant's hosts through the breakout, and the firewall drops and logs the attempt" line="95">
+<kw name="Set Variable" owner="BuiltIn">
+<msg time="2026-09-18T22:44:31.264920" level="INFO">${a} = tenant-a</msg>
+<msg time="2026-09-18T22:44:31.264958" level="INFO">${b} = tenant-b</msg>
+<var>${a}</var>
+<var>${b}</var>
+<arg>${TENANTS}[0]</arg>
+<arg>${TENANTS}[1]</arg>
+<doc>Returns the given values which can then be assigned to a variable.</doc>
+<status status="PASS" start="2026-09-18T22:44:31.264676" elapsed="0.000303"/>
+</kw>
+<kw name="Set Variable" owner="BuiltIn">
+<msg time="2026-09-18T22:44:31.265292" level="INFO">${src} = {'tenant': 'tenant-a', 'ce': 'ce1', 'pe': 'pe1', 'host': 'dc1-h1', 'lan': '172.20.1.0/24', 'host_ip': '172.20.1.2', 'ce_lan_ip': '172.20.1.1', 'pe_ce_prefix': '172.16.1.0/30', 'ce_wan_ip': '172.16.1.2...</msg>
+<var>${src}</var>
+<arg>${SITES}[${a}][dc1]</arg>
+<doc>Returns the given values which can then be assigned to a variable.</doc>
+<status status="PASS" start="2026-09-18T22:44:31.265080" elapsed="0.000232"/>
+</kw>
+<kw name="Set Variable" owner="BuiltIn">
+<msg time="2026-09-18T22:44:31.265569" level="INFO">${dst} = {'tenant': 'tenant-b', 'ce': 'ce2', 'pe': 'pe2', 'host': 'dc2-h2', 'lan': '172.21.2.0/24', 'host_ip': '172.21.2.2', 'ce_lan_ip': '172.21.2.1', 'pe_ce_prefix': '172.18.2.0/30', 'ce_wan_ip': '172.18.2.2...</msg>
+<var>${dst}</var>
+<arg>${SITES}[${b}][dc2]</arg>
+<doc>Returns the given values which can then be assigned to a variable.</doc>
+<status status="PASS" start="2026-09-18T22:44:31.265388" elapsed="0.000199"/>
+</kw>
+<kw name="Host" owner="common">
+<kw name="Host Command" owner="LabLib">
+<msg time="2026-09-18T22:44:35.372033" level="INFO" html="true">&lt;pre&gt;10.3.0.41$ ping -c 3 -W 2 172.21.2.2; true
+rc=0
+PING 172.21.2.2 (172.21.2.2): 56 data bytes
+
+--- 172.21.2.2 ping statistics ---
+3 packets transmitted, 0 packets received, 100% packet loss
+&lt;/pre&gt;</msg>
+<msg time="2026-09-18T22:44:35.372197" level="INFO">${out} = PING 172.21.2.2 (172.21.2.2): 56 data bytes
+
+--- 172.21.2.2 ping statistics ---
+3 packets transmitted, 0 packets received, 100% packet loss
+</msg>
+<var>${out}</var>
+<arg>${MGMT}[${host}]</arg>
+<arg>${command}</arg>
+<doc>Run a shell command on a tenant host; returns the output, fails on non-zero rc.</doc>
+<status status="PASS" start="2026-09-18T22:44:31.265953" elapsed="4.106268"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-18T22:44:35.372282" elapsed="0.000040"/>
+</return>
+<msg time="2026-09-18T22:44:35.372443" level="INFO">${out} = PING 172.21.2.2 (172.21.2.2): 56 data bytes
+
+--- 172.21.2.2 ping statistics ---
+3 packets transmitted, 0 packets received, 100% packet loss
+</msg>
+<var>${out}</var>
+<arg>${src}[host]</arg>
+<arg>ping -c 3 -W 2 ${dst}[host_ip]; true</arg>
+<doc>Run a command on a tenant host by name.</doc>
+<status status="PASS" start="2026-09-18T22:44:31.265720" elapsed="4.106745"/>
+</kw>
+<kw name="Ping Loss" owner="LabLib">
+<msg time="2026-09-18T22:44:35.372737" level="INFO">${lost} = 3</msg>
+<var>${lost}</var>
+<arg>${out}</arg>
+<doc>Packets lost according to a ping summary line ('N packets transmitted, M received, ...').</doc>
+<status status="PASS" start="2026-09-18T22:44:35.372577" elapsed="0.000177"/>
+</kw>
+<kw name="Should Be Equal As Integers" owner="BuiltIn">
+<msg time="2026-09-18T22:44:35.373153" level="INFO">Argument types are:
+&lt;class 'int'&gt;
+&lt;class 'str'&gt;</msg>
+<arg>${lost}</arg>
+<arg>3</arg>
+<arg>msg=${src}[host] (${a}) reached ${dst}[host] (${b}) — the breakout leaks between tenants</arg>
+<doc>Fails if objects are unequal after converting them to integers.</doc>
+<status status="PASS" start="2026-09-18T22:44:35.372846" elapsed="0.000380"/>
+</kw>
+<kw name="Vyos" owner="common">
+<kw name="Run Vyos Command" owner="LabLib">
+<msg time="2026-09-18T22:44:36.110263" level="INFO" html="true">&lt;pre&gt;10.3.0.61$ show log firewall | tail -50
+Sep 19 01:53:33 kernel: [ipv4-FWD-filter-900-D]IN=tenant-b OUT=eth3 MAC=52:54:00:c6:14:02:52:54:00:c6:04:06:08:00 SRC=172.21.4.2 DST=172.104.28.175 LEN=76 TOS=0x00 PREC=0x00 TTL=61 ID=7996 DF PROTO=UDP SPT=55008 DPT=123 LEN=56 
+Sep 19 01:53:34 kernel: [ipv4-FWD-filter-900-D]IN=tenant-a OUT=eth3 MAC=52:54:00:c6:14:01:52:54:00:c6:04:05:08:00 SRC=172.20.1.2 DST=1.1.1.1 LEN=84 TOS=0x00 PREC=0x00 TTL=61 ID=63810 DF PROTO=ICMP TYPE=8 CODE=0 ID=72 SEQ=20 
+Sep 19 01:53:34 kernel: [ipv4-FWD-filter-900-D]IN=tenant-a OUT=eth3 MAC=52:54:00:c6:14:01:52:54:00:c6:04:05:08:00 SRC=172.20.1.2 DST=1.1.1.1 LEN=84 TOS=0x00 PREC=0x00 TTL=61 ID=64018 DF PROTO=ICMP TYPE=8 CODE=0 ID=72 SEQ=21 
+Sep 19 01:53:35 kernel: [ipv4-FWD-filter-900-D]IN=tenant-a OUT=eth3 MAC=52:54:00:c6:14:01:52:54:00:c6:04:05:08:00 SRC=172.20.1.2 DST=1.1.1.1 LEN=84 TOS=0x00 PREC=0x00 TTL=61 ID=64272 DF PROTO=ICMP TYPE=8 CODE=0 ID=72 SEQ=22 
+Sep 19 01:53:35 kernel: [ipv4-FWD-filter-900-D]IN=tenant-a OUT=eth3 MAC=52:54:00:c6:14:01:52:54:00:c6:04:05:08:00 SRC=172.20.1.2 DST=1.1.1.1 LEN=84 TOS=0x00 PREC=0x00 TTL=61 ID=64626 DF PROTO=ICMP TYPE=8 CODE=0 ID=72 SEQ=23 
+Sep 19 01:53:36 kernel: [ipv4-FWD-filter-900-D]IN=tenant-a OUT=eth3 MAC=52:54:00:c6:14:01:52:54:00:c6:04:05:08:00 SRC=172.20.1.2 DST=1.1.1.1 LEN=84 TOS=0x00 PREC=0x00 TTL=61 ID=64934 DF PROTO=ICMP TYPE=8 CODE=0 ID=72 SEQ=24 
+Sep 19 01:53:36 kernel: [ipv4-FWD-filter-900-D]IN=tenant-a OUT=eth3 MAC=52:54:00:c6:14:01:52:54:00:c6:04:05:08:00 SRC=172.20.1.2 DST=1.1.1.1 LEN=84 TOS=0x00 PREC=0x00 TTL=61 ID=65315 DF PROTO=ICMP TYPE=8 CODE=0 ID=72 SEQ=25 
+Sep 19 01:53:37 kernel: [ipv4-FWD-filter-900-D]IN=tenant-a OUT=eth3 MAC=52:54:00:c6:14:01:52:54:00:c6:04:05:08:00 SRC=172.20.1.2 DST=1.1.1.1 LEN=84 TOS=0x00 PREC=0x00 TTL=61 ID=65331 DF PROTO=ICMP TYPE=8 CODE=0 ID=72 SEQ=26 
+Sep 19 01:53:37 kernel: [ipv4-FWD-filter-900-D]IN=tenant-a OUT=eth3 MAC=52:54:00:c6:14:01:52:54:00:c6:04:05:08:00 SRC=172.20.1.2 DST=1.1.1.1 LEN=84 TOS=0x00 PREC=0x00 TTL=61 ID=279 DF PROTO=ICMP TYPE=8 CODE=0 ID=72 SEQ=27 
+Sep 19 01:53:38 kernel: [ipv4-FWD-filter-900-D]IN=tenant-a OUT=eth3 MAC=52:54:00:c6:14:01:52:54:00:c6:04:05:08:00 SRC=172.20.1.2 DST=1.1.1.1 LEN=84 TOS=0x00 PREC=0x00 TTL=61 ID=676 DF PROTO=ICMP TYPE=8 CODE=0 ID=72 SEQ=28 
+Sep 19 01:53:38 kernel: [ipv4-FWD-filter-900-D]IN=tenant-a OUT=eth3 MAC=52:54:00:c6:14:01:52:54:00:c6:04:05:08:00 SRC=172.20.1.2 DST=1.1.1.1 LEN=84 TOS=0x00 PREC=0x00 TTL=61 ID=1122 DF PROTO=ICMP TYPE=8 CODE=0 ID=72 SEQ=29 
+Sep 19 01:53:39 kernel: [ipv4-FWD-filter-900-D]IN=tenant-a OUT=eth3 MAC=52:54:00:c6:14:01:52:54:00:c6:04:05:08:00 SRC=172.20.1.2 DST=1.1.1.1 LEN=84 TOS=0x00 PREC=0x00 TTL=61 ID=1610 DF PROTO=ICMP TYPE=8 CODE=0 ID=72 SEQ=30 
+Sep 19 01:53:39 kernel: [ipv4-FWD-filter-900-D]IN=tenant-a OUT=eth3 MAC=52:54:00:c6:14:01:52:54:00:c6:04:05:08:00 SRC=172.20.1.2 DST=1.1.1.1 LEN=84 TOS=0x00 PREC=0x00 TTL=61 ID=1930 DF PROTO=ICMP TYPE=8 CODE=0 ID=72 SEQ=31 
+Sep 19 01:53:40 kernel: [ipv4-FWD-filter-900-D]IN=tenant-a OUT=eth3 MAC=52:54:00:c6:14:01:52:54:00:c6:04:05:08:00 SRC=172.20.1.2 DST=1.1.1.1 LEN=84 TOS=0x00 PREC=0x00 TTL=61 ID=1984 DF PROTO=ICMP TYPE=8 CODE=0 ID=72 SEQ=32 
+Sep 19 01:53:40 kernel: [ipv4-FWD-filter-900-D]IN=tenant-a OUT=eth3 MAC=52:54:00:c6:14:01:52:54:00:c6:04:05:08:00 SRC=172.20.1.2 DST=1.1.1.1 LEN=84 TOS=0x00 PREC=0x00 TTL=61 ID=2137 DF PROTO=ICMP TYPE=8 CODE=0 ID=72 SEQ=33 
+Sep 19 01:53:41 kernel: [ipv4-FWD-filter-900-D]IN=tenant-a OUT=eth3 MAC=52:54:00:c6:14:01:52:54:00:c6:04:05:08:00 SRC=172.20.1.2 DST=1.1.1.1 LEN=84 TOS=0x00 PREC=0x00 TTL=61 ID=2386 DF PROTO=ICMP TYPE=8 CODE=0 ID=72 SEQ=34 
+Sep 19 01:53:41 kernel: [ipv4-FWD-filter-900-D]IN=tenant-a OUT=eth3 MAC=52:54:00:c6:14:01:52:54:00:c6:04:05:08:00 SRC=172.20.1.2 DST=1.1.1.1 LEN=84 TOS=0x00 PREC=0x00 TTL=61 ID=2850 DF PROTO=ICMP TYPE=8 CODE=0 ID=72 SEQ=35 
+Sep 19 01:53:42 kernel: [ipv4-FWD-filter-900-D]IN=tenant-a OUT=eth3 MAC=52:54:00:c6:14:01:52:54:00:c6:04:05:08:00 SRC=172.20.1.2 DST=1.1.1.1 LEN=84 TOS=0x00 PREC=0x00 TTL=61 ID=3015 DF PROTO=ICMP TYPE=8 CODE=0 ID=72 SEQ=36 
+Sep 19 01:53:42 kernel: [ipv4-FWD-filter-900-D]IN=tenant-a OUT=eth3 MAC=52:54:00:c6:14:01:52:54:00:c6:04:05:08:00 SRC=172.20.1.2 DST=1.1.1.1 LEN=84 TOS=0x00 PREC=0x00 TTL=61 ID=3507 DF PROTO=ICMP TYPE=8 CODE=0 ID=72 SEQ=37 
+Sep 19 01:53:43 kernel: [ipv4-FWD-filter-900-D]IN=tenant-a OUT=eth3 MAC=52:54:00:c6:14:01:52:54:00:c6:04:05:08:00 SRC=172.20.1.2 DST=1.1.1.1 LEN=84 TOS=0x00 PREC=0x00 TTL=61 ID=3939 DF PROTO=ICMP TYPE=8 CODE=0 ID=72 SEQ=38 
+Sep 19 01:53:43 kernel: [ipv4-FWD-filter-900-D]IN=tenant-a OUT=eth3 MAC=52:54:00:c6:14:01:52:54:00:c6:04:05:08:00 SRC=172.20.1.2 DST=1.1.1.1 LEN=84 TOS=0x00 PREC=0x00 TTL=61 ID=4216 DF PROTO=ICMP TYPE=8 CODE=0 ID=72 SEQ=39 
+Sep 19 01:53:44 kernel: [ipv4-FWD-filter-900-D]IN=tenant-a OUT=eth3 MAC=52:54:00:c6:14:01:52:54:00:c6:04:05:08:00 SRC=172.20.1.2 DST=1.1.1.1 LEN=84 TOS=0x00 PREC=0x00 TTL=61 ID=4481 DF PROTO=ICMP TYPE=8 CODE=0 ID=72 SEQ=40 
+Sep 19 01:53:44 kernel: [ipv4-FWD-filter-900-D]IN=tenant-a OUT=eth3 MAC=52:54:00:c6:14:01:52:54:00:c6:04:05:08:00 SRC=172.20.1.2 DST=1.1.1.1 LEN=84 TOS=0x00 PREC=0x00 TTL=61 ID=4662 DF PROTO=ICMP TYPE=8 CODE=0 ID=72 SEQ=41 
+Sep 19 01:53:45 kernel: [ipv4-FWD-filter-900-D]IN=tenant-a OUT=eth3 MAC=52:54:00:c6:14:01:52:54:00:c6:04:05:08:00 SRC=172.20.1.2 DST=1.1.1.1 LEN=84 TOS=0x00 PREC=0x00 TTL=61 ID=4684 DF PROTO=ICMP TYPE=8 CODE=0 ID=72 SEQ=42 
+Sep 19 01:53:45 kernel: [ipv4-FWD-filter-900-D]IN=tenant-a OUT=eth3 MAC=52:54:00:c6:14:01:52:54:00:c6:04:05:08:00 SRC=172.20.1.2 DST=1.1.1.1 LEN=84 TOS=0x00 PREC=0x00 TTL=61 ID=4747 DF PROTO=ICMP TYPE=8 CODE=0 ID=72 SEQ=43 
+Sep 19 01:53:46 kernel: [ipv4-FWD-filter-900-D]IN=tenant-a OUT=eth3 MAC=52:54:00:c6:14:01:52:54:00:c6:04:05:08:00 SRC=172.20.1.2 DST=1.1.1.1 LEN=84 TOS=0x00 PREC=0x00 TTL=61 ID=5005 DF PROTO=ICMP TYPE=8 CODE=0 ID=72 SEQ=44 
+Sep 19 01:53:46 kernel: [ipv4-FWD-filter-900-D]IN=tenant-a OUT=eth3 MAC=52:54:00:c6:14:01:52:54:00:c6:04:05:08:00 SRC=172.20.1.2 DST=1.1.1.1 LEN=84 TOS=0x00 PREC=0x00 TTL=61 ID=5023 DF PROTO=ICMP TYPE=8 CODE=0 ID=72 SEQ=45 
+Sep 19 01:53:47 kernel: [ipv4-FWD-filter-900-D]IN=tenant-a OUT=eth3 MAC=52:54:00:c6:14:01:52:54:00:c6:04:05:08:00 SRC=172.20.1.2 DST=1.1.1.1 LEN=84 TOS=0x00 PREC=0x00 TTL=61 ID=5115 DF PROTO=ICMP TYPE=8 CODE=0 ID=72 SEQ=46 
+Sep 19 01:53:47 kernel: [ipv4-FWD-filter-900-D]IN=tenant-a OUT=eth3 MAC=52:54:00:c6:14:01:52:54:00:c6:04:05:08:00 SRC=172.20.1.2 DST=1.1.1.1 LEN=84 TOS=0x00 PREC=0x00 TTL=61 ID=5457 DF PROTO=ICMP TYPE=8 CODE=0 ID=72 SEQ=47 
+Sep 19 01:53:48 kernel: [ipv4-FWD-filter-900-D]IN=tenant-a OUT=eth3 MAC=52:54:00:c6:14:01:52:54:00:c6:04:05:08:00 SRC=172.20.1.2 DST=1.1.1.1 LEN=84 TOS=0x00 PREC=0x00 TTL=61 ID=5624 DF PROTO=ICMP TYPE=8 CODE=0 ID=72 SEQ=48 
+Sep 19 01:53:48 kernel: [ipv4-FWD-filter-900-D]IN=tenant-a OUT=eth3 MAC=52:54:00:c6:14:01:52:54:00:c6:04:05:08:00 SRC=172.20.1.2 DST=1.1.1.1 LEN=84 TOS=0x00 PREC=0x00 TTL=61 ID=5985 DF PROTO=ICMP TYPE=8 CODE=0 ID=72 SEQ=49 
+Sep 19 01:53:49 kernel: [ipv4-FWD-filter-900-D]IN=tenant-a OUT=eth3 MAC=52:54:00:c6:14:01:52:54:00:c6:04:05:08:00 SRC=172.20.1.2 DST=1.1.1.1 LEN=84 TOS=0x00 PREC=0x00 TTL=61 ID=6216 DF PROTO=ICMP TYPE=8 CODE=0 ID=72 SEQ=50 
+Sep 19 01:53:49 kernel: [ipv4-FWD-filter-900-D]IN=tenant-a OUT=eth3 MAC=52:54:00:c6:14:01:52:54:00:c6:04:05:08:00 SRC=172.20.1.2 DST=1.1.1.1 LEN=84 TOS=0x00 PREC=0x00 TTL=61 ID=6277 DF PROTO=ICMP TYPE=8 CODE=0 ID=72 SEQ=51 
+Sep 19 01:53:50 kernel: [ipv4-FWD-filter-900-D]IN=tenant-a OUT=eth3 MAC=52:54:00:c6:14:01:52:54:00:c6:04:05:08:00 SRC=172.20.1.2 DST=1.1.1.1 LEN=84 TOS=0x00 PREC=0x00 TTL=61 ID=6449 DF PROTO=ICMP TYPE=8 CODE=0 ID=72 SEQ=52 
+Sep 19 01:53:50 kernel: [ipv4-FWD-filter-900-D]IN=tenant-a OUT=eth3 MAC=52:54:00:c6:14:01:52:54:00:c6:04:05:08:00 SRC=172.20.1.2 DST=1.1.1.1 LEN=84 TOS=0x00 PREC=0x00 TTL=61 ID=6538 DF PROTO=ICMP TYPE=8 CODE=0 ID=72 SEQ=53 
+Sep 19 01:53:51 kernel: [ipv4-FWD-filter-900-D]IN=tenant-a OUT=eth3 MAC=52:54:00:c6:14:01:52:54:00:c6:04:05:08:00 SRC=172.20.1.2 DST=1.1.1.1 LEN=84 TOS=0x00 PREC=0x00 TTL=61 ID=6950 DF PROTO=ICMP TYPE=8 CODE=0 ID=72 SEQ=54 
+Sep 19 01:53:51 kernel: [ipv4-FWD-filter-900-D]IN=tenant-a OUT=eth3 MAC=52:54:00:c6:14:01:52:54:00:c6:04:05:08:00 SRC=172.20.1.2 DST=1.1.1.1 LEN=84 TOS=0x00 PREC=0x00 TTL=61 ID=7428 DF PROTO=ICMP TYPE=8 CODE=0 ID=72 SEQ=55 
+Sep 19 01:53:52 kernel: [ipv4-FWD-filter-900-D]IN=tenant-a OUT=eth3 MAC=52:54:00:c6:14:01:52:54:00:c6:04:05:08:00 SRC=172.20.1.2 DST=1.1.1.1 LEN=84 TOS=0x00 PREC=0x00 TTL=61 ID=7545 DF PROTO=ICMP TYPE=8 CODE=0 ID=72 SEQ=56 
+Sep 19 01:53:52 kernel: [ipv4-FWD-filter-900-D]IN=tenant-a OUT=eth3 MAC=52:54:00:c6:14:01:52:54:00:c6:04:05:08:00 SRC=172.20.1.2 DST=1.1.1.1 LEN=84 TOS=0x00 PREC=0x00 TTL=61 ID=7718 DF PROTO=ICMP TYPE=8 CODE=0 ID=72 SEQ=57 
+Sep 19 01:53:53 kernel: [ipv4-FWD-filter-900-D]IN=tenant-a OUT=eth3 MAC=52:54:00:c6:14:01:52:54:00:c6:04:05:08:00 SRC=172.20.1.2 DST=1.1.1.1 LEN=84 TOS=0x00 PREC=0x00 TTL=61 ID=8040 DF PROTO=ICMP TYPE=8 CODE=0 ID=72 SEQ=58 
+Sep 19 01:53:53 kernel: [ipv4-FWD-filter-900-D]IN=tenant-a OUT=eth3 MAC=52:54:00:c6:14:01:52:54:00:c6:04:05:08:00 SRC=172.20.1.2 DST=1.1.1.1 LEN=84 TOS=0x00 PREC=0x00 TTL=61 ID=8222 DF PROTO=ICMP TYPE=8 CODE=0 ID=72 SEQ=59 
+Sep 19 02:26:22 kernel: [ipv4-FWD-filter-8-D]IN=tenant-a OUT=eth3 MAC=52:54:00:c6:14:01:52:54:00:c6:04:05:08:00 SRC=172.20.1.2 DST=172.21.2.2 LEN=84 TOS=0x00 PREC=0x00 TTL=61 ID=5111 DF PROTO=ICMP TYPE=8 CODE=0 ID=84 SEQ=0 
+Sep 19 02:26:23 kernel: [ipv4-FWD-filter-8-D]IN=tenant-a OUT=eth3 MAC=52:54:00:c6:14:01:52:54:00:c6:04:05:08:00 SRC=172.20.1.2 DST=172.21.2.2 LEN=84 TOS=0x00 PREC=0x00 TTL=61 ID=5870 DF PROTO=ICMP TYPE=8 CODE=0 ID=84 SEQ=1 
+Sep 19 02:26:24 kernel: [ipv4-FWD-filter-8-D]IN=tenant-a OUT=eth3 MAC=52:54:00:c6:14:01:52:54:00:c6:04:05:08:00 SRC=172.20.1.2 DST=172.21.2.2 LEN=84 TOS=0x00 PREC=0x00 TTL=61 ID=6312 DF PROTO=ICMP TYPE=8 CODE=0 ID=84 SEQ=2 
+Sep 19 02:35:23 kernel: [ipv4-FWD-filter-8-D]IN=tenant-a OUT=eth3 MAC=52:54:00:c6:14:01:52:54:00:c6:04:05:08:00 SRC=172.20.1.2 DST=172.21.2.2 LEN=84 TOS=0x00 PREC=0x00 TTL=61 ID=15355 DF PROTO=ICMP TYPE=8 CODE=0 ID=87 SEQ=0 
+Sep 19 02:35:24 kernel: [ipv4-FWD-filter-8-D]IN=tenant-a OUT=eth3 MAC=52:54:00:c6:14:01:52:54:00:c6:04:05:08:00 SRC=172.20.1.2 DST=172.21.2.2 LEN=84 TOS=0x00 PREC=0x00 TTL=61 ID=16219 DF PROTO=ICMP TYPE=8 CODE=0 ID=87 SEQ=1 
+Sep 19 02:35:25 kernel: [ipv4-FWD-filter-8-D]IN=tenant-a OUT=eth3 MAC=52:54:00:c6:14:01:52:54:00:c6:04:05:08:00 SRC=172.20.1.2 DST=172.21.2.2 LEN=84 TOS=0x00 PREC=0x00 TTL=61 ID=16531 DF PROTO=ICMP TYPE=8 CODE=0 ID=87 SEQ=2 
+Sep 19 02:44:30 kernel: [ipv4-FWD-filter-8-D]IN=tenant-a OUT=eth3 MAC=52:54:00:c6:14:01:52:54:00:c6:04:05:08:00 SRC=172.20.1.2 DST=172.21.2.2 LEN=84 TOS=0x00 PREC=0x00 TTL=61 ID=62207 DF PROTO=ICMP TYPE=8 CODE=0 ID=90 SEQ=0 
+Sep 19 02:44:31 kernel: [ipv4-FWD-filter-8-D]IN=tenant-a OUT=eth3 MAC=52:54:00:c6:14:01:52:54:00:c6:04:05:08:00 SRC=172.20.1.2 DST=172.21.2.2 LEN=84 TOS=0x00 PREC=0x00 TTL=61 ID=63131 DF PROTO=ICMP TYPE=8 CODE=0 ID=90 SEQ=1 
+Sep 19 02:44:32 kernel: [ipv4-FWD-filter-8-D]IN=tenant-a OUT=eth3 MAC=52:54:00:c6:14:01:52:54:00:c6:04:05:08:00 SRC=172.20.1.2 DST=172.21.2.2 LEN=84 TOS=0x00 PREC=0x00 TTL=61 ID=63948 DF PROTO=ICMP TYPE=8 CODE=0 ID=90 SEQ=2 &lt;/pre&gt;</msg>
+<msg time="2026-09-18T22:44:36.110506" level="INFO">${out} = Sep 19 01:53:33 kernel: [ipv4-FWD-filter-900-D]IN=tenant-b OUT=eth3 MAC=52:54:00:c6:14:02:52:54:00:c6:04:06:08:00 SRC=172.21.4.2 DST=172.104.28.175 LEN=76 TOS=0x00 PREC=0x00 TTL=61 ID=7996 DF PROTO=UD...</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<arg>${timeout}</arg>
+<doc>Run an operational-mode command on a VyOS node and return its output.</doc>
+<status status="PASS" start="2026-09-18T22:44:35.373571" elapsed="0.736956"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-18T22:44:36.110588" elapsed="0.000057"/>
+</return>
+<msg time="2026-09-18T22:44:36.110751" level="INFO">${fwlog} = Sep 19 01:53:33 kernel: [ipv4-FWD-filter-900-D]IN=tenant-b OUT=eth3 MAC=52:54:00:c6:14:02:52:54:00:c6:04:06:08:00 SRC=172.21.4.2 DST=172.104.28.175 LEN=76 TOS=0x00 PREC=0x00 TTL=61 ID=7996 DF PROTO=UD...</msg>
+<var>${fwlog}</var>
+<arg>${INTERNET}[fw]</arg>
+<arg>show log firewall | tail -50</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="PASS" start="2026-09-18T22:44:35.373354" elapsed="0.737425"/>
+</kw>
+<kw name="Should Match Regexp" owner="BuiltIn">
+<arg>${fwlog}</arg>
+<arg>FWD-filter-8-D\\]IN=${a} .*SRC=${src}[host_ip] DST=${dst}[host_ip]</arg>
+<arg>msg=${INTERNET}[fw] did not log the ${a} -&gt; ${b} packets as dropped (rule 8: tenant space is never forwarded)</arg>
+<doc>Fails if the `string` does not match the regular expression `pattern`.</doc>
+<status status="PASS" start="2026-09-18T22:44:36.110920" elapsed="0.000468"/>
+</kw>
+<kw name="Vyos" owner="common">
+<kw name="Run Vyos Command" owner="LabLib">
+<msg time="2026-09-18T22:44:36.923727" level="INFO" html="true">&lt;pre&gt;10.3.0.61$ show firewall ipv4 forward filter
+Ruleset Information
+
+---------------------------------
+ipv4 Firewall "forward filter"
+
+Rule     Action    Protocol      Packets    Bytes  Conditions
+-------  --------  ----------  ---------  -------  ----------------------------------------------------------------
+5        accept    all               577    61809  ct state { established, related }  accept
+8        drop      all                 9      756  ip daddr 172.16.0.0/12  prefix "[ipv4-FWD-filter-8-D]"
+10       accept    all               107     7056  ip saddr 172.16.0.0/12 iifname "tenant-a" oifname "eth3"  accept
+11       accept    all                85     5908  ip saddr 172.16.0.0/12 iifname "tenant-b" oifname "eth3"  accept
+900      drop      all                 0        0  prefix "[ipv4-FWD-filter-900-D]"
+default  drop      all                 0        0  comment "FWD-filter default-action "
+&lt;/pre&gt;</msg>
+<msg time="2026-09-18T22:44:36.923906" level="INFO">${out} = Ruleset Information
+
+---------------------------------
+ipv4 Firewall "forward filter"
+
+Rule     Action    Protocol      Packets    Bytes  Conditions
+-------  --------  ----------  ---------  -------  ...</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<arg>${timeout}</arg>
+<doc>Run an operational-mode command on a VyOS node and return its output.</doc>
+<status status="PASS" start="2026-09-18T22:44:36.111734" elapsed="0.812199"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-18T22:44:36.923993" elapsed="0.000041"/>
+</return>
+<msg time="2026-09-18T22:44:36.924131" level="INFO">${fwd} = Ruleset Information
+
+---------------------------------
+ipv4 Firewall "forward filter"
+
+Rule     Action    Protocol      Packets    Bytes  Conditions
+-------  --------  ----------  ---------  -------  ...</msg>
+<var>${fwd}</var>
+<arg>${INTERNET}[fw]</arg>
+<arg>show firewall ipv4 forward filter</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="PASS" start="2026-09-18T22:44:36.111510" elapsed="0.812640"/>
+</kw>
+<kw name="Should Match Regexp" owner="BuiltIn">
+<arg>${fwd}</arg>
+<arg>(?m)^default\\s+drop</arg>
+<arg>msg=${INTERNET}[fw]: the forward policy does not default to drop</arg>
+<doc>Fails if the `string` does not match the regular expression `pattern`.</doc>
+<status status="PASS" start="2026-09-18T22:44:36.924310" elapsed="0.000414"/>
+</kw>
+<status status="PASS" start="2026-09-18T22:44:31.264382" elapsed="5.660423"/>
+</test>
+<test id="s1-t8" name="The firewall accepts nothing new from the internet side: its input policy drops by default and only management, BGP from the PE and DHCP are open" line="107">
+<kw name="Vyos" owner="common">
+<kw name="Run Vyos Command" owner="LabLib">
+<msg time="2026-09-18T22:44:37.737325" level="INFO" html="true">&lt;pre&gt;10.3.0.61$ show firewall ipv4 input filter
+Ruleset Information
+
+---------------------------------
+ipv4 Firewall "input filter"
+
+Rule     Action    Protocol      Packets    Bytes  Conditions
+-------  --------  ----------  ---------  -------  -----------------------------------------
+1        accept    all               616    86100  iifname "lo"  accept
+5        accept    all              2622   217059  ct state { established, related }  accept
+10       accept    all                29     1740  iifname "eth0"  accept
+20       accept    tcp                 0        0  tcp dport 179 iifname "eth1"  accept
+21       accept    tcp                 0        0  tcp dport 179 iifname "eth2"  accept
+30       accept    icmp                0        0  meta l4proto icmp  accept
+40       accept    udp                 0        0  udp sport 67 iifname "eth3"  accept
+default  drop      all                 0        0  comment "INP-filter default-action "
+&lt;/pre&gt;</msg>
+<msg time="2026-09-18T22:44:37.737492" level="INFO">${out} = Ruleset Information
+
+---------------------------------
+ipv4 Firewall "input filter"
+
+Rule     Action    Protocol      Packets    Bytes  Conditions
+-------  --------  ----------  ---------  -------  --...</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<arg>${timeout}</arg>
+<doc>Run an operational-mode command on a VyOS node and return its output.</doc>
+<status status="PASS" start="2026-09-18T22:44:36.925451" elapsed="0.812065"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-18T22:44:37.737578" elapsed="0.000054"/>
+</return>
+<msg time="2026-09-18T22:44:37.737761" level="INFO">${inp} = Ruleset Information
+
+---------------------------------
+ipv4 Firewall "input filter"
+
+Rule     Action    Protocol      Packets    Bytes  Conditions
+-------  --------  ----------  ---------  -------  --...</msg>
+<var>${inp}</var>
+<arg>${INTERNET}[fw]</arg>
+<arg>show firewall ipv4 input filter</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="PASS" start="2026-09-18T22:44:36.925247" elapsed="0.812534"/>
+</kw>
+<kw name="Should Match Regexp" owner="BuiltIn">
+<arg>${inp}</arg>
+<arg>(?m)^default\\s+drop</arg>
+<arg>msg=${INTERNET}[fw]: the input policy does not default to drop</arg>
+<doc>Fails if the `string` does not match the regular expression `pattern`.</doc>
+<status status="PASS" start="2026-09-18T22:44:37.737914" elapsed="0.000327"/>
+</kw>
+<kw name="Should Match Regexp" owner="BuiltIn">
+<arg>${inp}</arg>
+<arg>iifname "eth0"</arg>
+<arg>msg=${INTERNET}[fw]: management from the OOB network is not allowed explicitly</arg>
+<doc>Fails if the `string` does not match the regular expression `pattern`.</doc>
+<status status="PASS" start="2026-09-18T22:44:37.738382" elapsed="0.000310"/>
+</kw>
+<kw name="Should Match Regexp" owner="BuiltIn">
+<arg>${inp}</arg>
+<arg>udp sport 67 iifname "${INTERNET_UPLINK}"</arg>
+<arg>msg=${INTERNET}[fw]: DHCP from the host is not allowed explicitly</arg>
+<doc>Fails if the `string` does not match the regular expression `pattern`.</doc>
+<status status="PASS" start="2026-09-18T22:44:37.738789" elapsed="0.000261"/>
+</kw>
+<for flavor="IN">
+<iter>
+<kw name="Set Variable" owner="BuiltIn">
+<msg time="2026-09-18T22:44:37.739499" level="INFO">${c} = {'pe': 'pe4', 'pe_port': 'eth5', 'pe_ip': '172.16.5.1', 'fw': 'fw-inet', 'fw_port': 'eth1', 'fw_ip': '172.16.5.2', 'prefix': '172.16.5.0/30', 'asn': 65010, 'fw_mgmt': '10.3.0.61'}</msg>
+<var>${c}</var>
+<arg>${INTERNET_CIRCUITS}[${t}]</arg>
+<doc>Returns the given values which can then be assigned to a variable.</doc>
+<status status="PASS" start="2026-09-18T22:44:37.739259" elapsed="0.000260"/>
+</kw>
+<kw name="Should Match Regexp" owner="BuiltIn">
+<arg>${inp}</arg>
+<arg>tcp dport 179 iifname "${c}[fw_port]"</arg>
+<arg>msg=${INTERNET}[fw]: BGP from ${c}[pe] on ${c}[fw_port] is not allowed explicitly</arg>
+<doc>Fails if the `string` does not match the regular expression `pattern`.</doc>
+<status status="PASS" start="2026-09-18T22:44:37.739754" elapsed="0.000279"/>
+</kw>
+<var name="${t}">tenant-a</var>
+<status status="PASS" start="2026-09-18T22:44:37.739195" elapsed="0.000865"/>
+</iter>
+<iter>
+<kw name="Set Variable" owner="BuiltIn">
+<msg time="2026-09-18T22:44:37.740383" level="INFO">${c} = {'pe': 'pe4', 'pe_port': 'eth6', 'pe_ip': '172.18.5.1', 'fw': 'fw-inet', 'fw_port': 'eth2', 'fw_ip': '172.18.5.2', 'prefix': '172.18.5.0/30', 'asn': 65010, 'fw_mgmt': '10.3.0.61'}</msg>
+<var>${c}</var>
+<arg>${INTERNET_CIRCUITS}[${t}]</arg>
+<doc>Returns the given values which can then be assigned to a variable.</doc>
+<status status="PASS" start="2026-09-18T22:44:37.740183" elapsed="0.000221"/>
+</kw>
+<kw name="Should Match Regexp" owner="BuiltIn">
+<arg>${inp}</arg>
+<arg>tcp dport 179 iifname "${c}[fw_port]"</arg>
+<arg>msg=${INTERNET}[fw]: BGP from ${c}[pe] on ${c}[fw_port] is not allowed explicitly</arg>
+<doc>Fails if the `string` does not match the regular expression `pattern`.</doc>
+<status status="PASS" start="2026-09-18T22:44:37.740492" elapsed="0.000282"/>
+</kw>
+<var name="${t}">tenant-b</var>
+<status status="PASS" start="2026-09-18T22:44:37.740124" elapsed="0.000677"/>
+</iter>
+<var>${t}</var>
+<value>@{TENANTS}</value>
+<status status="PASS" start="2026-09-18T22:44:37.739098" elapsed="0.001724"/>
+</for>
+<kw name="Vyos" owner="common">
+<kw name="Run Vyos Command" owner="LabLib">
+<msg time="2026-09-18T22:44:38.552955" level="INFO" html="true">&lt;pre&gt;10.3.0.61$ show nat source rules
+Rule    Source         Destination    Proto    Out-Int    Translation
+------  -------------  -------------  -------  ---------  -------------
+100     172.16.0.0/12  0.0.0.0/0      any      eth3       masquerade
+        sport any      dport any&lt;/pre&gt;</msg>
+<msg time="2026-09-18T22:44:38.553102" level="INFO">${out} = Rule    Source         Destination    Proto    Out-Int    Translation
+------  -------------  -------------  -------  ---------  -------------
+100     172.16.0.0/12  0.0.0.0/0      any      eth3       ...</msg>
+<var>${out}</var>
+<arg>${MGMT}[${node}]</arg>
+<arg>${command}</arg>
+<arg>${timeout}</arg>
+<doc>Run an operational-mode command on a VyOS node and return its output.</doc>
+<status status="PASS" start="2026-09-18T22:44:37.741123" elapsed="0.812003"/>
+</kw>
+<return>
+<value>${out}</value>
+<status status="PASS" start="2026-09-18T22:44:38.553191" elapsed="0.000043"/>
+</return>
+<msg time="2026-09-18T22:44:38.553347" level="INFO">${nat} = Rule    Source         Destination    Proto    Out-Int    Translation
+------  -------------  -------------  -------  ---------  -------------
+100     172.16.0.0/12  0.0.0.0/0      any      eth3       ...</msg>
+<var>${nat}</var>
+<arg>${INTERNET}[fw]</arg>
+<arg>show nat source rules</arg>
+<doc>Run an operational command on a VyOS node by name.</doc>
+<status status="PASS" start="2026-09-18T22:44:37.740926" elapsed="0.812441"/>
+</kw>
+<kw name="Should Match Regexp" owner="BuiltIn">
+<arg>${nat}</arg>
+<arg>172\\.16\\.0\\.0/12\\s+0\\.0\\.0\\.0/0\\s+any\\s+${INTERNET_UPLINK}\\s+masquerade</arg>
+<arg>msg=${INTERNET}[fw]: no masquerade rule for the tenant space on ${INTERNET_UPLINK}</arg>
+<doc>Fails if the `string` does not match the regular expression `pattern`.</doc>
+<status status="PASS" start="2026-09-18T22:44:38.553509" elapsed="0.000509"/>
+</kw>
+<status status="PASS" start="2026-09-18T22:44:36.924933" elapsed="1.629168"/>
+</test>
+<test id="s1-t9" name="The portal and Prometheus see the breakout: firewall reachable, both sessions up, a default route in every tenant VRF on every PE" line="119">
+<kw name="Http Get" owner="LabLib">
+<msg time="2026-09-18T22:44:38.573663" level="INFO">${text} = # HELP lab_state_generated_seconds When the state below was collected
+# TYPE lab_state_generated_seconds gauge
+lab_state_generated_seconds{lab="srv6-core"} 1789785827
+# HELP lab_host_reachable 1 if th...</msg>
+<var>${text}</var>
+<arg>${PORTAL}/metrics</arg>
+<doc>GET a URL; returns the parsed JSON, or the text for non-JSON answers (Prometheus exposition).</doc>
+<status status="PASS" start="2026-09-18T22:44:38.554497" elapsed="0.019205"/>
+</kw>
+<kw name="Metric Samples" owner="LabLib">
+<msg time="2026-09-18T22:44:38.574215" level="INFO">${fw} = [{'labels': {'lab': 'srv6-core', 'fw': 'fw-inet'}, 'value': 1.0}]</msg>
+<var>${fw}</var>
+<arg>${text}</arg>
+<arg>lab_internet_fw_reachable</arg>
+<doc>Parse the samples of one metric from Prometheus text exposition: [{labels, value}].</doc>
+<status status="PASS" start="2026-09-18T22:44:38.573832" elapsed="0.000404"/>
+</kw>
+<kw name="Length Should Be" owner="BuiltIn">
+<msg time="2026-09-18T22:44:38.574582" level="INFO">Length is 1.</msg>
+<arg>${fw}</arg>
+<arg>1</arg>
+<doc>Verifies that the length of the given item is correct.</doc>
+<status status="PASS" start="2026-09-18T22:44:38.574320" elapsed="0.000310"/>
+</kw>
+<kw name="Should Be Equal As Numbers" owner="BuiltIn">
+<msg time="2026-09-18T22:44:38.574906" level="INFO">Argument types are:
+&lt;class 'float'&gt;
+&lt;class 'str'&gt;</msg>
+<arg>${fw}[0][value]</arg>
+<arg>1</arg>
+<doc>Fails if objects are unequal after converting them to real numbers.</doc>
+<status status="PASS" start="2026-09-18T22:44:38.574726" elapsed="0.000225"/>
+</kw>
+<kw name="Metric Samples" owner="LabLib">
+<msg time="2026-09-18T22:44:38.575291" level="INFO">${bgp} = [{'labels': {'lab': 'srv6-core', 'tenant': 'tenant-a', 'pe': 'pe4', 'fw': 'fw-inet'}, 'value': 1.0}, {'labels': {'lab': 'srv6-core', 'tenant': 'tenant-b', 'pe': 'pe4', 'fw': 'fw-inet'}, 'value': 1.0}]</msg>
+<var>${bgp}</var>
+<arg>${text}</arg>
+<arg>lab_internet_bgp_up</arg>
+<doc>Parse the samples of one metric from Prometheus text exposition: [{labels, value}].</doc>
+<status status="PASS" start="2026-09-18T22:44:38.575032" elapsed="0.000279"/>
+</kw>
+<kw name="Length Should Be" owner="BuiltIn">
+<msg time="2026-09-18T22:44:38.575684" level="INFO">Length is 2.</msg>
+<arg>${bgp}</arg>
+<arg>${{ len($TENANTS) }}</arg>
+<doc>Verifies that the length of the given item is correct.</doc>
+<status status="PASS" start="2026-09-18T22:44:38.575380" elapsed="0.000341"/>
+</kw>
+<for flavor="IN">
+<iter>
+<kw name="Should Be Equal As Numbers" owner="BuiltIn">
+<msg time="2026-09-18T22:44:38.576188" level="INFO">Argument types are:
+&lt;class 'float'&gt;
+&lt;class 'str'&gt;</msg>
+<arg>${b}[value]</arg>
+<arg>1</arg>
+<arg>msg=${b}[labels][tenant]: breakout session down according to the portal</arg>
+<doc>Fails if objects are unequal after converting them to real numbers.</doc>
+<status status="PASS" start="2026-09-18T22:44:38.575941" elapsed="0.000290"/>
+</kw>
+<var name="${b}">{'labels': {'lab': 'srv6-core', 'tenant': 'tenant-a', 'pe': 'pe4', 'fw': 'fw-inet'}, 'value': 1.0}</var>
+<status status="PASS" start="2026-09-18T22:44:38.575862" elapsed="0.000397"/>
+</iter>
+<iter>
+<kw name="Should Be Equal As Numbers" owner="BuiltIn">
+<msg time="2026-09-18T22:44:38.576633" level="INFO">Argument types are:
+&lt;class 'float'&gt;
+&lt;class 'str'&gt;</msg>
+<arg>${b}[value]</arg>
+<arg>1</arg>
+<arg>msg=${b}[labels][tenant]: breakout session down according to the portal</arg>
+<doc>Fails if objects are unequal after converting them to real numbers.</doc>
+<status status="PASS" start="2026-09-18T22:44:38.576401" elapsed="0.000284"/>
+</kw>
+<var name="${b}">{'labels': {'lab': 'srv6-core', 'tenant': 'tenant-b', 'pe': 'pe4', 'fw': 'fw-inet'}, 'value': 1.0}</var>
+<status status="PASS" start="2026-09-18T22:44:38.576326" elapsed="0.000393"/>
+</iter>
+<var>${b}</var>
+<value>@{bgp}</value>
+<status status="PASS" start="2026-09-18T22:44:38.575764" elapsed="0.000984"/>
+</for>
+<kw name="Metric Samples" owner="LabLib">
+<msg time="2026-09-18T22:44:38.577165" level="INFO">${dr} = [{'labels': {'lab': 'srv6-core', 'tenant': 'tenant-a', 'pe': 'pe1'}, 'value': 1.0}, {'labels': {'lab': 'srv6-core', 'tenant': 'tenant-a', 'pe': 'pe2'}, 'value': 1.0}, {'labels': {'lab': 'srv6-core', '...</msg>
+<var>${dr}</var>
+<arg>${text}</arg>
+<arg>lab_internet_default_route</arg>
+<doc>Parse the samples of one metric from Prometheus text exposition: [{labels, value}].</doc>
+<status status="PASS" start="2026-09-18T22:44:38.576836" elapsed="0.000368"/>
+</kw>
+<kw name="Length Should Be" owner="BuiltIn">
+<msg time="2026-09-18T22:44:38.577662" level="INFO">Length is 8.</msg>
+<arg>${dr}</arg>
+<arg>${{ len($TENANTS) * len($PES) }}</arg>
+<doc>Verifies that the length of the given item is correct.</doc>
+<status status="PASS" start="2026-09-18T22:44:38.577284" elapsed="0.000425"/>
+</kw>
+<for flavor="IN">
+<iter>
+<kw name="Should Be Equal As Numbers" owner="BuiltIn">
+<msg time="2026-09-18T22:44:38.578146" level="INFO">Argument types are:
+&lt;class 'float'&gt;
+&lt;class 'str'&gt;</msg>
+<arg>${d}[value]</arg>
+<arg>1</arg>
+<arg>msg=${d}[labels][pe] ${d}[labels][tenant]: no default route according to the portal</arg>
+<doc>Fails if objects are unequal after converting them to real numbers.</doc>
+<status status="PASS" start="2026-09-18T22:44:38.577913" elapsed="0.000272"/>
+</kw>
+<var name="${d}">{'labels': {'lab': 'srv6-core', 'tenant': 'tenant-a', 'pe': 'pe1'}, 'value': 1.0}</var>
+<status status="PASS" start="2026-09-18T22:44:38.577844" elapsed="0.000366"/>
+</iter>
+<iter>
+<kw name="Should Be Equal As Numbers" owner="BuiltIn">
+<msg time="2026-09-18T22:44:38.578523" level="INFO">Argument types are:
+&lt;class 'float'&gt;
+&lt;class 'str'&gt;</msg>
+<arg>${d}[value]</arg>
+<arg>1</arg>
+<arg>msg=${d}[labels][pe] ${d}[labels][tenant]: no default route according to the portal</arg>
+<doc>Fails if objects are unequal after converting them to real numbers.</doc>
+<status status="PASS" start="2026-09-18T22:44:38.578328" elapsed="0.000231"/>
+</kw>
+<var name="${d}">{'labels': {'lab': 'srv6-core', 'tenant': 'tenant-a', 'pe': 'pe2'}, 'value': 1.0}</var>
+<status status="PASS" start="2026-09-18T22:44:38.578264" elapsed="0.000320"/>
+</iter>
+<iter>
+<kw name="Should Be Equal As Numbers" owner="BuiltIn">
+<msg time="2026-09-18T22:44:38.578903" level="INFO">Argument types are:
+&lt;class 'float'&gt;
+&lt;class 'str'&gt;</msg>
+<arg>${d}[value]</arg>
+<arg>1</arg>
+<arg>msg=${d}[labels][pe] ${d}[labels][tenant]: no default route according to the portal</arg>
+<doc>Fails if objects are unequal after converting them to real numbers.</doc>
+<status status="PASS" start="2026-09-18T22:44:38.578714" elapsed="0.000223"/>
+</kw>
+<var name="${d}">{'labels': {'lab': 'srv6-core', 'tenant': 'tenant-a', 'pe': 'pe3'}, 'value': 1.0}</var>
+<status status="PASS" start="2026-09-18T22:44:38.578651" elapsed="0.000311"/>
+</iter>
+<iter>
+<kw name="Should Be Equal As Numbers" owner="BuiltIn">
+<msg time="2026-09-18T22:44:38.579286" level="INFO">Argument types are:
+&lt;class 'float'&gt;
+&lt;class 'str'&gt;</msg>
+<arg>${d}[value]</arg>
+<arg>1</arg>
+<arg>msg=${d}[labels][pe] ${d}[labels][tenant]: no default route according to the portal</arg>
+<doc>Fails if objects are unequal after converting them to real numbers.</doc>
+<status status="PASS" start="2026-09-18T22:44:38.579097" elapsed="0.000225"/>
+</kw>
+<var name="${d}">{'labels': {'lab': 'srv6-core', 'tenant': 'tenant-a', 'pe': 'pe4'}, 'value': 1.0}</var>
+<status status="PASS" start="2026-09-18T22:44:38.579020" elapsed="0.000326"/>
+</iter>
+<iter>
+<kw name="Should Be Equal As Numbers" owner="BuiltIn">
+<msg time="2026-09-18T22:44:38.579660" level="INFO">Argument types are:
+&lt;class 'float'&gt;
+&lt;class 'str'&gt;</msg>
+<arg>${d}[value]</arg>
+<arg>1</arg>
+<arg>msg=${d}[labels][pe] ${d}[labels][tenant]: no default route according to the portal</arg>
+<doc>Fails if objects are unequal after converting them to real numbers.</doc>
+<status status="PASS" start="2026-09-18T22:44:38.579469" elapsed="0.000229"/>
+</kw>
+<var name="${d}">{'labels': {'lab': 'srv6-core', 'tenant': 'tenant-b', 'pe': 'pe1'}, 'value': 1.0}</var>
+<status status="PASS" start="2026-09-18T22:44:38.579407" elapsed="0.000315"/>
+</iter>
+<iter>
+<kw name="Should Be Equal As Numbers" owner="BuiltIn">
+<msg time="2026-09-18T22:44:38.580033" level="INFO">Argument types are:
+&lt;class 'float'&gt;
+&lt;class 'str'&gt;</msg>
+<arg>${d}[value]</arg>
+<arg>1</arg>
+<arg>msg=${d}[labels][pe] ${d}[labels][tenant]: no default route according to the portal</arg>
+<doc>Fails if objects are unequal after converting them to real numbers.</doc>
+<status status="PASS" start="2026-09-18T22:44:38.579835" elapsed="0.000246"/>
+</kw>
+<var name="${d}">{'labels': {'lab': 'srv6-core', 'tenant': 'tenant-b', 'pe': 'pe2'}, 'value': 1.0}</var>
+<status status="PASS" start="2026-09-18T22:44:38.579772" elapsed="0.000333"/>
+</iter>
+<iter>
+<kw name="Should Be Equal As Numbers" owner="BuiltIn">
+<msg time="2026-09-18T22:44:38.580409" level="INFO">Argument types are:
+&lt;class 'float'&gt;
+&lt;class 'str'&gt;</msg>
+<arg>${d}[value]</arg>
+<arg>1</arg>
+<arg>msg=${d}[labels][pe] ${d}[labels][tenant]: no default route according to the portal</arg>
+<doc>Fails if objects are unequal after converting them to real numbers.</doc>
+<status status="PASS" start="2026-09-18T22:44:38.580222" elapsed="0.000222"/>
+</kw>
+<var name="${d}">{'labels': {'lab': 'srv6-core', 'tenant': 'tenant-b', 'pe': 'pe3'}, 'value': 1.0}</var>
+<status status="PASS" start="2026-09-18T22:44:38.580155" elapsed="0.000312"/>
+</iter>
+<iter>
+<kw name="Should Be Equal As Numbers" owner="BuiltIn">
+<msg time="2026-09-18T22:44:38.580762" level="INFO">Argument types are:
+&lt;class 'float'&gt;
+&lt;class 'str'&gt;</msg>
+<arg>${d}[value]</arg>
+<arg>1</arg>
+<arg>msg=${d}[labels][pe] ${d}[labels][tenant]: no default route according to the portal</arg>
+<doc>Fails if objects are unequal after converting them to real numbers.</doc>
+<status status="PASS" start="2026-09-18T22:44:38.580573" elapsed="0.000224"/>
+</kw>
+<var name="${d}">{'labels': {'lab': 'srv6-core', 'tenant': 'tenant-b', 'pe': 'pe4'}, 'value': 1.0}</var>
+<status status="PASS" start="2026-09-18T22:44:38.580514" elapsed="0.000306"/>
+</iter>
+<var>${d}</var>
+<value>@{dr}</value>
+<status status="PASS" start="2026-09-18T22:44:38.577757" elapsed="0.003081"/>
+</for>
+<status status="PASS" start="2026-09-18T22:44:38.554236" elapsed="0.026664"/>
+</test>
+<kw name="Suite Teardown Close Connections" owner="common" type="TEARDOWN">
+<kw name="Close All Connections" owner="LabLib">
+<status status="PASS" start="2026-09-18T22:44:38.581388" elapsed="8.802660"/>
+</kw>
+<status status="PASS" start="2026-09-18T22:44:38.581277" elapsed="8.802857"/>
+</kw>
+<doc>Internet breakout: a small VyOS firewall (fw-inet) is a CE of every tenant on one PE — VRF-lite, one attachment
+circuit per tenant, each in the tenant's VRF on the firewall too — announcing nothing but a default route; its
+uplink is the host's libvirt NAT network (DHCP) in its default VRF, where outbound tenant traffic is masqueraded.
+The default route travels as a VPNv4 route with the PE's End.DT46 SID for that tenant, so every site of every
+tenant reaches the internet; the firewall's stateful policy allows tenant -&gt; internet only, so the tenants still
+never reach each other (the cross-tenant matrix of suite 04 stays all-fail) and nothing new comes in.</doc>
+<status status="PASS" start="2026-09-18T22:43:14.478616" elapsed="92.905549"/>
+</suite>
+<statistics>
+<total>
+<stat pass="9" fail="0" skip="0">All Tests</stat>
+</total>
+<tag>
+</tag>
+<suite>
+<stat name="srv6 core lab" id="s1" pass="9" fail="0" skip="0">srv6 core lab</stat>
+</suite>
+</statistics>
+<errors>
+</errors>
+</robot>

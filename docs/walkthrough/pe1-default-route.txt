@@ -1,0 +1,1 @@
+default nhid 1612  encap seg6 mode encap segs 1 [ fd00:c:4:e002:: ] via inet6 fe80::5054:ff:fec6:603 dev eth2 proto bgp metric 20

@@ -34,7 +34,7 @@ def inventory_from_nautobot():
     q = requests.get(f"{a.url}/api/extras/graphql-queries/", params={"name": "srv6-core-model"}, headers=H, timeout=30).json()["results"]
     if not q: sys.exit("saved GraphQL query srv6-core-model not found — run nautobot/seed.py")
     d = gql(q[0]["query"]); ctx = d["config_contexts"][0]["data"]
-    ROLE = {"srv6-pe": "pe", "srv6-p": "p", "srv6-ce": "ce", "host": "host"}
+    ROLE = {"srv6-pe": "pe", "srv6-p": "p", "srv6-ce": "ce", "srv6-fw": "fw", "host": "host"}; inet = ctx.get("internet")
     devs = {x["name"]: x for x in d["devices"]}
     # tenant of an address: the VRF its parent prefix belongs to (prefix roles attachment-circuit / site-lan carry a tenant)
     lab_vrfs = [v for v in d["vrfs"] if v["tenant"] and v["tenant"]["tenant_group"] and v["tenant"]["tenant_group"]["name"] == "srv6-core"]
@@ -50,11 +50,13 @@ def inventory_from_nautobot():
             if i["name"] == "lo": lo6 = addr.split("/")[0] if addr else None; continue
             if i["name"] == "dum0": locator_addr = addr; continue
             if i["mgmt_only"]: continue
+            if role == "fw" and not addrs and i["description"].startswith("internet:"):   # the firewall's DHCP uplink on the host's libvirt NAT network
+                ports.append({"name": i["name"], "ip": "dhcp", "peer": None, "network": inet["net"] if inet else i["description"].split()[2]}); continue
             far = i["connected_interface"]; first = (v4 or v6 or [None])[0]; parent = first["parent"]["prefix"] if first and first.get("parent") else None
             twin = v6[0] if v4 and v6 else None
             ports.append({"name": i["name"], "ip": addr, "peer": far["device"]["name"] if far else None, "peer_port": far["name"] if far else None,
                           "prefix": parent, "tenant": vrf_of_prefix.get(parent), "ip6": twin["address"] if twin else None, "prefix6": twin["parent"]["prefix"] if twin and twin.get("parent") else None})
-        pe = next((pt["peer"] for pt in ports if pt["peer"] and pt["peer"] in devs and ROLE[devs[pt["peer"]]["role"]["name"]] == "pe"), None) if role == "ce" else None
+        pe = next((pt["peer"] for pt in ports if pt["peer"] and pt["peer"] in devs and ROLE[devs[pt["peer"]]["role"]["name"]] == "pe"), None) if role in ("ce", "fw") else None
         rd = {va["vrf"]["name"]: va["rd"] for va in x["vrf_assignments"] if va["rd"]}
         nodes.append({"name": name, "role": role, "dc": dc, "mgmt_ip": x["primary_ip4"]["address"].split("/")[0], "loopback6": lo6,
                       "router_id": ri["router_id"]["address"].split("/")[0] if ri and ri["router_id"] else None, "locator": x["cf_srv6_locator"] or None,
@@ -72,7 +74,7 @@ def inventory_from_nautobot():
     rrs = sorted(n["name"] for n in nodes if n["role"] == "p" and any(ep["role"] and ep["role"]["name"] == "rr" for ri in devs[n["name"]]["bgp_routing_instances"] for ep in ri["endpoints"]))
     core_as = next(n["asn"] for n in nodes if n["role"] == "pe")
     service = {"core_as": core_as, "rr": rrs[0], "rrs": rrs, "isis_area": ctx["isis"]["area"], "tenants": ctx["tenants"],
-               "srv6": {k: ctx["srv6"][k] for k in ("block", "format", "block_len", "node_len", "func_bits")}}
+               "srv6": {k: ctx["srv6"][k] for k in ("block", "format", "block_len", "node_len", "func_bits")}, **({"internet": inet} if inet else {})}
     links, seen = [], set()
     for n in nodes:
         for pt in n["ports"]:

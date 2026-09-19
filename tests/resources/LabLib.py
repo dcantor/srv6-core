@@ -1,6 +1,6 @@
 """Robot Framework keyword library for the SRv6 core lab: VyOS nodes over SSH (netmiko / paramiko for shell
 commands), the Alpine tenant hosts over SSH (paramiko, password auth), and host-side helpers."""
-import ipaddress
+import json, ipaddress
 import os
 import re
 import socket
@@ -201,6 +201,12 @@ class LabLib:
             try: return r.json()
             except ValueError: pass   # newline-delimited JSON (VictoriaLogs): hand back the text
         return r.text
+
+    @keyword
+    def logsql_rows(self, base, query, timeout=30):
+        """VictoriaLogs LogsQL query -> list of dicts (the answer is newline-delimited JSON, one row per line)."""
+        r = requests.get(f"{base}/select/logsql/query", params={"query": query}, timeout=timeout); r.raise_for_status()
+        return [json.loads(l) for l in r.text.splitlines() if l.strip()]
 
     @keyword
     def prometheus_query(self, base, expr, timeout=30):

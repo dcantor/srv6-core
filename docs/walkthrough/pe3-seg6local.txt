@@ -1,2 +1,2 @@
-fd00:c:3:e000:: nhid 558  encap seg6local action End.DT46 vrftable tenant-a dev tenant-a proto bgp metric 20 pref medium
-fd00:c:3:e001:: nhid 559  encap seg6local action End.DT46 vrftable tenant-b dev tenant-b proto bgp metric 20 pref medium
+fd00:c:3:e002:: nhid 558  encap seg6local action End.DT46 vrftable tenant-a dev tenant-a proto bgp metric 20 pref medium
+fd00:c:3:e003:: nhid 559  encap seg6local action End.DT46 vrftable tenant-b dev tenant-b proto bgp metric 20 pref medium

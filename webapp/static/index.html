@@ -36,6 +36,7 @@
   <div class="card"><h2>Tenants <small>one VRF per tenant on every PE and CE; tenants never meet</small>
     <span style="float:right"><button onclick="refresh(true)">Refresh live state</button> <button class="primary" onclick="openWizard()">Add tenant</button></span></h2>
     <div id="tenants"></div></div>
+  <div id="internet"></div>
   <div class="card topo"><h2>Topology <small>hosts coloured by reachability over the OOB network; every link with its prefix and interfaces</small></h2><div id="topo"></div></div>
 </section>
 
@@ -98,6 +99,12 @@ function render() {
       <td>${s.host} <span class="pill ${h.reachable ? 'ok' : (l.host ? 'bad' : '')}">${h.reachable ? 'up' : (l.host ? 'down' : '…')}</span><div class="hint mono">${s.host_ip}${s.host_ip6 ? ' · ' + s.host_ip6 : ''} · oob ${s.host_mgmt}</div></td>
       <td><span class="pill ${l.bgp === 'Established' ? 'ok' : (l.bgp ? 'bad' : '')}">${l.bgp || '…'}</span>${l.bgp6 ? ` <span class="pill ${l.bgp6 === 'Established' ? 'ok' : 'bad'}" title="IPv6 session">v6 ${l.bgp6 === 'Established' ? 'up' : l.bgp6}</span>` : ''}${l.prefixes_from_ce != null ? ` <span class="hint">${l.prefixes_from_ce} pfx</span>` : ''}${l.error ? `<div class="msg">${esc(l.error)}</div>` : ''}</td>
       <td>${l.vrf_routes ?? '…'} (${l.srv6_routes ?? '…'})</td><td class="mono">${l.dt4_sid || '…'}</td></tr>`; }).join('')}</tbody></table></div>`).join('') || '<div class="hint">no tenants</div>';
+  const I = ST.internet; $('internet').innerHTML = !I ? '' : `<div class="card tenant ${I.health || ''}"><h2>Internet breakout <span class="pill ${I.health || ''}">${I.health || 'model'}</span>
+      <small>${I.fw} (AS ${I.asn}) is a CE of every tenant on ${I.pe} — VRF-lite, one circuit per tenant — announcing only a default route; NAT out of ${I.uplink || 'its uplink'} on the host's libvirt network <b>${I.net}</b>; stateful policy tenant → internet only, so the tenants still never meet</small></h2>
+    <table><thead><tr><th>Tenant</th><th>PE</th><th>Attachment circuit</th><th>Firewall</th><th>eBGP FW↔PE</th><th>Default route in the tenant VRF, per PE</th></tr></thead><tbody>
+    ${I.circuits.map(c => { const l = c.live || {}; const d = l.default_route || {}; return `<tr><td><b>${c.tenant}</b></td><td>${c.pe} ${c.pe_port}</td><td class="mono">${c.attachment_circuit}</td><td>${I.fw} ${c.fw_port} <span class="pill ${I.fw_reachable ? 'ok' : (ST.live_done ? 'bad' : '')}">${I.fw_reachable ? 'up' : (ST.live_done ? 'down' : '…')}</span><div class="hint mono">oob ${I.fw_mgmt}</div></td>
+      <td><span class="pill ${l.bgp === 'Established' ? 'ok' : (l.bgp ? 'bad' : '')}">${l.bgp || '…'}</span>${l.prefixes_from_fw != null ? ` <span class="hint">${l.prefixes_from_fw} pfx</span>` : ''}</td>
+      <td>${ST.pes.map(pe => `<span class="pill ${pe in d ? (d[pe] ? 'ok' : 'bad') : ''}">${pe} ${pe in d ? (d[pe] ? '0/0' : 'none') : '…'}</span>`).join(' ')}</td></tr>`; }).join('')}</tbody></table></div>`;
   fetch('/api/topology.svg' + (ST.live_done ? '' : '?live=0')).then(r => r.text()).then(svg => $('topo').innerHTML = svg);
 }
 

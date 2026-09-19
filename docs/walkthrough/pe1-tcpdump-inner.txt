@@ -1,2 +1,2 @@
-22:53:45.680471 IP 172.20.1.2 > 172.20.3.2: ICMP echo request, id 48, seq 0, length 64
-22:53:45.682016 IP 172.20.3.2 > 172.20.1.2: ICMP echo reply, id 48, seq 0, length 64
+03:52:03.205612 IP 172.20.1.2 > 172.20.3.2: ICMP echo request, id 122, seq 0, length 64
+03:52:03.207178 IP 172.20.3.2 > 172.20.1.2: ICMP echo reply, id 122, seq 0, length 64

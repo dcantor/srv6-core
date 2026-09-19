@@ -40,7 +40,7 @@ ensure_networks() {
 # external nodes (EXT_NODES, the IPsec headends) keep their own lab's numbering, so a PE mirrors the headend's fixed port pair
 port_local() { echo $(( ${EXT_UDP_BASE[$1]:-$UDP_BASE} + ${EXT_IDX[$1]:-${NODE_IDX[$1]:-0}}*100 + $2 )); }           # UDP port a node's NIC listens on when it anchors a link
 port_far()   { echo $(( ${EXT_UDP_BASE[$1]:-$UDP_BASE} + 10000 + ${EXT_IDX[$1]:-${NODE_IDX[$1]:-0}}*100 + $2 )); }   # ...and the port it sends to (the other end listens there)
-node_ports() { case "${ROLE[$1]}" in pe) seq 1 "$PE_PORTS";; p) seq 1 "$P_PORTS";; ce) seq 1 "$CE_PORTS";; host) seq 1 "$HOST_PORTS";; ext-ce) seq 1 "$EXT_PORTS";; esac; }
+node_ports() { case "${ROLE[$1]}" in pe) seq 1 "$PE_PORTS";; p) seq 1 "$P_PORTS";; ce) seq 1 "$CE_PORTS";; host) seq 1 "$HOST_PORTS";; ext-ce) seq 1 "$EXT_PORTS";; fw) seq 1 "$FW_PORTS";; esac; }
 port_name()  { [[ "${ROLE[$1]}" == "ext-ce" ]] && echo "GigabitEthernet$2" || echo "eth$2"; }
 mac()        { printf '%s:%02x:%02x' "$MAC_OUI" "${NODE_IDX[$1]}" "$2"; }
 link_peer() {   # node port -> "peer_node peer_port prefix end(1|2) tenant|-" or "" if unwired
@@ -63,10 +63,13 @@ prefix6_of() {  # IPv4 tenant prefix -> its IPv6 twin (172.X.Y.0/n -> V6_MAP:X:Y
 }
 link_ip6() {    # node port -> "address/64" on the IPv6 twin of a tenant link (::1 first end, ::2 second), or empty
   local peer; peer="$(link_peer "$1" "$2")"; [[ -z "$peer" ]] && return
-  read -r _ _ pfx end t <<<"$peer"; [[ "$t" == "-" ]] && return; local p6; p6="$(prefix6_of "$pfx")"; [[ -z "$p6" ]] && return
+  read -r pn _ pfx end t <<<"$peer"; [[ "$t" == "-" ]] && return; local p6; p6="$(prefix6_of "$pfx")"; [[ -z "$p6" ]] && return
+  [[ "${ROLE[$1]}" == "fw" || "${ROLE[$pn]}" == "fw" ]] && return   # the internet breakout is IPv4-only
   echo "${p6%::/64}::$end/64"
 }
 link_addr6() { link_ip6 "$1" "$2" | cut -d/ -f1; }
+link_prefix6() { # nodeA nodeB prefix -> the link's IPv6 twin, or empty when an end is the (IPv4-only) internet firewall
+  [[ "${ROLE[$1]}" == "fw" || "${ROLE[$2]}" == "fw" ]] && return; prefix6_of "$3"; }
 
 # ---- XML generation -------------------------------------------------------
 serial_xml() {
@@ -138,11 +141,25 @@ oob_nic_xml() {
 X
 }
 
-vyos_xml() {       # VyOS PE / P / CE: virtio disk, eth0 = OOB, eth1.. = point-to-point links (black-holed when unwired)
+net_nic_xml() {    # node -> the extra NIC on a libvirt network (NET_PORT[node] = "ethN:network"), e.g. the firewall's NAT uplink
+  local n="$1" p net; [[ -n "${NET_PORT[$n]:-}" ]] || return 0; p="${NET_PORT[$n]%%:*}"; net="${NET_PORT[$n]##*:}"
+  cat <<X
+    <!-- eth$p: libvirt network $net (DHCP) -->
+    <interface type='network'>
+      <mac address='$(mac "$n" "$p")'/>
+      <source network='$net'/>
+      <model type='virtio'/>
+      <address type='pci' domain='0x0000' bus='0x00' slot='$(printf '0x%02x' $((3 + p)))' function='0x0'/>
+    </interface>
+X
+}
+
+vyos_xml() {       # VyOS PE / P / CE / firewall: virtio disk, eth0 = OOB, eth1.. = point-to-point links (black-holed when unwired), NET_PORT extra
   local n="$1" p
-  domain_head_xml "$n" "VyOS ${ROLE[$n]} ($n, ${DC[$n]})" "$VYOS_RAM_MIB" "$VYOS_VCPU"
+  domain_head_xml "$n" "VyOS ${ROLE[$n]} ($n, ${DC[$n]})" "${NODE_RAM_MIB[$n]:-$VYOS_RAM_MIB}" "$VYOS_VCPU"
   oob_nic_xml "$n"
   for p in $(node_ports "$n"); do udp_nic_xml "$n" "$p"; done
+  net_nic_xml "$n"
   serial_xml "$n"
   cat <<X
     <memballoon model='none'/>
@@ -363,7 +380,7 @@ cmd_status() {
   done
   echo; echo "links (point-to-point UDP tunnels):"
   local l a b pfx t; for l in "${LINKS[@]}"; do read -r a b pfx t <<<"$l"
-    echo "  ${a%%:*} $(port_name "${a%%:*}" "${a##*:}") $(link_addr "${a%%:*}" "${a##*:}")  <->  ${b%%:*} $(port_name "${b%%:*}" "${b##*:}") $(link_addr "${b%%:*}" "${b##*:}")   ($pfx${t:+ + $(prefix6_of "$pfx"), $t})"; done
+    echo "  ${a%%:*} $(port_name "${a%%:*}" "${a##*:}") $(link_addr "${a%%:*}" "${a##*:}")  <->  ${b%%:*} $(port_name "${b%%:*}" "${b##*:}") $(link_addr "${b%%:*}" "${b##*:}")   ($pfx${t:+$(p6="$(link_prefix6 "${a%%:*}" "${b%%:*}" "$pfx")"; [[ -n "$p6" ]] && echo " + $p6"), $t})"; done
   echo; for t in "${TENANTS[@]}"; do echo "VRF $t (table ${VRF_TABLE[$t]}, RT ${VRF_RT[$t]}): CE eBGP -> PE, VPNv4 over SRv6 End.DT4, route reflectors ${RRS[*]}"; done
 }
 
@@ -374,7 +391,8 @@ cmd_inventory() {  # the lab as JSON (nodes, links, service) — consumed by tes
     local t tj=""; for t in "${TENANTS[@]}"; do tj+="${tj:+, }\"$t\": {\"table\": ${VRF_TABLE[$t]}, \"rt\": \"${VRF_RT[$t]}\"}"; done
     local rj=""; for t in "${RRS[@]}"; do rj+="${rj:+, }\"$t\""; done
     local sr; if [[ "$SRV6_FORMAT" == usid* ]]; then sr='"format": "usid-f3216", "block_len": 32, "node_len": 16, "func_bits": 16'; else sr='"format": "uncompressed-f4024", "block_len": 40, "node_len": 24, "func_bits": 16'; fi
-    echo ' "service": {"core_as": '"$CORE_AS"', "rr": "'"$RR"'", "rrs": ['"$rj"'], "isis_area": "'"$ISIS_AREA"'", "srv6": {"block": "'"$SRV6_BLOCK"'", '"$sr"'}, "tenants": {'"$tj"'}},'
+    local ij=""; [[ -n "${INTERNET_FW:-}" ]] && ij=', "internet": {"pe": "'"$INTERNET_PE"'", "fw": "'"$INTERNET_FW"'", "net": "'"$INTERNET_NET"'", "asn": '"$INTERNET_AS"'}'
+    echo ' "service": {"core_as": '"$CORE_AS"', "rr": "'"$RR"'", "rrs": ['"$rj"'], "isis_area": "'"$ISIS_AREA"'", "srv6": {"block": "'"$SRV6_BLOCK"'", '"$sr"'}, "tenants": {'"$tj"'}'"$ij"'},'
     echo ' "nodes": ['
     local first=1
     for n in "${ALL_NODES[@]}" "${EXT_NODES[@]}"; do
@@ -388,17 +406,18 @@ cmd_inventory() {  # the lab as JSON (nodes, links, service) — consumed by tes
       local p pf=1 peer
       for p in $(node_ports "$n"); do
         [[ $pf -eq 1 ]] || printf ','; pf=0; peer="$(link_peer "$n" "$p")"
-        if [[ -n "$peer" ]]; then read -r pn pp pfx end t <<<"$peer"; local i6 p6; i6="$(link_ip6 "$n" "$p")"; p6="$(prefix6_of "$pfx")"
+        if [[ -n "$peer" ]]; then read -r pn pp pfx end t <<<"$peer"; local i6 p6; i6="$(link_ip6 "$n" "$p")"; p6="$(link_prefix6 "$n" "$pn" "$pfx")"
           printf '{"name": "%s", "ip": "%s", "peer": "%s", "peer_port": "%s", "prefix": "%s", "tenant": %s, "ip6": %s, "prefix6": %s}' "$(port_name "$n" "$p")" "$(link_ip "$n" "$p")" "$pn" "$(port_name "$pn" "$pp")" "$pfx" "$( [[ "$t" == "-" ]] && echo null || echo "\"$t\"" )" "$( [[ -n "$i6" ]] && echo "\"$i6\"" || echo null )" "$( [[ -n "$p6" && "$t" != "-" ]] && echo "\"$p6\"" || echo null )"
         else printf '{"name": "%s", "ip": null, "peer": null}' "$(port_name "$n" "$p")"; fi
       done
+      if [[ -n "${NET_PORT[$n]:-}" ]]; then printf ',{"name": "eth%s", "ip": "dhcp", "peer": null, "network": "%s"}' "${NET_PORT[$n]%%:*}" "${NET_PORT[$n]##*:}"; fi
       printf ']}'
     done
     echo; echo ' ],'
     echo ' "links": ['
     first=1
     for l in "${LINKS[@]}"; do read -r a b pfx t <<<"$l"; [[ $first -eq 1 ]] || echo ','; first=0
-      local a6 b6 p6; a6="$(link_ip6 "${a%%:*}" "${a##*:}")"; b6="$(link_ip6 "${b%%:*}" "${b##*:}")"; p6="$(prefix6_of "$pfx")"
+      local a6 b6 p6; a6="$(link_ip6 "${a%%:*}" "${a##*:}")"; b6="$(link_ip6 "${b%%:*}" "${b##*:}")"; p6="$(link_prefix6 "${a%%:*}" "${b%%:*}" "$pfx")"
       printf '  {"a": "%s", "a_port": "%s", "a_ip": "%s", "b": "%s", "b_port": "%s", "b_ip": "%s", "prefix": "%s", "tenant": %s, "a_ip6": %s, "b_ip6": %s, "prefix6": %s}' \
         "${a%%:*}" "$(port_name "${a%%:*}" "${a##*:}")" "$(link_ip "${a%%:*}" "${a##*:}")" "${b%%:*}" "$(port_name "${b%%:*}" "${b##*:}")" "$(link_ip "${b%%:*}" "${b##*:}")" "$pfx" "$( [[ -z "$t" ]] && echo null || echo "\"$t\"" )" \
         "$( [[ -n "$a6" ]] && echo "\"$a6\"" || echo null )" "$( [[ -n "$b6" ]] && echo "\"$b6\"" || echo null )" "$( [[ -n "$t" && -n "$p6" ]] && echo "\"$p6\"" || echo null )"

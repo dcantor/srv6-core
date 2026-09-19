@@ -1,0 +1,124 @@
+# fw-inet: FW in dc4 — day-0 pushed over the serial console by lab.sh bootstrap; rendered by tools/render.py
+set system host-name fw-inet
+set system domain-name lab.local
+set system login user vyos authentication plaintext-password vyos
+set service ssh port 22
+set service lldp interface all
+set interfaces ethernet eth0 address 10.3.0.61/24
+set interfaces ethernet eth0 description 'OOB management'
+set protocols static route 10.0.0.0/8 next-hop 10.3.0.1
+# monitoring: Prometheus exporters on the OOB address (node-exporter :9100, frr-exporter :9342), scraped from the NMS
+set service monitoring prometheus node-exporter listen-address 10.3.0.61
+set service monitoring prometheus frr-exporter listen-address 10.3.0.61
+# telemetry pushed by the node itself: VyOS Telegraf -> VictoriaMetrics on the NMS over the InfluxDB v2 write API (host
+# metrics, VyOS service state, kernel nstat counters), every series tagged lab / role / dc; syslog -> VictoriaLogs (UDP 5514)
+set service monitoring telegraf influxdb url http://10.3.0.10
+set service monitoring telegraf influxdb port 8428
+set service monitoring telegraf influxdb bucket srv6-core
+set service monitoring telegraf influxdb authentication organization lab
+set service monitoring telegraf influxdb authentication token srv6core-lab-telegraf_________________________________________________________________==
+set system syslog remote 10.3.0.10 port 5514
+set system syslog remote 10.3.0.10 protocol udp
+set system syslog remote 10.3.0.10 facility all level info
+set service monitoring telegraf global-tag lab value srv6-core
+set service monitoring telegraf global-tag role value fw
+set service monitoring telegraf global-tag dc value dc4
+# eth3: libvirt network 'default' (DHCP) = the host's NAT uplink, default VRF. Source NAT: everything from the
+# tenants leaves with this box's address on that network
+set interfaces ethernet eth3 address dhcp
+set interfaces ethernet eth3 description 'internet: libvirt default (host NAT)'
+set nat source rule 100 outbound-interface name eth3
+set nat source rule 100 source address 172.16.0.0/12
+set nat source rule 100 translation address masquerade
+# the default VRF's BGP instance (no neighbours) only exists to leak: DHCP's default route (a static in FRR) out to the tenant VRFs,
+# the tenants' routes (their circuits and LANs, learnt from the PE) in for the return traffic
+set policy prefix-list DEFAULT-ONLY rule 10 action permit
+set policy prefix-list DEFAULT-ONLY rule 10 prefix 0.0.0.0/0
+set policy route-map DEFAULT-ONLY rule 10 action permit
+set policy route-map DEFAULT-ONLY rule 10 match ip address prefix-list DEFAULT-ONLY
+set protocols bgp system-as 65010
+set protocols bgp parameters router-id 10.3.0.61
+set protocols bgp parameters log-neighbor-changes
+set protocols bgp address-family ipv4-unicast redistribute static route-map DEFAULT-ONLY
+set protocols bgp address-family ipv4-unicast import vrf tenant-a
+set protocols bgp address-family ipv4-unicast import vrf tenant-b
+# tenant-a: eth1 = attachment circuit to pe4 eth5 in VRF tenant-a; eBGP announcing a default route and nothing else
+set vrf name tenant-a table 100
+set interfaces ethernet eth1 vrf tenant-a
+set interfaces ethernet eth1 address 172.16.5.2/30
+set interfaces ethernet eth1 description 'pe4 eth5 (tenant-a)'
+set vrf name tenant-a protocols bgp system-as 65010
+set vrf name tenant-a protocols bgp parameters router-id 172.16.5.2
+set vrf name tenant-a protocols bgp parameters log-neighbor-changes
+set vrf name tenant-a protocols bgp neighbor 172.16.5.1 remote-as 65000
+set vrf name tenant-a protocols bgp neighbor 172.16.5.1 description 'pe4 (tenant-a)'
+set vrf name tenant-a protocols bgp neighbor 172.16.5.1 address-family ipv4-unicast default-originate
+set vrf name tenant-a protocols bgp neighbor 172.16.5.1 address-family ipv4-unicast prefix-list export DEFAULT-ONLY
+set vrf name tenant-a protocols bgp address-family ipv4-unicast import vrf default
+set vrf name tenant-a protocols bgp address-family ipv4-unicast route-map vrf import DEFAULT-ONLY
+# tenant-b: eth2 = attachment circuit to pe4 eth6 in VRF tenant-b; eBGP announcing a default route and nothing else
+set vrf name tenant-b table 200
+set interfaces ethernet eth2 vrf tenant-b
+set interfaces ethernet eth2 address 172.18.5.2/30
+set interfaces ethernet eth2 description 'pe4 eth6 (tenant-b)'
+set vrf name tenant-b protocols bgp system-as 65010
+set vrf name tenant-b protocols bgp parameters router-id 172.18.5.2
+set vrf name tenant-b protocols bgp parameters log-neighbor-changes
+set vrf name tenant-b protocols bgp neighbor 172.18.5.1 remote-as 65000
+set vrf name tenant-b protocols bgp neighbor 172.18.5.1 description 'pe4 (tenant-b)'
+set vrf name tenant-b protocols bgp neighbor 172.18.5.1 address-family ipv4-unicast default-originate
+set vrf name tenant-b protocols bgp neighbor 172.18.5.1 address-family ipv4-unicast prefix-list export DEFAULT-ONLY
+set vrf name tenant-b protocols bgp address-family ipv4-unicast import vrf default
+set vrf name tenant-b protocols bgp address-family ipv4-unicast route-map vrf import DEFAULT-ONLY
+# stateful firewall: each tenant may go out to the internet, nothing else is forwarded (so no tenant -> tenant), nothing new
+# comes in from the internet side; management only from the OOB network
+set firewall ipv4 forward filter default-action drop
+set firewall ipv4 forward filter rule 5 action accept
+set firewall ipv4 forward filter rule 5 state established
+set firewall ipv4 forward filter rule 5 state related
+set firewall ipv4 forward filter rule 5 description 'established / related'
+set firewall ipv4 forward filter rule 8 action drop
+set firewall ipv4 forward filter rule 8 destination address 172.16.0.0/12
+set firewall ipv4 forward filter rule 8 log
+set firewall ipv4 forward filter rule 8 description 'tenant -> tenant: never through the breakout (a tenant VRF only ever sends the other tenants addresses here)'
+set firewall ipv4 forward filter rule 10 action accept
+set firewall ipv4 forward filter rule 10 inbound-interface name tenant-a
+set firewall ipv4 forward filter rule 10 outbound-interface name eth3
+set firewall ipv4 forward filter rule 10 source address 172.16.0.0/12
+set firewall ipv4 forward filter rule 10 description 'tenant-a -> internet'
+set firewall ipv4 forward filter rule 11 action accept
+set firewall ipv4 forward filter rule 11 inbound-interface name tenant-b
+set firewall ipv4 forward filter rule 11 outbound-interface name eth3
+set firewall ipv4 forward filter rule 11 source address 172.16.0.0/12
+set firewall ipv4 forward filter rule 11 description 'tenant-b -> internet'
+set firewall ipv4 forward filter rule 900 action drop
+set firewall ipv4 forward filter rule 900 log
+set firewall ipv4 forward filter rule 900 description 'log everything else (tenant -> tenant included)'
+set firewall ipv4 input filter default-action drop
+set firewall ipv4 input filter rule 1 action accept
+set firewall ipv4 input filter rule 1 inbound-interface name lo
+set firewall ipv4 input filter rule 1 description 'loopback (the resolver, FRR)'
+set firewall ipv4 input filter rule 5 action accept
+set firewall ipv4 input filter rule 5 state established
+set firewall ipv4 input filter rule 5 state related
+set firewall ipv4 input filter rule 10 action accept
+set firewall ipv4 input filter rule 10 inbound-interface name eth0
+set firewall ipv4 input filter rule 10 description 'OOB management'
+set firewall ipv4 input filter rule 20 action accept
+set firewall ipv4 input filter rule 20 inbound-interface name eth1
+set firewall ipv4 input filter rule 20 protocol tcp
+set firewall ipv4 input filter rule 20 destination port 179
+set firewall ipv4 input filter rule 20 description 'BGP from the PE (tenant-a)'
+set firewall ipv4 input filter rule 21 action accept
+set firewall ipv4 input filter rule 21 inbound-interface name eth2
+set firewall ipv4 input filter rule 21 protocol tcp
+set firewall ipv4 input filter rule 21 destination port 179
+set firewall ipv4 input filter rule 21 description 'BGP from the PE (tenant-b)'
+set firewall ipv4 input filter rule 30 action accept
+set firewall ipv4 input filter rule 30 protocol icmp
+set firewall ipv4 input filter rule 30 description 'ping'
+set firewall ipv4 input filter rule 40 action accept
+set firewall ipv4 input filter rule 40 inbound-interface name eth3
+set firewall ipv4 input filter rule 40 protocol udp
+set firewall ipv4 input filter rule 40 source port 67
+set firewall ipv4 input filter rule 40 description 'DHCP from the host'

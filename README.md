@@ -6,8 +6,9 @@ per data centre serving **two tenants** — `tenant-a` (host h1) and `tenant-b` 
 CE and over its own attachment circuit into its own VRF on the PE, and an **Alpine Linux host** (iperf3, tcpdump, mtr)
 per tenant per site. The core is IPv6-only with IS-IS level-2 carrying the SRv6 locators; each tenant's IPv4 prefixes travel
 as BGP VPNv4 routes whose next hop is that tenant's **SRv6 End.DT46 SID** on the remote PE, so every h1 reaches every
-other h1, every h2 every other h2, and the two never meet — not even at the same site. Nineteen VMs (plus one CirrOS host per site per extra tenant), about 13 GiB of
-RAM, all VyOS nodes 1 vCPU / 1 GiB.
+other h1, every h2 every other h2, and the two never meet — not even at the same site. A small **VyOS firewall** (`fw-inet`)
+is a CE of both tenants on pe4 and gives every site a NATed way out to the internet through the host's own uplink. Twenty VMs
+(plus one CirrOS host per site per extra tenant), about 14 GiB of RAM, all VyOS nodes 1 vCPU / 1 GiB.
 
 ```
  hosts (Alpine)   dc1-h1 172.20.1.2  dc1-h2 172.21.1.2   … the same in dc2, dc3, dc4 (172.20.n / 172.21.n)
@@ -97,6 +98,7 @@ via p3→p1 half the time); per-locator entries keep the forwarding plane consis
 | p2 | p | 10.3.0.22 | fd00:a::12 | 10.255.0.12 | 49.0001.0000.0000.0012.00 | fd00:c:12::/48 | – |
 | p3 | p (RR) | 10.3.0.23 | fd00:a::13 | 10.255.0.13 | 49.0001.0000.0000.0013.00 | fd00:c:13::/48 | 65000 |
 | ce1..ce4 | ce | 10.3.0.31-34 | – | 172.20.*n*.1 (tenant-a) / 172.21.*n*.1 (tenant-b) | – | – | 6500*n* |
+| fw-inet | fw (internet breakout) | 10.3.0.61 | – | 172.16.5.2 (tenant-a) / 172.18.5.2 (tenant-b) / 10.3.0.61 (default VRF) | – | – | 65010 |
 | dc*n*-h1 | host (tenant-a) | 10.3.0.41-44 | – | – | – | – | – |
 | dc*n*-h2 | host (tenant-b) | 10.3.0.51-54 | – | – | – | – | – |
 
@@ -110,6 +112,8 @@ via p3→p1 half the time); per-locator entries keep the forwarding plane consis
 | pe*n*–ce*n* tenant-b | 172.18.*n*.0/30 | pe*n* eth4 | ce*n* eth3 |
 | ce*n*–dc*n*-h1 | 172.20.*n*.0/24 | ce*n* eth2 (gateway) | dc*n*-h1 eth1 |
 | ce*n*–dc*n*-h2 | 172.21.*n*.0/24 | ce*n* eth4 (gateway) | dc*n*-h2 eth1 |
+| pe4–fw-inet tenant-a, tenant-b (internet breakout, IPv4 only) | 172.16.5.0/30, 172.18.5.0/30 | pe4 eth5, pe4 eth6 | fw-inet eth1, fw-inet eth2 |
+| fw-inet eth3 | libvirt `default` (192.168.122.0/24, DHCP) | the host's NAT network = the internet | – |
 | headend–pe*n* tenant-a (external CE, IPsec lab — when attached) | 172.19.*n*.0/30 | east/central/west-headend GigabitEthernet3 | pe1/pe2/pe3 eth5 |
 
 **Dual-stack**: every tenant link has an IPv6 twin derived by rule from the IPv4 prefix — `172.X.Y.0/…` → `fd00:X:Y::/64`
@@ -119,7 +123,7 @@ session per family to the CE, VPNv4 **and VPNv6** to both reflectors, and **one 
 auto`) that decapsulates both families — the same SID and transposed label appear on `172.20.3.0/24` and `fd00:20:3::/64`.
 
 VRFs: `tenant-a` table 100, RT 65000:100, RD 65000:10*n*; `tenant-b` table 200, RT 65000:200, RD 65000:20*n* (*n* = PE
-number). OOB network `srv6-oob` 10.3.0.0/24, host 10.3.0.1; serial consoles 127.0.0.1:5301–5319.
+number). OOB network `srv6-oob` 10.3.0.0/24, host 10.3.0.1; serial consoles 127.0.0.1:5301–5320 (5320 = fw-inet).
 
 Links: core `fd00:b:0:<ab>::/64` (`ab` = the two node numbers, e.g. p1–p2 `fd00:b:0:12::/64`, p2–pe1 `fd00:b:0:201::/64`);
 tenant-a: PE–CE `172.16.n.0/30` (PE .1), CE–host `172.20.n.0/24`; tenant-b: PE–CE `172.18.n.0/30`, CE–host `172.21.n.0/24`
@@ -272,6 +276,45 @@ Every device exports metrics on its OOB address and the NMS keeps them:
   two minutes, and a ping burst whose encapsulated flow (pe1 loopback → pe3's uDT4 SID, IPv6-Route) must be sampled by
   pe1 and by a P router.
 
+## Internet breakout: one firewall, every tenant, NAT out of the host
+`fw-inet` (VyOS, 1 GiB) is a **CE of every tenant on pe4** — VRF-lite: one attachment circuit per tenant (`172.16.5.0/30`,
+`172.18.5.0/30`, circuit 5 of each tenant's block), each in that tenant's VRF on the firewall too, with an eBGP session
+(AS 65010) that announces **nothing but a default route** (`default-originate`, export prefix-list `DEFAULT-ONLY`; pe4 also
+accepts only `0.0.0.0/0` from it). The default route becomes an ordinary VPNv4 route under pe4's RD for the tenant, carried to
+every other PE with **pe4's End.DT46 SID for that tenant** — so on pe1 `ip route show vrf tenant-a default` is
+`encap seg6 … [ fd00:c:4:e0xx:: ]`, exactly like any other tenant route, and every CE learns it over its own session.
+
+The firewall's third port sits on the libvirt `default` network (DHCP, the host's own NAT uplink) in its **default VRF**:
+- routing between the VRFs is BGP `import vrf` on the firewall (no SRv6 there, so plain kernel routes): DHCP's default route (a
+  static in FRR) is redistributed and imported into each tenant VRF through the `DEFAULT-ONLY` route-map; the default VRF
+  imports the tenants' routes (their circuits and LANs, learnt from pe4) for the return traffic;
+- `nat source … masquerade` on the uplink for `172.16.0.0/12`;
+- a stateful **forward** policy: established/related, then *tenant VRF → uplink* per tenant, everything else dropped and logged —
+  including anything for `172.16.0.0/12` (rule 8: a tenant VRF only ever sends the *other* tenant's addresses here, since its
+  own are routed within the VPN), so the tenants still never meet, not even through the breakout;
+- an **input** policy that drops by default: loopback, management from the OOB network, BGP from pe4 on the tenant ports, ICMP
+  and DHCP from the host — nothing new from the internet side.
+
+In the forward hook of a VRF-enslaved interface, nftables sees the **VRF device** as the input interface (`IN=tenant-a`, not
+`eth1`), so the per-tenant rules match on the VRF name; this is what the log lines show too.
+
+**Why not an "internet VRF" with route-target import/export?** That was built first: VRF `internet` on pe4 exporting the
+default with RT 65000:300, tenants importing it, the internet VRF importing the tenants' RTs. Two things sank it: (1) a VPN
+route leaked *locally* between two VRFs on the same PE is installed by FRR 10.6 with the exporting VRF's SRv6 encapsulation
+(`encap seg6 … via <IPv4 next hop>`), which the kernel cannot forward — the sites attached to pe4 needed static cross-VRF
+routes to work around it; (2) the internet VRF held routes to every tenant, so a tenant-a packet to a tenant-b address rode
+the default route to pe4 and was forwarded on to tenant-b — a transit path that bypasses the firewall, and one that cannot be
+closed with a firewall rule on the PE, because SRv6 re-encapsulation (`seg6_input`) skips the IPv4 forward hook. The VRF-lite
+firewall has neither problem: no cross-VRF import on any PE, and the only place the tenants meet is a box whose policy is
+"tenant → internet".
+
+`./lab.sh inventory` carries `service.internet` (`pe`, `fw`, `net`, `asn`); the portal shows an **Internet breakout** card
+(firewall reachable, both sessions, a default route per tenant per PE) and exports `lab_internet_fw_reachable`,
+`lab_internet_bgp_up{tenant,pe}` and `lab_internet_default_route{tenant,pe}`; Nautobot models the firewall as role `srv6-fw`
+with its VRFs, circuits, peerings and the BGP `import vrf` attributes; suite 14 proves all of it. The breakout serves the
+tenants that have a circuit to the firewall in `lab.conf` (`FW_PORTS` ports, one per tenant); a tenant added through the
+portal has none until a `pe4:<n> fw-inet:<m> … <tenant>` link is added and pe4 / fw-inet are re-rendered and configured.
+
 ## Interconnect (optional): the IPsec lab as branches of tenant-a
 The [cat8000v-ipsec](https://github.com/dcantor/cat8000v-ipsec) lab (three C8000v headends behind VyOS firewalls, five
 spokes over IKEv2/IPsec VTIs, eBGP) can be attached to this core: **every headend becomes a CE of tenant-a** on its data
@@ -341,7 +384,7 @@ rendered line is on the routers — suite 09 asserts both plus the model itself.
 invisible to REST reads (verify through GraphQL), VRF prefixes go through `vrf-prefix-assignments`, GraphQL returns
 choice fields upper-cased, and new custom fields need a Nautobot restart before GraphQL sees them.
 
-## Tests (`./lab.sh test`, 71 cases)
+## Tests (`./lab.sh test`, 81 cases)
 | Suite | Checks |
 |---|---|
 | 01 management | every node on the OOB network with SSH, host names, host LAN addresses, MTU 9000 on all core links, config saved |
@@ -353,9 +396,10 @@ choice fields upper-cased, and new custom fields need a Nautobot restart before 
 | 08 failover | BFD up on all 24 adjacencies; silent cut of p2–pe3 with a live 0.2 s ping: pe3 moves every tenant route to p3 within seconds, BFD reports Down, ≤ 10 packets lost across cut and repair (measured: 4); all BFD sessions and adjacencies back afterwards |
 | 09 nautobot | every device/link/address/VRF/RD/peering in Nautobot matches the inventory; Nautobot's rendering == lab.conf's; every rendered line present on the routers |
 | 10 throughput | iperf3 dc1 → dc3: TCP above the floor, UDP at 20 Mbit/s with no loss; **the core carries 100 Mbit/s host to host** — UDP at a 100 Mbit/s offered rate for 10 s with < 5 % loss and < 5 ms jitter and TCP ≥ 90 Mbit/s, dc1→dc3 in tenant-a and dc4→dc2 in tenant-b (measured 0.1–2.4 % loss, 98–127 Mbit/s TCP); steered (uSID and uncompressed) within half of the shortest path |
-| 11 monitoring | node-exporter + frr-exporter on every VyOS node (every PE BGP session Established per the exporter), node-exporter on every host, the portal's `/api/sd` lists every exporter and `/metrics` reports every tenant up / core fully adjacent; Prometheus scrapes all 31 lab targets, the alert rules are loaded and none fires, VictoriaMetrics holds the remote-written series **and the Telegraf series every node pushes** (tags, freshness, no FRR daemon down), every node's syslog is in VictoriaLogs, the log-derived alert rules are healthy and a live BGP reset raises one, sFlow samples from every core node show the encapsulated flow of a ping burst, Grafana serves the provisioned dashboards with the annotation layers |
+| 11 monitoring | node-exporter + frr-exporter on every VyOS node (every PE BGP session Established per the exporter), node-exporter on every host, the portal's `/api/sd` lists every exporter and `/metrics` reports every tenant up / core fully adjacent; Prometheus scrapes all 31 lab targets, the alert rules are loaded and none fires, VictoriaMetrics holds the remote-written series **and the Telegraf series every node pushes** (tags, freshness, no FRR daemon down), every node's syslog is in VictoriaLogs, the log-derived alert rules are healthy and a live BGP reset raises one, sFlow samples from every P router show the encapsulated flow of a ping burst, Grafana serves the provisioned dashboards with the annotation layers |
 | 12 interconnect | the IPsec headends as tenant-a CEs: PE↔headend eBGP with the right AS, headend + branch LANs on every PE with a SID from the attaching PE's locator and under its RD at the reflectors, absent from tenant-b, dc host ↔ branch pings both ways, the path dc → PE → core → headend → IPsec tunnel → branch, SRv6 encapsulation on p2 (skipped without `EXT_NODES`) |
 | 13 dual-stack | per VRF an Established IPv6 eBGP session with the CE announcing its IPv6 LAN; every IPv6 LAN at both reflectors under the right RD and on every PE once per reflector; **one End.DT46 per VRF** with the same SID and label on the IPv4 and the IPv6 route; SRv6 encap routes for every remote IPv6 LAN in the right VRF only; the 8×7 IPv6 host matrix (in-tenant ok, cross-tenant none); IPv6-in-IPv6 on p2 towards the same SID |
+| 14 internet | the firewall has a DHCP address and default route on the uplink and reaches the internet itself; Established as a CE of every tenant on pe4 sending exactly one prefix; the default route on every PE per tenant as an SRv6 route to pe4's End.DT46 SID (via the firewall on pe4 itself); one default per tenant under pe4's RD at both reflectors; every host of every tenant pings a public address and fetches a web page; packets leave masqueraded with the uplink address and the path crosses the firewall; a cross-tenant ping fails **and the firewall logs it as dropped**; input policy default-drop with only management / BGP / DHCP open, masquerade rule present; the portal's breakout metrics all 1 |
 | 05 end to end | every host reaches every host of its tenant (2 × 4×3 pings) and **none of the other tenant's**, not even at the same site; dc1→dc3 traffic transits p2 with `tcpdump` showing `IP6 fd00:a::1 > fd00:c:3:…` both ways; P routers hold no VRF and no tenant routes |
 
 Every run lands in `results/<timestamp>/` — `report.html`, `log.html`, `output.xml`, and `configs/{pre-run,post-run}/` with
@@ -392,7 +436,7 @@ a terminal page; run it with the cat8000v-ipsec `webapp/.venv` python).
 ## What is where
 | Path | Purpose |
 |---|---|
-| `lab.conf` | the topology: nodes, roles, addresses, `LINKS`, service parameters (AS, VRF, RT, RR); `EXT_NODES` = the IPsec headends attached as external CEs |
+| `lab.conf` | the topology: nodes, roles, addresses, `LINKS`, service parameters (AS, VRF, RT, RR); `INTERNET_*` / `NET_PORT` = the breakout firewall and its libvirt uplink; `EXT_NODES` = the IPsec headends attached as external CEs |
 | `lab.sh` | libvirt controller: `up down bootstrap configure steer nautobot wait status inventory verify test console ssh log rebuild clean` |
 | `nautobot/seed.py`, `nautobot/render.py`, `nautobot/srv6-core-model.graphql` | model the lab in Nautobot; render the configs from it; the saved query |
 | `tools/render.py` | the one config renderer (inventory → VyOS `set` lines), used by `gen_configs.py` and `nautobot/render.py` |
@@ -438,8 +482,12 @@ a terminal page; run it with the cat8000v-ipsec `webapp/.venv` python).
 - **Hosts are Alpine** (cloud-init NoCloud): `network-config` v2 by MAC gives static addresses on every boot (`to: 0.0.0.0/0`,
   not `default`, for the route — this cloud-init rejects the word); the image has iperf3 / tcpdump / mtr but no `sudo`.
   The earlier CirrOS hosts were replaced because they had no iperf3 and re-ran user-data only per instance-id.
+- **The firewall needs the full 1 GiB**: at 512 MiB a VyOS node with Telegraf and the exporters thrashes (load 8, SSH logins
+  of 20–40 s). And a default-drop **input** policy must accept `lo` explicitly, or the resolver's queries to 127.0.0.1 hang
+  every login until they time out.
 - **Don't run this alongside the cat9000v lab** (two 18 GiB Cat9kv); with the IPsec lab down there is ample headroom.
 
 ## Next
 TI-LFA / a full P-router failure, steering policies with fallback modelled in Nautobot, Golden Config compliance for VyOS,
-Alertmanager notifications, blackbox / synthetic probes, sFlow from the P routers, syslog (Loki / VictoriaLogs).
+Alertmanager notifications, blackbox / synthetic probes; IPv6 for the internet breakout (NAT66 or a routed prefix) once the
+host uplink has it.

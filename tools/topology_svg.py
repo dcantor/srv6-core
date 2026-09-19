@@ -5,7 +5,7 @@ import html
 
 TENANT_COLORS = ["#475569", "#7c3aed", "#0891b2", "#b45309", "#be185d", "#15803d", "#4338ca", "#a16207"]
 DC_COLORS = ["#eff6ff", "#fdf4ff", "#f0fdf4", "#fefce8", "#fff1f2", "#f0f9ff"]
-FILL = {"p": ("#fde7d6", "#c2410c"), "pe": ("#fee2e2", "#b91c1c"), "ce": ("#dbeafe", "#1d4ed8"), "host": ("#dcfce7", "#15803d"), "ext-ce": ("#f1f5f9", "#475569")}
+FILL = {"p": ("#fde7d6", "#c2410c"), "pe": ("#fee2e2", "#b91c1c"), "ce": ("#dbeafe", "#1d4ed8"), "host": ("#dcfce7", "#15803d"), "ext-ce": ("#f1f5f9", "#475569"), "fw": ("#f3e8ff", "#6b21a8")}
 
 
 def draw(inv, live=None):
@@ -14,12 +14,12 @@ def draw(inv, live=None):
     tenants = sorted(S["tenants"], key=lambda t: S["tenants"][t]["table"]); tcolor = {t: TENANT_COLORS[i % len(TENANT_COLORS)] for i, t in enumerate(tenants)}
     dcs = sorted({n["dc"] for n in inv["nodes"] if n["dc"] != "core"})
     hosts_of = {dc: sorted((n for n in inv["nodes"] if n["role"] == "host" and n["dc"] == dc), key=lambda h: tenants.index(next(p["tenant"] for p in h["ports"] if p["peer"])) if any(p["peer"] for p in h["ports"]) else 99) for dc in dcs}
-    ext_of = {dc: [n for n in inv["nodes"] if n["role"] == "ext-ce" and n["dc"] == dc] for dc in dcs}   # another lab's routers attached here (IPsec headends)
+    ext_of = {dc: [n for n in inv["nodes"] if n["role"] in ("ext-ce", "fw") and n["dc"] == dc] for dc in dcs}   # attached beside the CE: another lab's routers (IPsec headends), the internet breakout firewall
     HW, HGAP = 172, 10; lane_w = {dc: max(380 + (340 if ext_of[dc] else 0), len(hosts_of[dc]) * (HW + HGAP) + 40) for dc in dcs}
     GAP = 24; x = 30; DCX = {}
     for dc in dcs: DCX[dc] = x + lane_w[dc] / 2; x += lane_w[dc] + GAP
-    W = max(x + 6, 1200); ROWS = {"p": 175, "pe": 380, "ce": 560, "host": 720, "ext-ce": 560}; H = 790
-    BOX = {"p": (240, 74), "pe": (270, 62 + 14 * len(tenants)), "ce": (min(340, min(lane_w.values()) - 30), 48 + 14 * len(tenants)), "host": (HW, 56), "ext-ce": (300, 62)}
+    W = max(x + 6, 1200); ROWS = {"p": 175, "pe": 380, "ce": 560, "host": 720, "ext-ce": 560, "fw": 560}; H = 790
+    BOX = {"p": (240, 74), "pe": (270, 62 + 14 * len(tenants)), "ce": (min(340, min(lane_w.values()) - 30), 48 + 14 * len(tenants)), "host": (HW, 56), "ext-ce": (300, 62), "fw": (310, 48 + 14 * (len(tenants) + 1))}
     ps = sorted(n["name"] for n in inv["nodes"] if n["role"] == "p")
     core_left, core_right = 150, W - 150; PX = {p: core_left + (core_right - core_left) * (i + 0.5) / len(ps) for i, p in enumerate(ps)}
     COLS = {**{n["name"]: DCX[n["dc"]] for n in inv["nodes"] if n["role"] in ("pe", "ce")}, **PX}
@@ -68,14 +68,15 @@ def draw(inv, live=None):
                        f'<text x="{qx + (7 if ax >= bx else -7)}" y="{qy + 4}" class="port" text-anchor="{"start" if ax >= bx else "end"}">{l["b_port"]}</text>')
             continue
         col = tcolor.get(l.get("tenant"), "#64748b")
-        if {ra, rb} == {"pe", "ext-ce"}:   # the external CE (first end) hangs off the PE's right edge
-            pe_, ext_ = (a, b) if ra == "pe" else (b, a)
-            ax, ay = edge(pe_, ROWS["ext-ce"], BOX["pe"][0] / 2 - 12); bx, by = edge(ext_, ROWS["pe"])
+        if {ra, rb} in ({"pe", "ext-ce"}, {"pe", "fw"}):   # the external CE / the firewall hangs off the PE's right edge (one line per tenant circuit)
+            pe_, ext_ = (a, b) if ra == "pe" else (b, a); k = len(tenants); i = tenants.index(l["tenant"]) if l.get("tenant") in tenants else 0
+            ax, ay = edge(pe_, ROWS["ext-ce"], BOX["pe"][0] / 2 - 12 - 18 * i); bx, by = edge(ext_, ROWS["pe"], (i - (k - 1) / 2) * 60 if rb == "fw" or ra == "fw" else 0)
             out.append(f'<line x1="{ax:.0f}" y1="{ay}" x2="{bx:.0f}" y2="{by}" class="access" style="stroke:{col};stroke-dasharray:5 3"/>')
             mx, my = (ax + bx) / 2, (ay + by) / 2
-            out.append(f'<text x="{mx + 6:.0f}" y="{my + 4}" class="lbl" style="fill:{col}">{l["prefix"]}</text>'
-                       f'<text x="{ax + 6:.0f}" y="{ay + 13}" class="port">{l["b_port"] if rb == "pe" else l["a_port"]} .2</text>'
-                       f'<text x="{bx + 6:.0f}" y="{by - 5}" class="port">{l["a_port"] if ra == "ext-ce" else l["b_port"]} .1</text>')
+            pe_port, far_port = (l["a_port"], l["b_port"]) if ra == "pe" else (l["b_port"], l["a_port"]); pe_end = l["a_ip" if ra == "pe" else "b_ip"].split("/")[0].split(".")[-1]
+            out.append(f'<text x="{mx + 6:.0f}" y="{my + 4 + 12 * i}" class="lbl" style="fill:{col}">{l["prefix"]}</text>'
+                       f'<text x="{ax + 6:.0f}" y="{ay + 13 + 11 * i}" class="port">{pe_port} .{pe_end}</text>'
+                       f'<text x="{bx + 6:.0f}" y="{by - 5}" class="port">{far_port} .{3 - int(pe_end)}</text>')
             continue
         if ra == "pe" and rb == "ce":   # attachment circuits fan out under the PE
             k = len(tenants); i = tenants.index(l["tenant"]); off = (i - (k - 1) / 2) * (BOX["pe"][0] / (k + 0.5))
@@ -96,10 +97,14 @@ def draw(inv, live=None):
             lans6 = {p["tenant"]: p.get("prefix6") for p in n["ports"] if p["peer"] and N[p["peer"]]["role"] == "host"}
             lines = [f'AS {n["asn"]} · eBGP v4 + v6 → {n["pe"]} per tenant'] + [f'VRF {t}: {lans[t]}' + (f' · {lans6[t]}' if lans6.get(t) else '') for t in tenants if t in lans]
         elif n["role"] == "ext-ce": lines = [f'AS {n["asn"]} · IPsec headend ({n.get("lab", "external")})', f'eBGP → {n["pe"]} in {next(p["tenant"] for p in n["ports"] if p["peer"])}', "announces its site + branch LANs"]
+        elif n["role"] == "fw":
+            up = next((p for p in n["ports"] if p.get("network")), None)
+            lines = [f'AS {n["asn"]} · CE of every tenant (VRF-lite), 0/0 only'] + [f'VRF {t}: {p["name"]} → {p["peer"]} {p["peer_port"]}' for t in tenants for p in n["ports"] if p.get("tenant") == t] + (
+                    [f'{up["name"]}: libvirt {up["network"]} (DHCP) · NAT · stateful'] if up else [])
         else:
             t = next((p["tenant"] for p in n["ports"] if p["peer"]), None); lines = [f'{n["ports"][0]["ip"]} · gw .1', (n["ports"][0].get("ip6") or "") + (" · gw ::1" if n["ports"][0].get("ip6") else "") or (t or "unwired")]
             if live and n["name"] in live: fill = "#dcfce7" if live[n["name"]].get("reachable") else "#fee2e2"; stroke = "#15803d" if live[n["name"]].get("reachable") else "#b91c1c"
-        role = {"p": "P" + (" / RR" if n["name"] in S["rrs"] else ""), "pe": "PE", "ce": "CE", "host": "host", "ext-ce": "external CE"}[n["role"]]
+        role = {"p": "P" + (" / RR" if n["name"] in S["rrs"] else ""), "pe": "PE", "ce": "CE", "host": "host", "ext-ce": "external CE", "fw": "internet firewall"}[n["role"]]
         out.append(f'<g><rect x="{x0 - w / 2:.0f}" y="{y0 - h / 2:.0f}" width="{w:.0f}" height="{h:.0f}" rx="9" fill="{fill}" stroke="{stroke}" stroke-width="1.6"/>'
                    f'<text x="{x0 - w / 2 + 10:.0f}" y="{y0 - h / 2 + 19:.0f}" class="name">{n["name"]}</text><text x="{x0 + w / 2 - 10:.0f}" y="{y0 - h / 2 + 19:.0f}" text-anchor="end" class="role">{role} · {n["mgmt_ip"]}</text>'
                    + "".join(f'<text x="{x0 - w / 2 + 10:.0f}" y="{y0 - h / 2 + 19 + 14 * (i + 1):.0f}" class="sub">{html.escape(t)}</text>' for i, t in enumerate(lines)) + "</g>")

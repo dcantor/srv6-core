@@ -1,4 +1,4 @@
-BGP table version is 485, local router ID is 10.255.0.11, vrf id 0
+BGP table version is 611, local router ID is 10.255.0.11, vrf id 0
 Default local pref 100, local AS 65000
 Status codes:  s suppressed, d damped, h history, u unsorted, * valid, > best, = multipath,
                i internal, r RIB-failure, S Stale, R Removed
@@ -19,14 +19,18 @@ Route Distinguisher: 65000:102
     UN=fd00:a::2 EC{65000:100} label=917504 sid=fd00:c:2:: sid_structure=[32,16,16,0] type=bgp, subtype=0
 Route Distinguisher: 65000:103
  *>i 172.16.3.0/30    fd00:a::3                0    100      0 ?
-    UN=fd00:a::3 EC{65000:100} label=917504 sid=fd00:c:3:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+    UN=fd00:a::3 EC{65000:100} label=917536 sid=fd00:c:3:: sid_structure=[32,16,16,0] type=bgp, subtype=0
  *>i 172.20.3.0/24    fd00:a::3                0    100      0 65003 i
-    UN=fd00:a::3 EC{65000:100} label=917504 sid=fd00:c:3:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+    UN=fd00:a::3 EC{65000:100} label=917536 sid=fd00:c:3:: sid_structure=[32,16,16,0] type=bgp, subtype=0
 Route Distinguisher: 65000:104
+ *>i 0.0.0.0/0        fd00:a::4                0    100      0 65010 i
+    UN=fd00:a::4 EC{65000:100} label=917536 sid=fd00:c:4:: sid_structure=[32,16,16,0] type=bgp, subtype=0
  *>i 172.16.4.0/30    fd00:a::4                0    100      0 ?
-    UN=fd00:a::4 EC{65000:100} label=917504 sid=fd00:c:4:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+    UN=fd00:a::4 EC{65000:100} label=917536 sid=fd00:c:4:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *>i 172.16.5.0/30    fd00:a::4                0    100      0 ?
+    UN=fd00:a::4 EC{65000:100} label=917536 sid=fd00:c:4:: sid_structure=[32,16,16,0] type=bgp, subtype=0
  *>i 172.20.4.0/24    fd00:a::4                0    100      0 65004 i
-    UN=fd00:a::4 EC{65000:100} label=917504 sid=fd00:c:4:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+    UN=fd00:a::4 EC{65000:100} label=917536 sid=fd00:c:4:: sid_structure=[32,16,16,0] type=bgp, subtype=0
 Route Distinguisher: 65000:201
  *>i 172.18.1.0/30    fd00:a::1                0    100      0 ?
     UN=fd00:a::1 EC{65000:200} label=917520 sid=fd00:c:1:: sid_structure=[32,16,16,0] type=bgp, subtype=0
@@ -34,18 +38,22 @@ Route Distinguisher: 65000:201
     UN=fd00:a::1 EC{65000:200} label=917520 sid=fd00:c:1:: sid_structure=[32,16,16,0] type=bgp, subtype=0
 Route Distinguisher: 65000:202
  *>i 172.18.2.0/30    fd00:a::2                0    100      0 ?
-    UN=fd00:a::2 EC{65000:200} label=917520 sid=fd00:c:2:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+    UN=fd00:a::2 EC{65000:200} label=917552 sid=fd00:c:2:: sid_structure=[32,16,16,0] type=bgp, subtype=0
  *>i 172.21.2.0/24    fd00:a::2                0    100      0 65002 i
-    UN=fd00:a::2 EC{65000:200} label=917520 sid=fd00:c:2:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+    UN=fd00:a::2 EC{65000:200} label=917552 sid=fd00:c:2:: sid_structure=[32,16,16,0] type=bgp, subtype=0
 Route Distinguisher: 65000:203
  *>i 172.18.3.0/30    fd00:a::3                0    100      0 ?
-    UN=fd00:a::3 EC{65000:200} label=917520 sid=fd00:c:3:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+    UN=fd00:a::3 EC{65000:200} label=917552 sid=fd00:c:3:: sid_structure=[32,16,16,0] type=bgp, subtype=0
  *>i 172.21.3.0/24    fd00:a::3                0    100      0 65003 i
-    UN=fd00:a::3 EC{65000:200} label=917520 sid=fd00:c:3:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+    UN=fd00:a::3 EC{65000:200} label=917552 sid=fd00:c:3:: sid_structure=[32,16,16,0] type=bgp, subtype=0
 Route Distinguisher: 65000:204
+ *>i 0.0.0.0/0        fd00:a::4                0    100      0 65010 i
+    UN=fd00:a::4 EC{65000:200} label=917552 sid=fd00:c:4:: sid_structure=[32,16,16,0] type=bgp, subtype=0
  *>i 172.18.4.0/30    fd00:a::4                0    100      0 ?
-    UN=fd00:a::4 EC{65000:200} label=917520 sid=fd00:c:4:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+    UN=fd00:a::4 EC{65000:200} label=917552 sid=fd00:c:4:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *>i 172.18.5.0/30    fd00:a::4                0    100      0 ?
+    UN=fd00:a::4 EC{65000:200} label=917552 sid=fd00:c:4:: sid_structure=[32,16,16,0] type=bgp, subtype=0
  *>i 172.21.4.0/24    fd00:a::4                0    100      0 65004 i
-    UN=fd00:a::4 EC{65000:200} label=917520 sid=fd00:c:4:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+    UN=fd00:a::4 EC{65000:200} label=917552 sid=fd00:c:4:: sid_structure=[32,16,16,0] type=bgp, subtype=0
 
-Displayed 16 routes and 16 total paths
+Displayed 20 routes and 20 total paths

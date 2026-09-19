@@ -7,7 +7,7 @@ Resource          ../resources/common.resource
 Suite Teardown    Suite Teardown Close Connections
 
 *** Variables ***
-${NB_ROLE_MAP}    {"pe": "srv6-pe", "p": "srv6-p", "ce": "srv6-ce", "host": "host"}
+${NB_ROLE_MAP}    {"pe": "srv6-pe", "p": "srv6-p", "ce": "srv6-ce", "fw": "srv6-fw", "host": "host"}
 
 *** Test Cases ***
 Every device is in Nautobot with its role, location, platform and primary address
@@ -106,3 +106,25 @@ The configuration rendered from Nautobot is identical to the one rendered from l
 Every rendered configuration line is present on the running routers
     ${rc}    ${out}=    Nautobot Render    --live
     Should Be Equal As Integers    ${rc}    0    msg=${out}
+
+The internet breakout is modelled: the firewall is a CE of every tenant on its PE, with a peering per tenant and the VRF-lite import attributes
+    Skip If    not $INTERNET    no internet breakout in lab.conf
+    ${fw}=    Set Variable    ${INTERNET}[fw]
+    ${d}=    Nautobot Graphql    { devices(name:["${fw}"]) { role { name } vrf_assignments { vrf { name } } bgp_routing_instances { autonomous_system { asn } address_families { afi_safi vrf { name } extra_attributes } endpoints { description source_ip { address } peer { routing_instance { device { name } } source_ip { address } } } } } }
+    ${dev}=    Set Variable    ${d}[devices][0]
+    Should Be Equal    ${dev}[role][name]    srv6-fw
+    ${vrfs}=    Evaluate    sorted(v["vrf"]["name"] for v in $dev["vrf_assignments"])
+    Lists Should Be Equal    ${vrfs}    ${TENANTS}    msg=${fw}: not assigned to every tenant VRF
+    ${ri}=    Set Variable    ${dev}[bgp_routing_instances][0]
+    Should Be Equal As Integers    ${ri}[autonomous_system][asn]    ${INTERNET}[asn]
+    FOR    ${t}    IN    @{TENANTS}
+        ${c}=    Set Variable    ${INTERNET_CIRCUITS}[${t}]
+        ${af}=    Evaluate    [a for a in $ri["address_families"] if a["vrf"] and a["vrf"]["name"] == $t][0]
+        Should Be Equal    ${af}[extra_attributes][import_vrf][0]    default    msg=${fw} ${t}: the VRF must import the default VRF (the default route)
+        ${ep}=    Evaluate    [e for e in $ri["endpoints"] if e["description"] == "eBGP %s (%s) - default route only (internet)" % ($c["pe"], $t)][0]
+        Should Be Equal    ${ep}[source_ip][address]    ${c}[fw_ip]/30
+        Should Be Equal    ${ep}[peer][routing_instance][device][name]    ${c}[pe]
+        Should Be Equal    ${ep}[peer][source_ip][address]    ${c}[pe_ip]/30
+    END
+    ${af0}=    Evaluate    [a for a in $ri["address_families"] if not a["vrf"]][0]
+    Lists Should Be Equal    ${af0}[extra_attributes][import_vrf]    ${TENANTS}    msg=${fw}: the default VRF must import every tenant VRF (return traffic)

@@ -1,4 +1,4 @@
-BGP table version is 1794, local router ID is 172.20.1.1, vrf id 12
+BGP table version is 1838, local router ID is 172.20.1.1, vrf id 12
 Default local pref 100, local AS 65001
 Status codes:  s suppressed, d damped, h history, u unsorted, * valid, > best, = multipath,
                i internal, r RIB-failure, S Stale, R Removed
@@ -7,13 +7,15 @@ Origin codes:  i - IGP, e - EGP, ? - incomplete
 RPKI validation codes: V valid, I invalid, N Not found
 
      Network          Next Hop            Metric LocPrf Weight Path
+ *>  0.0.0.0/0        172.16.1.1               0             0 65000 65010 i
  *>  172.16.1.0/30    172.16.1.1               0             0 65000 ?
  *>  172.16.2.0/30    172.16.1.1               0             0 65000 ?
  *>  172.16.3.0/30    172.16.1.1               0             0 65000 ?
  *>  172.16.4.0/30    172.16.1.1               0             0 65000 ?
+ *>  172.16.5.0/30    172.16.1.1               0             0 65000 ?
  *>  172.20.1.0/24    0.0.0.0                  0         32768 i
  *>  172.20.2.0/24    172.16.1.1               0             0 65000 65002 i
  *>  172.20.3.0/24    172.16.1.1               0             0 65000 65003 i
  *>  172.20.4.0/24    172.16.1.1               0             0 65000 65004 i
 
-Displayed 8 routes and 8 total paths
+Displayed 10 routes and 10 total paths

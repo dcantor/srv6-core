@@ -154,3 +154,27 @@ set vrf name tenant-b protocols bgp address-family ipv6-unicast rd vpn export 65
 set vrf name tenant-b protocols bgp address-family ipv6-unicast route-target vpn both 65000:200
 set vrf name tenant-b protocols bgp address-family ipv6-unicast import vpn
 set vrf name tenant-b protocols bgp address-family ipv6-unicast export vpn
+# tenant VRF tenant-a (table 100, RT 65000:100, RD 65000:104): attachment circuit eth5 to fw-inet eth1 (the internet breakout firewall: default route only, IPv4)
+set interfaces ethernet eth5 vrf tenant-a
+set interfaces ethernet eth5 address 172.16.5.1/30
+set interfaces ethernet eth5 description 'tenant-a: fw-inet eth1'
+# Linux scopes the SRv6 encapsulation's outer lookup to the ingress VRF for forwarded packets: leak every remote locator into
+# the VRF table via the attached P router(s) on the IGP shortest path (recursive through IS-IS, so a dead P drops out), and the
+# whole block via every attached P as the fallback
+set policy prefix-list DEFAULT-ONLY rule 10 action permit
+set policy prefix-list DEFAULT-ONLY rule 10 prefix 0.0.0.0/0
+# eBGP to the firewall, one session per address family; one SRv6 End.DT46 SID per VRF carries both (sid vpn per-vrf export auto)
+set vrf name tenant-a protocols bgp neighbor 172.16.5.2 remote-as 65010
+set vrf name tenant-a protocols bgp neighbor 172.16.5.2 description 'fw-inet (tenant-a, internet)'
+set vrf name tenant-a protocols bgp neighbor 172.16.5.2 address-family ipv4-unicast prefix-list import DEFAULT-ONLY
+# tenant VRF tenant-b (table 200, RT 65000:200, RD 65000:204): attachment circuit eth6 to fw-inet eth2 (the internet breakout firewall: default route only, IPv4)
+set interfaces ethernet eth6 vrf tenant-b
+set interfaces ethernet eth6 address 172.18.5.1/30
+set interfaces ethernet eth6 description 'tenant-b: fw-inet eth2'
+# Linux scopes the SRv6 encapsulation's outer lookup to the ingress VRF for forwarded packets: leak every remote locator into
+# the VRF table via the attached P router(s) on the IGP shortest path (recursive through IS-IS, so a dead P drops out), and the
+# whole block via every attached P as the fallback
+# eBGP to the firewall, one session per address family; one SRv6 End.DT46 SID per VRF carries both (sid vpn per-vrf export auto)
+set vrf name tenant-b protocols bgp neighbor 172.18.5.2 remote-as 65010
+set vrf name tenant-b protocols bgp neighbor 172.18.5.2 description 'fw-inet (tenant-b, internet)'
+set vrf name tenant-b protocols bgp neighbor 172.18.5.2 address-family ipv4-unicast prefix-list import DEFAULT-ONLY

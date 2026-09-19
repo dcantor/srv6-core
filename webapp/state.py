@@ -1,6 +1,6 @@
 """What the portal shows: the lab as lab.conf describes it, joined with live state from the PEs (per-tenant eBGP
 sessions and VRF routes, VPNv4 sessions to the reflectors), host reachability, steering policies, and Nautobot links."""
-import concurrent.futures, ipaddress, os, re, subprocess, threading, time
+import socket, concurrent.futures, ipaddress, os, re, subprocess, threading, time
 from pathlib import Path
 import paramiko
 from netmiko import ConnectHandler
@@ -23,7 +23,13 @@ class State:
             v = f["tenants"][t]; sites = T.tenant_sites(f, t)
             tenants.append({"name": t, "table": v["table"], "rt": v["rt"], "sites": sites, "hosts": [s["host"] for s in sites],
                             "nautobot": {"vrf": f"{NAUTOBOT_PUBLIC_URL}/ipam/vrfs/?q={t}", "tenant": f"{NAUTOBOT_PUBLIC_URL}/tenancy/tenants/?q={t}", "prefixes": f"{NAUTOBOT_PUBLIC_URL}/ipam/prefixes/?tenant={t}"}})
-        return {"inv": inv, "tenants": tenants, "dcs": f["dcs"], "pes": sorted(n["name"] for n in inv["nodes"] if n["role"] == "pe"),
+        inet = inv["service"].get("internet"); internet = None
+        if inet:   # the breakout firewall: a CE of every tenant on one PE (one circuit per tenant), NAT uplink on the host's libvirt network
+            fw = next(n for n in inv["nodes"] if n["name"] == inet["fw"])
+            internet = {**inet, "fw_mgmt": fw["mgmt_ip"], "uplink": next((p["name"] for p in fw["ports"] if p.get("network")), None), "circuits": [
+                {"tenant": l["tenant"], "pe": l["a"], "pe_port": l["a_port"], "pe_ip": l["a_ip"].split("/")[0], "fw_port": l["b_port"], "fw_ip": l["b_ip"].split("/")[0], "attachment_circuit": l["prefix"]}
+                for l in inv["links"] if l["b"] == inet["fw"]]}
+        return {"inv": inv, "tenants": tenants, "dcs": f["dcs"], "pes": sorted(n["name"] for n in inv["nodes"] if n["role"] == "pe"), "internet": internet,
                 "nautobot_url": NAUTOBOT_PUBLIC_URL, "generated": time.time()}
 
     def pe_state(self, pe, tenants_):
@@ -41,6 +47,7 @@ class State:
                     if m: sess[m[1]] = {"as": int(m[2]), "state": "Established" if m[4].isdigit() else m[4], "prefixes": int(m[4]) if m[4].isdigit() else 0, "uptime": m[3], "desc": m[6].strip()}
                 rt = c.send_command(f"sudo ip -c=never route show vrf {t}", read_timeout=60)
                 out["tenants"][t] = {"sessions": sess, "routes": len([l for l in rt.splitlines() if re.match(r"^\d", l) and not l.startswith("127.")]),
+                                     "default_route": next((" ".join(l.split()[:8]) for l in rt.splitlines() if l.startswith("default")), None),
                                      "srv6_routes": len([l for l in rt.splitlines() if "encap seg6" in l and re.match(r"^\d", l)]),
                                      "steered": [l.strip() for l in rt.splitlines() if "proto static" in l and "seg6" in l]}
             sids = c.send_command("sudo ip -c=never -6 route show", read_timeout=60)
@@ -90,9 +97,23 @@ class State:
                                      "dt4_sid": (live_pe.get("dt4") or {}).get(t["name"]), "host": host_res.get(s["host"], {}) if s["host"] else {"reachable": None}, "error": live_pe.get("error")}
                     ok = [s for s in t["sites"] if s["live"]["bgp"] == "Established" and (s["live"]["host"].get("reachable") or not s["host"])]
                     t["health"] = "up" if len(ok) == len(t["sites"]) else ("degraded" if ok else "down")
+                if st.get("internet"):
+                    inet = st["internet"]; inet["fw_reachable"] = self.tcp_open(inet["fw_mgmt"], 22)
+                    for c in inet["circuits"]:
+                        tl = ((pe_res.get(c["pe"]) or {}).get("tenants") or {}).get(c["tenant"]) or {}; sess = (tl.get("sessions") or {}).get(c["fw_ip"], {})
+                        c["live"] = {"bgp": sess.get("state", "n/a"), "prefixes_from_fw": sess.get("prefixes"),
+                                     "default_route": {pe: bool((((pe_res.get(pe) or {}).get("tenants") or {}).get(c["tenant"]) or {}).get("default_route")) for pe in st["pes"]}}
+                    ok = [c for c in inet["circuits"] if c["live"]["bgp"] == "Established" and all(c["live"]["default_route"].values())]
+                    inet["health"] = "up" if inet["fw_reachable"] and len(ok) == len(inet["circuits"]) else ("degraded" if ok else "down")
                 st["live_done"] = True
             st["steering"] = self.steering() if live else []
             self._cache = st; return st
+
+    @staticmethod
+    def tcp_open(host, port, timeout=5):
+        try:
+            with socket.create_connection((host, port), timeout=timeout): return True
+        except OSError: return False
 
     def _safe(self, fn, *args):
         try: return fn(*args)

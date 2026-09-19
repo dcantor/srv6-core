@@ -1,10 +1,10 @@
 BGP router identifier 10.255.0.1, local AS number 65000 VRF default vrf-id 0
 BGP table version 0
-RIB entries 15, using 2400 bytes of memory
+RIB entries 17, using 2720 bytes of memory
 Peers 2, using 58 KiB of memory
 
 Neighbor        V         AS   MsgRcvd   MsgSent   TblVer  InQ OutQ  Up/Down State/PfxRcd   PfxSnt Desc
-fd00:a::11      4      65000      1108       936      103    0    0 01:17:53           12        4 p1 route reflector
-fd00:a::13      4      65000      1071       930      103    0    0 02:42:18           12        4 p3 route reflector
+fd00:a::11      4      65000      2091      1720      243    0    0 00:44:41           16        4 p1 route reflector
+fd00:a::13      4      65000      2006      1701      243    0    0 07:40:40           16        4 p3 route reflector
 
 Total number of neighbors 2

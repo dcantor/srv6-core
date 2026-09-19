@@ -1,0 +1,6 @@
+IPv4 unicast VRF default:
+S>* 0.0.0.0/0 [210/0] via 192.168.122.1, eth3, weight 1, 02:07:43
+IPv4 unicast VRF tenant-a:
+B>* 0.0.0.0/0 [210/0] via 192.168.122.1, eth3 (vrf default), weight 1, 02:05:08
+IPv4 unicast VRF tenant-b:
+B>* 0.0.0.0/0 [210/0] via 192.168.122.1, eth3 (vrf default), weight 1, 02:05:08

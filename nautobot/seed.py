@@ -101,12 +101,13 @@ for t in tenants: ensure(tenants[t], tenant_group=tg.id, description=f"{t}: VRF 
 drole = {"pe": get_or_create(nb.extras.roles, {"name": "srv6-pe"}, color="b71c1c", content_types=["dcim.device"]),
          "p": get_or_create(nb.extras.roles, {"name": "srv6-p"}, color="e65100", content_types=["dcim.device"]),
          "ce": get_or_create(nb.extras.roles, {"name": "srv6-ce"}, color="1565c0", content_types=["dcim.device"]),
+         "fw": get_or_create(nb.extras.roles, {"name": "srv6-fw"}, color="6a1b9a", content_types=["dcim.device"]),
          "host": get_or_create(nb.extras.roles, {"name": "host"}, color="4caf50", content_types=["dcim.device"])}
 prole = {n: get_or_create(nb.extras.roles, {"name": n}, color=c, content_types=["ipam.prefix"])
          for n, c in (("oob-management", "9e9e9e"), ("loopback", "795548"), ("wan-p2p", "607d8b"), ("srv6-locator", "e65100"), ("attachment-circuit", "3f51b5"), ("site-lan", "4caf50"), ("router-id", "9c27b0"))}
 for r in prole.values():
     if "ipam.prefix" not in r.content_types: r.update({"content_types": list(r.content_types) + ["ipam.prefix"]})
-brole = {n: get_or_create(nb.extras.roles, {"name": n}, color=c, content_types=["nautobot_bgp_models.peerendpoint"]) for n, c in (("rr", "e65100"), ("rr-client", "b71c1c"), ("pe", "b71c1c"), ("ce", "1565c0"))}
+brole = {n: get_or_create(nb.extras.roles, {"name": n}, color=c, content_types=["nautobot_bgp_models.peerendpoint"]) for n, c in (("rr", "e65100"), ("rr-client", "b71c1c"), ("pe", "b71c1c"), ("ce", "1565c0"), ("fw", "6a1b9a"))}
 for r in brole.values():
     if "nautobot_bgp_models.peerendpoint" not in r.content_types: r.update({"content_types": list(r.content_types) + ["nautobot_bgp_models.peerendpoint"]})
 plat = {"vyos": nb.dcim.platforms.get(name="vyos"), "linux": nb.dcim.platforms.get(name="linux")}
@@ -122,7 +123,8 @@ pq = {x["prefix"]: x for x in gql('{ prefixes { prefix locations { name } } }')[
 def ensure_prefix(prefix, role, description, location=None, **more):
     pf = nb.ipam.prefixes.get(prefix=prefix, namespace=ns.id)
     if pf is None:
-        pf = nb.ipam.prefixes.create(prefix=prefix, namespace=ns.id, status=active.id, role=prole[role].id, description=description, **({"locations": [location]} if location else {}), **more); created.append(f"prefix:{prefix}")
+        pf = nb.ipam.prefixes.create(prefix=prefix, namespace=ns.id, status=active.id, role=prole[role].id, description=description, **more); created.append(f"prefix:{prefix}")
+        if location: patch(f"ipam/prefixes/{pf.id}", location=location)   # 'locations' is ignored on POST as on PATCH; the singular alias works
     else:
         ensure(pf, role=prole[role].id, description=description, **more)
         want = {nb.dcim.locations.get(id=location).name} if location else set()
@@ -212,7 +214,8 @@ for n in inv["nodes"]:
     d = nb.dcim.devices.get(name=n["name"])
     fields = dict(role=drole[role].id, device_type=dt["alpine" if role == "host" else "vyos"].id, location=loc.id, platform=plat["linux" if role == "host" else "vyos"].id, status=active.id,
                   comments={"pe": "PE: IS-IS L2 + SRv6 locator, VPNv4 to both reflectors, one VRF per tenant (End.DT4)", "p": "P: IPv6 forwarding only" + (" + VPNv4 route reflector" if n["name"] in SVC["rrs"] else ""),
-                            "ce": "CE: one VRF per tenant, eBGP to the PE per VRF", "host": f"Alpine tenant host with iperf3 ({[p for p in n['ports'] if p['peer']][0]['tenant']})"}[role])
+                            "ce": "CE: one VRF per tenant, eBGP to the PE per VRF", "host": f"Alpine tenant host with iperf3 ({[p for p in n['ports'] if p['peer']][0]['tenant']})",
+                            "fw": f"Internet breakout firewall (VRF-lite): a CE of every tenant on {n['pe']}, announcing only a default route; stateful policy tenant -> internet, source NAT on the host's libvirt network"}[role])
     if role != "host" and n.get("tenant") is None:
         pass
     if d is None: d = nb.dcim.devices.create(name=n["name"], **fields); created.append(f"device:{n['name']}")
@@ -232,9 +235,11 @@ for n in inv["nodes"]:
     ensure(d, primary_ip4=mip.id)
     for port in n["ports"]:
         pnum = int(port["name"][3:]); pf_l = link_prefix.get((n["name"], port["name"]))
+        if port.get("network"):   # the firewall's uplink: a libvirt NAT network, DHCP — no address, no cable in Nautobot
+            i = ensure_if(port["name"], "1000base-t", f"internet: libvirt {port['network']} (DHCP, host NAT)", mac=f"{MAC_OUI}:{idx:02x}:{pnum:02x}"); continue
         if port["peer"]:
             peer = N[port["peer"]]; kind = "core" if peer["role"] in ("pe", "p") and role in ("pe", "p") else (port.get("tenant") or "")
-            desc = f"{kind}: {port['peer']} {port['peer_port']}" if kind == "core" else (f"{port['tenant']} LAN: {port['peer']}" if peer["role"] == "host" else (f"{port['tenant']}: {port['peer']} {port['peer_port']}" if role in ("pe", "ce") and peer["role"] in ("pe", "ce") else f"{port['peer']} {port['peer_port']}"))
+            desc = f"{kind}: {port['peer']} {port['peer_port']}" if kind == "core" else (f"{port['tenant']} LAN: {port['peer']}" if peer["role"] == "host" else (f"{port['tenant']}: {port['peer']} {port['peer_port']}" if role in ("pe", "ce", "fw") and peer["role"] in ("pe", "ce", "fw") else f"{port['peer']} {port['peer_port']}"))
             if role == "host": desc = f"{port['tenant']} LAN, gateway {port['peer']} {port['peer_port']}"
         else: desc = "unwired"
         i = ensure_if(port["name"], "1000base-t", desc, mac=f"{MAC_OUI}:{idx:02x}:{pnum:02x}")
@@ -270,7 +275,7 @@ for l in inv["links"]:
 
 # ---- VRF device assignments (the per-PE RD lives here) ------------------------------------------------------------
 for n in inv["nodes"]:
-    if n["role"] not in ("pe", "ce"): continue
+    if n["role"] not in ("pe", "ce", "fw"): continue
     for t in tenants:
         rd = n["rd"].get(t) if n["role"] == "pe" else None
         va = nb.ipam.vrf_device_assignments.get(vrf=vrfs[t].id, device=devs[n["name"]].id)
@@ -286,6 +291,7 @@ def ensure_asn(num, desc):
 ensure_asn(SVC["core_as"], "SRv6 core (PEs and route reflectors)")
 for n in inv["nodes"]:
     if n["role"] == "ce": ensure_asn(n["asn"], f"{n['name']} ({n['dc']}) — same AS for both tenant VRFs")
+    if n["role"] == "fw": ensure_asn(n["asn"], f"{n['name']} — internet breakout firewall, same AS in every tenant VRF")
     if n["role"] == "ext-ce":
         asn[n["asn"]] = bgp.autonomous_systems.get(asn=n["asn"])
         if asn[n["asn"]] is None: sys.exit(f"AS {n['asn']} of {n['name']} is not in Nautobot — seed the {n['lab']} lab first")
@@ -296,10 +302,11 @@ for n in inv["nodes"]:
         ri[n["name"]] = bgp.routing_instances.get(device=devs[n["name"]].id)
         if ri[n["name"]] is None: sys.exit(f"{n['name']} has no BGP routing instance in Nautobot — seed the {n['lab']} lab first")
         continue
-    rid_addr = f"{n['router_id']}/32" if n["role"] in ("pe", "p") else next(pt["ip"] for pt in n["ports"] if pt["peer"] and N[pt["peer"]]["role"] == "host" and pt["tenant"] == "tenant-a")
+    rid_addr = f"{n['router_id']}/32" if n["role"] in ("pe", "p") else (f"{n['mgmt_ip']}/24" if n["role"] == "fw" else next(pt["ip"] for pt in n["ports"] if pt["peer"] and N[pt["peer"]]["role"] == "host" and pt["tenant"] == "tenant-a"))
     rid = nb.ipam.ip_addresses.get(address=rid_addr, namespace=ns.id)
     inst = bgp.routing_instances.get(device=devs[n["name"]].id)
-    desc = {"pe": "PE: VPNv4 to the reflectors (SRv6 SIDs), eBGP to the CE in each tenant VRF", "p": "VPNv4 route reflector", "ce": "CE: eBGP to the PE in each tenant VRF (router-id = tenant-a LAN address)"}[n["role"]]
+    desc = {"pe": "PE: VPNv4 to the reflectors (SRv6 SIDs), eBGP to the CE in each tenant VRF", "p": "VPNv4 route reflector", "ce": "CE: eBGP to the PE in each tenant VRF (router-id = tenant-a LAN address)",
+            "fw": "Internet firewall: eBGP to the PE in each tenant VRF announcing a default route only; the default VRF leaks DHCP's default out and the tenants' routes in"}[n["role"]]
     if inst is None:
         inst = bgp.routing_instances.create(device=devs[n["name"]].id, autonomous_system=asn[n["asn"]].id, router_id=rid.id, status=active.id, description=desc,
                                             extra_attributes={"log_neighbor_changes": True, **({"srv6_locator": "main", "cluster_id": n["router_id"]} if n["name"] in SVC["rrs"] else ({"srv6_locator": "main"} if n["role"] == "pe" else {}))}); created.append(f"bgp-ri:{n['name']}")
@@ -312,6 +319,9 @@ for n in inv["nodes"]:
             lan = next(pt for pt in n["ports"] if pt["peer"] and pt["tenant"] == t and N[pt["peer"]]["role"] == "host") if n["role"] == "ce" else None
             for afi, key in (("ipv4_unicast", "prefix"), ("ipv6_unicast", "prefix6")):
                 afs.append((afi, t, {"sid_vpn_per_vrf_export": "auto", "rd": n["rd"][t], "route_target": SVC["tenants"][t]["rt"], "redistribute": ["connected"]} if n["role"] == "pe" else {"network": lan[key]}))
+    if n["role"] == "fw":   # IPv4 only: the tenant VRFs import the default route from the default VRF, the default VRF imports the tenants' routes
+        afs.append(("ipv4_unicast", None, {"redistribute": ["static"], "redistribute_route_map": "DEFAULT-ONLY", "import_vrf": sorted(tenants)}))
+        afs += [("ipv4_unicast", t, {"import_vrf": ["default"], "import_vrf_route_map": "DEFAULT-ONLY"}) for t in sorted(tenants)]
     for afi, t, extra in afs:
         af = bgp.address_families.get(routing_instance=inst.id, afi_safi=afi, **({"vrf": vrfs[t].id} if t else {"vrf__isnull": True}))
         if af is None: bgp.address_families.create(routing_instance=inst.id, afi_safi=afi, extra_attributes=extra, **({"vrf": vrfs[t].id} if t else {})); created.append(f"bgp-af:{n['name']} {afi}{' ' + t if t else ''}")
@@ -346,10 +356,10 @@ for pe in [n for n in inv["nodes"] if n["role"] == "pe"]:
         ensure_peering(pe["name"], f"{pe['loopback6']}/128", "rr-client", f"VPNv4 to {r} (route reflector)", r, f"{N[r]['loopback6']}/128", "rr", f"VPNv4 client {pe['name']}", "vpnv4_unicast", f"{pe['name']}<->{r} vpnv4")
         ensure_peering_af(pe["name"], f"VPNv4 to {r} (route reflector)", "vpnv6_unicast")   # the same session carries VPNv6
     for pt in pe["ports"]:
-        if pt["peer"] and N[pt["peer"]]["role"] in ("ce", "ext-ce"):
+        if pt["peer"] and N[pt["peer"]]["role"] in ("ce", "ext-ce", "fw"):
             ce = N[pt["peer"]]; t = pt["tenant"]; ce_ip = next(x["ip"] for x in ce["ports"] if x["peer"] == pe["name"] and x["tenant"] == t)
-            ext = " - SRv6 core attachment" if ce["role"] == "ext-ce" else ""
-            ensure_peering(pe["name"], pt["ip"], "pe", f"eBGP {ce['name']} ({t})", ce["name"], ce_ip, "ce", f"eBGP {pe['name']} ({t}){ext}", "ipv4_unicast", f"{pe['name']}<->{ce['name']} {t}")
+            ext = " - SRv6 core attachment" if ce["role"] == "ext-ce" else (" - default route only (internet)" if ce["role"] == "fw" else "")
+            ensure_peering(pe["name"], pt["ip"], "pe", f"eBGP {ce['name']} ({t})", ce["name"], ce_ip, "fw" if ce["role"] == "fw" else "ce", f"eBGP {pe['name']} ({t}){ext}", "ipv4_unicast", f"{pe['name']}<->{ce['name']} {t}")
             ce_ip6 = next((x.get("ip6") for x in ce["ports"] if x["peer"] == pe["name"] and x["tenant"] == t), None)
             if pt.get("ip6") and ce_ip6:
                 ensure_peering(pe["name"], pt["ip6"], "pe", f"eBGP {ce['name']} ({t}, IPv6)", ce["name"], ce_ip6, "ce", f"eBGP {pe['name']} ({t}, IPv6)", "ipv6_unicast", f"{pe['name']}<->{ce['name']} {t} v6")
@@ -377,7 +387,8 @@ for pf in [x for t in tenants for x in nb.ipam.prefixes.filter(tenant=tenants[t]
 CTX = {"domain_name": "lab.local", "oob": {"network": OOB["network"], "gateway": OOB["gateway"], "nms": "10.3.0.10"},
        "isis": {"area": SVC["isis_area"], "level": "level-2", "metric_style": "wide", "network": "point-to-point", "bfd": True},
        "srv6": {**SR, "locator_name": "main", "sid_interface": "dum0", "behavior_usid": SR["format"].startswith("usid")},
-       "core_mtu": 9000, "route_reflectors": SVC["rrs"], "tenants": {t: {"table": v["table"], "rt": v["rt"]} for t, v in SVC["tenants"].items()}}
+       "core_mtu": 9000, "route_reflectors": SVC["rrs"], "tenants": {t: {"table": v["table"], "rt": v["rt"]} for t, v in SVC["tenants"].items()},
+       **({"internet": SVC["internet"]} if SVC.get("internet") else {})}
 ctx = nb.extras.config_contexts.get(name=SITE)
 if ctx is None: nb.extras.config_contexts.create(name=SITE, description="SRv6 core lab constants (IS-IS, SRv6 structure, BFD, MTU, OOB, tenant tables)", locations=[site.id], data=CTX); created.append("config-context:srv6-core")
 elif current(ctx.data) != CTX: patch(f"extras/config-contexts/{ctx.id}", data=CTX, locations=[site.id]); created.append("config-context updated")

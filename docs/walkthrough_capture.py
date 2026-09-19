@@ -79,6 +79,12 @@ save("dc1-h2-traceroute-steered", hc("dc1-h2", f"traceroute -n -w 1 -q 1 {lan('d
 save("steer-add-uncompressed", L.steer("add", "pe1", "tenant-b", prefix, "p1", "p3", "--uncompressed")); time.sleep(2)
 save("pe1-route-steered-uncompressed", sh("pe1", f"ip route show vrf tenant-b {prefix}"))
 save("steer-del", L.steer("del", "pe1", "tenant-b", prefix))
+# internet breakout
+save("pe1-default-route", sh("pe1", "ip route show vrf tenant-a default"))
+save("fw-inet-routes", op("fw-inet", "show ip route vrf all | match '0.0.0.0/0|VRF'"))
+save("dc1-h1-traceroute-internet", hc("dc1-h1", "traceroute -n -w 1 -q 1 -m 6 1.1.1.1 2>&1 | head -8"))
+hc("dc1-h1", f"ping -c 2 -W 1 {lan('dc2-h2')} >/dev/null 2>&1; true"); time.sleep(2)
+save("fw-inet-log-cross-tenant", op("fw-inet", "show log firewall | match FWD-filter-8 | tail -2"))
 # monitoring
 save("pe1-frr-exporter", subprocess.run(["bash", "-c", "curl -s http://10.3.0.11:9342/metrics | grep -E '^frr_(bgp_peer_state|bfd_peer_state)' | head -6"], capture_output=True, text=True).stdout)
 save("portal-metrics", subprocess.run(["bash", "-c", "curl -s http://127.0.0.1:8091/metrics | grep -E '^lab_(tenant_health|isis_adjacencies_up|tenant_site_bgp_up.*dc1)' | head -8"], capture_output=True, text=True).stdout)

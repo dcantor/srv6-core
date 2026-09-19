@@ -1,8 +1,8 @@
 PING 172.20.3.2 (172.20.3.2): 56 data bytes
-64 bytes from 172.20.3.2: seq=0 ttl=42 time=2.249 ms
-64 bytes from 172.20.3.2: seq=1 ttl=42 time=2.293 ms
-64 bytes from 172.20.3.2: seq=2 ttl=42 time=2.107 ms
+64 bytes from 172.20.3.2: seq=0 ttl=42 time=2.029 ms
+64 bytes from 172.20.3.2: seq=1 ttl=42 time=2.093 ms
+64 bytes from 172.20.3.2: seq=2 ttl=42 time=2.479 ms
 
 --- 172.20.3.2 ping statistics ---
 3 packets transmitted, 3 packets received, 0% packet loss
-round-trip min/avg/max = 2.107/2.216/2.293 ms
+round-trip min/avg/max = 2.029/2.200/2.479 ms

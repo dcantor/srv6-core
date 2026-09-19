@@ -1,0 +1,25 @@
+diff -ru -x routes -I '^# .* captured ' /home/dcantor/srv6-core/results/2026-09-18_22-48-55/configs/pre-run/fw-inet.config.txt /home/dcantor/srv6-core/results/2026-09-18_22-48-55/configs/post-run/fw-inet.config.txt
+--- /home/dcantor/srv6-core/results/2026-09-18_22-48-55/configs/pre-run/fw-inet.config.txt	2026-09-18 22:52:05.673407868 -0400
++++ /home/dcantor/srv6-core/results/2026-09-18_22-48-55/configs/post-run/fw-inet.config.txt	2026-09-18 23:31:28.957231318 -0400
+@@ -1,10 +1,11 @@
+-# fw-inet (10.3.0.61) show configuration commands captured 2026-09-18 22:48:58
++# fw-inet (10.3.0.61) show configuration commands captured 2026-09-18 23:28:22
+ set firewall ipv4 forward filter default-action 'drop'
+ set firewall ipv4 forward filter rule 5 action 'accept'
+ set firewall ipv4 forward filter rule 5 description 'established / related'
+ set firewall ipv4 forward filter rule 5 state 'established'
+ set firewall ipv4 forward filter rule 5 state 'related'
+ set firewall ipv4 forward filter rule 8 action 'drop'
++set firewall ipv4 forward filter rule 8 description 'tenant -> tenant: never through the breakout (a tenant VRF only ever sends the other tenants addresses here)'
+ set firewall ipv4 forward filter rule 8 destination address '172.16.0.0/12'
+ set firewall ipv4 forward filter rule 8 log
+ set firewall ipv4 forward filter rule 10 action 'accept'
+@@ -95,7 +96,7 @@
+ set system domain-name 'lab.local'
+ set system host-name 'fw-inet'
+ set system login operator-group default command-policy allow '*'
+-set system login user vyos authentication encrypted-password '$6$rounds=656000$Vt53HAPLjybKVIR5$K.AYcdIdQyDLX0n8g7lpw5Pb2sD2ZkiwiIbwFmtypxWHN2pjUNNyDID9LcqfZXZVoZ8fdmtX.Xvu70YlLYryL0'
++set system login user vyos authentication encrypted-password '$6$rounds=656000$iJpI68uhCCdYmfLE$gvW/tXkRQinNBblF48ktJ3c3rGC4W8Zoo0CzNSuJE79fjEeWNd9tBuuSsPJy/fxIh5SkMTWTTTXS.VWt14V07/'
+ set system option reboot-on-upgrade-failure '5'
+ set system syslog local facility all level 'info'
+ set system syslog local facility local7 level 'debug'

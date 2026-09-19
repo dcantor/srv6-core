@@ -1,5 +1,5 @@
 pe1:
-  tenant-b: 172.21.3.0/24 nhid 979  encap seg6 mode encap segs 1 [ fd00:c:11:13:3:e001:: ] dev eth1 proto static metric 20
+  tenant-b: 172.21.3.0/24 nhid 1885  encap seg6 mode encap segs 1 [ fd00:c:11:13:3:e003:: ] dev eth1 proto static metric 20
 pe2: no steering policies
 pe3: no steering policies
 pe4: no steering policies

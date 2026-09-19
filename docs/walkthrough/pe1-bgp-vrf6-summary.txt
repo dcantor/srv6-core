@@ -1,11 +1,11 @@
 
 IPv6 Unicast Summary:
 BGP router identifier 10.255.0.1, local AS number 65000 VRF tenant-a vrf-id 10
-BGP table version 33
+BGP table version 117
 RIB entries 15, using 2400 bytes of memory
 Peers 1, using 29 KiB of memory
 
 Neighbor        V         AS   MsgRcvd   MsgSent   TblVer  InQ OutQ  Up/Down State/PfxRcd   PfxSnt Desc
-fd00:16:1::2    4      65001       177       197       33    0    0 02:48:33            1        8 ce1 (tenant-a,
+fd00:16:1::2    4      65001       498       560      117    0    0 07:46:56            1        8 ce1 (tenant-a,
 
 Total number of neighbors 1

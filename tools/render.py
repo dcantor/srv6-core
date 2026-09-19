@@ -11,7 +11,7 @@ TELEGRAF_TOKEN = "srv6core-lab-telegraf".ljust(86, "_") + "=="   # VyOS insists 
 
 def render_all(inv):
     """{node name: config text} for every VyOS node in the inventory."""
-    R = _Renderer(inv); return {n["name"]: R.render(n) for n in inv["nodes"] if n["role"] in ("pe", "p", "ce")}
+    R = _Renderer(inv); return {n["name"]: R.render(n) for n in inv["nodes"] if n["role"] in ("pe", "p", "ce", "fw")}
 
 
 class _Renderer:
@@ -20,7 +20,7 @@ class _Renderer:
         self.PES = [n for n in self.inv["nodes"] if n["role"] == "pe"]; self.RRS = [self.NODES[r] for r in self.SVC["rrs"]]
 
     def render(self, n):
-        return "\n".join({"pe": self.pe, "p": self.p, "ce": self.ce}[n["role"]](n)) + "\n"
+        return "\n".join({"pe": self.pe, "p": self.p, "ce": self.ce, "fw": self.fw}[n["role"]](n)) + "\n"
 
     def identity(self, n):
         return [f"# {n['name']}: {n['role'].upper()} in {n['dc']} — day-0 pushed over the serial console by lab.sh bootstrap; rendered by tools/render.py",
@@ -115,30 +115,33 @@ class _Renderer:
             out += [f"set protocols bgp neighbor {r['loopback6']} remote-as {self.SVC['core_as']}", f"set protocols bgp neighbor {r['loopback6']} description '{r['name']} route reflector'",
                     f"set protocols bgp neighbor {r['loopback6']} update-source {n['loopback6']}", f"set protocols bgp neighbor {r['loopback6']} capability extended-nexthop",
                     f"set protocols bgp neighbor {r['loopback6']} address-family ipv4-vpn", f"set protocols bgp neighbor {r['loopback6']} address-family ipv6-vpn"]
-        for ce_port in [p for p in n["ports"] if p["peer"] and self.NODES[p["peer"]]["role"] in ("ce", "ext-ce")]:
-            vrf = ce_port["tenant"]; t = self.SVC["tenants"][vrf]; ce = self.NODES[ce_port["peer"]]
+        inet = self.SVC.get("internet") or {}
+        for ce_port in [p for p in n["ports"] if p["peer"] and self.NODES[p["peer"]]["role"] in ("ce", "ext-ce", "fw")]:
+            vrf = ce_port["tenant"]; t = self.SVC["tenants"][vrf]; ce = self.NODES[ce_port["peer"]]; is_fw = ce["role"] == "fw"
             me = ipaddress.ip_interface(ce_port["ip"]); net = me.network.network_address
             ce_ip = str(net + 2 if me.ip == net + 1 else net + 1); rd = n["rd"][vrf]   # the other host of the /30 (an external CE is the first end)
-            ext = " (external CE, another lab's router)" if ce["role"] == "ext-ce" else ""
+            ext = " (external CE, another lab's router)" if ce["role"] == "ext-ce" else (" (the internet breakout firewall: default route only, IPv4)" if is_fw else "")
             ce_ip6 = None
             if ce_port.get("ip6"):
                 me6 = ipaddress.ip_interface(ce_port["ip6"]); net6 = me6.network.network_address; ce_ip6 = str(net6 + 2 if me6.ip == net6 + 1 else net6 + 1)
-            out += [f"# tenant VRF {vrf} (table {t['table']}, RT {t['rt']}, RD {rd}): attachment circuit {ce_port['name']} to {ce['name']} {ce_port['peer_port']}{ext}, dual-stack",
+            out += [f"# tenant VRF {vrf} (table {t['table']}, RT {t['rt']}, RD {rd}): attachment circuit {ce_port['name']} to {ce['name']} {ce_port['peer_port']}{ext}" + ("" if is_fw else ", dual-stack"),
                     f"set vrf name {vrf} table {t['table']}", f"set interfaces ethernet {ce_port['name']} vrf {vrf}", f"set interfaces ethernet {ce_port['name']} address {ce_port['ip']}"] + (
-                    [f"set interfaces ethernet {ce_port['name']} address {ce_port['ip6']}"] if ce_port.get("ip6") else []) + [
+                    [f"set interfaces ethernet {ce_port['name']} address {ce_port['ip6']}"] if ce_ip6 else []) + [
                     f"set interfaces ethernet {ce_port['name']} description '{vrf}: {ce['name']} {ce_port['peer_port']}'",
                     f"# Linux scopes the SRv6 encapsulation's outer lookup to the ingress VRF for forwarded packets: leak every remote locator into",
                     f"# the VRF table via the attached P router(s) on the IGP shortest path (recursive through IS-IS, so a dead P drops out), and the",
                     f"# whole block via every attached P as the fallback"] + [
                     f"set vrf name {vrf} protocols static route6 {self.NODES[d]['locator']} next-hop {self.NODES[x]['loopback6']} vrf default"
                     for d, hops in sorted(first_hops.items()) if self.NODES[d].get("locator") for x in hops] + [
-                    f"set vrf name {vrf} protocols static route6 {block} next-hop {self.NODES[x]['loopback6']} vrf default" for x in attached_ps] + [
-                    f"# eBGP to the CE, one session per address family; one SRv6 End.DT46 SID per VRF carries both (sid vpn per-vrf export auto)",
+                    f"set vrf name {vrf} protocols static route6 {block} next-hop {self.NODES[x]['loopback6']} vrf default" for x in attached_ps]
+            if is_fw:
+                out += ["set policy prefix-list DEFAULT-ONLY rule 10 action permit", "set policy prefix-list DEFAULT-ONLY rule 10 prefix 0.0.0.0/0"]
+            out += [f"# eBGP to the {'firewall' if is_fw else 'CE'}, one session per address family; one SRv6 End.DT46 SID per VRF carries both (sid vpn per-vrf export auto)",
                     f"set vrf name {vrf} protocols bgp system-as {self.SVC['core_as']}", f"set vrf name {vrf} protocols bgp parameters router-id {n['router_id']}",
                     f"set vrf name {vrf} protocols bgp parameters log-neighbor-changes",
                     f"set vrf name {vrf} protocols bgp sid vpn per-vrf export auto",
-                    f"set vrf name {vrf} protocols bgp neighbor {ce_ip} remote-as {ce['asn']}", f"set vrf name {vrf} protocols bgp neighbor {ce_ip} description '{ce['name']} ({vrf})'",
-                    f"set vrf name {vrf} protocols bgp neighbor {ce_ip} address-family ipv4-unicast"] + ([
+                    f"set vrf name {vrf} protocols bgp neighbor {ce_ip} remote-as {ce['asn']}", f"set vrf name {vrf} protocols bgp neighbor {ce_ip} description '{ce['name']} ({vrf}{', internet' if is_fw else ''})'",
+                    f"set vrf name {vrf} protocols bgp neighbor {ce_ip} address-family ipv4-unicast" + (" prefix-list import DEFAULT-ONLY" if is_fw else "")] + ([
                     f"set vrf name {vrf} protocols bgp neighbor {ce_ip6} remote-as {ce['asn']}", f"set vrf name {vrf} protocols bgp neighbor {ce_ip6} description '{ce['name']} ({vrf}, IPv6)'",
                     f"set vrf name {vrf} protocols bgp neighbor {ce_ip6} address-family ipv6-unicast"] if ce_ip6 else []) + [
                     l for af in (["ipv4-unicast"] + (["ipv6-unicast"] if ce_ip6 else [])) for l in (
@@ -151,7 +154,6 @@ class _Renderer:
             if l.startswith("set") and l in seen: continue
             seen.add(l); dedup.append(l)
         return dedup
-
 
     def p(self, n):
         out = self.identity(n) + self.underlay(n)
@@ -166,6 +168,58 @@ class _Renderer:
                 out += [f"set protocols bgp neighbor {x['loopback6']} peer-group RR-CLIENTS", f"set protocols bgp neighbor {x['loopback6']} description '{x['name']}'"]
         return out
 
+
+    def fw(self, n):
+        """The internet breakout firewall, VRF-lite: one attachment circuit per tenant, each in that tenant's VRF with an eBGP session
+        to the PE that announces nothing but a default route; the last port is the libvirt NAT network (DHCP, the host's uplink) in the
+        default VRF. The tenant VRFs import only the default route from the default VRF (BGP `import vrf`, route-map DEFAULT-ONLY), the
+        default VRF imports the tenants' routes for the return traffic; source NAT on the uplink; the forward policy allows tenant ->
+        internet and nothing else — the tenants never reach each other through the box (nor does anything new come in)."""
+        acs = [p for p in n["ports"] if p["peer"]]; netp = next(p for p in n["ports"] if p.get("network"))
+        tenant_space = "172.16.0.0/12"   # every tenant circuit and LAN of the lab lives here
+        out = self.identity(n) + [
+            f"# {netp['name']}: libvirt network '{netp['network']}' (DHCP) = the host's NAT uplink, default VRF. Source NAT: everything from the",
+            f"# tenants leaves with this box's address on that network",
+            f"set interfaces ethernet {netp['name']} address dhcp", f"set interfaces ethernet {netp['name']} description 'internet: libvirt {netp['network']} (host NAT)'",
+            f"set nat source rule 100 outbound-interface name {netp['name']}", f"set nat source rule 100 source address {tenant_space}", "set nat source rule 100 translation address masquerade",
+            "# the default VRF's BGP instance (no neighbours) only exists to leak: DHCP's default route (a static in FRR) out to the tenant VRFs,",
+            "# the tenants' routes (their circuits and LANs, learnt from the PE) in for the return traffic",
+            "set policy prefix-list DEFAULT-ONLY rule 10 action permit", "set policy prefix-list DEFAULT-ONLY rule 10 prefix 0.0.0.0/0",
+            "set policy route-map DEFAULT-ONLY rule 10 action permit", "set policy route-map DEFAULT-ONLY rule 10 match ip address prefix-list DEFAULT-ONLY",
+            f"set protocols bgp system-as {n['asn']}", f"set protocols bgp parameters router-id {n['mgmt_ip']}", "set protocols bgp parameters log-neighbor-changes",
+            "set protocols bgp address-family ipv4-unicast redistribute static route-map DEFAULT-ONLY"] + [
+            f"set protocols bgp address-family ipv4-unicast import vrf {ac['tenant']}" for ac in acs]
+        for ac in acs:
+            vrf = ac["tenant"]; pe_ip = str(ipaddress.ip_interface(ac["ip"]).network.network_address + 1); v = f"vrf name {vrf} "
+            out += [f"# {vrf}: {ac['name']} = attachment circuit to {ac['peer']} {ac['peer_port']} in VRF {vrf}; eBGP announcing a default route and nothing else",
+                    f"set vrf name {vrf} table {self.SVC['tenants'][vrf]['table']}", f"set interfaces ethernet {ac['name']} vrf {vrf}",
+                    f"set interfaces ethernet {ac['name']} address {ac['ip']}", f"set interfaces ethernet {ac['name']} description '{ac['peer']} {ac['peer_port']} ({vrf})'",
+                    f"set {v}protocols bgp system-as {n['asn']}", f"set {v}protocols bgp parameters router-id {ac['ip'].split('/')[0]}", f"set {v}protocols bgp parameters log-neighbor-changes",
+                    f"set {v}protocols bgp neighbor {pe_ip} remote-as {self.SVC['core_as']}", f"set {v}protocols bgp neighbor {pe_ip} description '{ac['peer']} ({vrf})'",
+                    f"set {v}protocols bgp neighbor {pe_ip} address-family ipv4-unicast default-originate",
+                    f"set {v}protocols bgp neighbor {pe_ip} address-family ipv4-unicast prefix-list export DEFAULT-ONLY",
+                    f"set {v}protocols bgp address-family ipv4-unicast import vrf default", f"set {v}protocols bgp address-family ipv4-unicast route-map vrf import DEFAULT-ONLY"]
+        out += ["# stateful firewall: each tenant may go out to the internet, nothing else is forwarded (so no tenant -> tenant), nothing new",
+                "# comes in from the internet side; management only from the OOB network",
+                "set firewall ipv4 forward filter default-action drop",
+                "set firewall ipv4 forward filter rule 5 action accept", "set firewall ipv4 forward filter rule 5 state established", "set firewall ipv4 forward filter rule 5 state related", "set firewall ipv4 forward filter rule 5 description 'established / related'"]
+        out += ["set firewall ipv4 forward filter rule 8 action drop", f"set firewall ipv4 forward filter rule 8 destination address {tenant_space}", "set firewall ipv4 forward filter rule 8 log",
+                "set firewall ipv4 forward filter rule 8 description 'tenant -> tenant: never through the breakout (a tenant VRF only ever sends the other tenants addresses here)'"]
+        for i, ac in enumerate(acs):   # in the forward hook a packet received in a VRF carries the VRF device as its input interface, not ethN
+            r = 10 + i
+            out += [f"set firewall ipv4 forward filter rule {r} action accept", f"set firewall ipv4 forward filter rule {r} inbound-interface name {ac['tenant']}", f"set firewall ipv4 forward filter rule {r} outbound-interface name {netp['name']}",
+                    f"set firewall ipv4 forward filter rule {r} source address {tenant_space}", f"set firewall ipv4 forward filter rule {r} description '{ac['tenant']} -> internet'"]
+        out += ["set firewall ipv4 forward filter rule 900 action drop", "set firewall ipv4 forward filter rule 900 log", "set firewall ipv4 forward filter rule 900 description 'log everything else (tenant -> tenant included)'",
+                "set firewall ipv4 input filter default-action drop",
+                "set firewall ipv4 input filter rule 1 action accept", "set firewall ipv4 input filter rule 1 inbound-interface name lo", "set firewall ipv4 input filter rule 1 description 'loopback (the resolver, FRR)'",
+                "set firewall ipv4 input filter rule 5 action accept", "set firewall ipv4 input filter rule 5 state established", "set firewall ipv4 input filter rule 5 state related",
+                "set firewall ipv4 input filter rule 10 action accept", "set firewall ipv4 input filter rule 10 inbound-interface name eth0", "set firewall ipv4 input filter rule 10 description 'OOB management'"]
+        for i, ac in enumerate(acs):
+            r = 20 + i
+            out += [f"set firewall ipv4 input filter rule {r} action accept", f"set firewall ipv4 input filter rule {r} inbound-interface name {ac['name']}", f"set firewall ipv4 input filter rule {r} protocol tcp", f"set firewall ipv4 input filter rule {r} destination port 179", f"set firewall ipv4 input filter rule {r} description 'BGP from the PE ({ac['tenant']})'"]
+        out += ["set firewall ipv4 input filter rule 30 action accept", "set firewall ipv4 input filter rule 30 protocol icmp", "set firewall ipv4 input filter rule 30 description 'ping'",
+                f"set firewall ipv4 input filter rule 40 action accept", f"set firewall ipv4 input filter rule 40 inbound-interface name {netp['name']}", "set firewall ipv4 input filter rule 40 protocol udp", "set firewall ipv4 input filter rule 40 source port 67", "set firewall ipv4 input filter rule 40 description 'DHCP from the host'"]
+        return out
 
     def ce(self, n):
         """Per tenant: its own VRF on the CE (`vrf name <tenant>`) holding the attachment circuit to the PE and the site LAN, with an

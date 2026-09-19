@@ -347,7 +347,51 @@ $ tools/steer.py del pe1 tenant-b 172.21.3.0/24
 - **Tenant isolation** (suite 05): 2 × 4 × 3 in-tenant pings succeed, every cross-tenant pair fails, P routers hold no
   tenant state.
 
-## 8. Operating it like a network, not a demo
+## 8. Getting out: one firewall for every tenant
+
+A tenant that can only reach its own sites is half a service. The lab adds an internet breakout the way a provider would
+*not* do it in the textbook and the way it actually works: a small VyOS firewall, `fw-inet`, is a **CE of both tenants on
+pe4** — one attachment circuit per tenant, each in that tenant's VRF on the firewall too (VRF-lite) — and it announces
+**one prefix into each: the default route**. Its third port is on the host's libvirt NAT network (DHCP), in its default VRF,
+where everything from `172.16.0.0/12` is masqueraded. The default route then travels like any other tenant route: a VPNv4
+route under pe4's RD with pe4's End.DT46 SID for that tenant, so on pe1
+
+```
+$ ip route show vrf tenant-a default
+{{pe1-default-route}}
+```
+
+On the firewall the three VRFs are glued together with BGP `import vrf` (no SRv6 here, so plain kernel routes): DHCP's
+default route (a static in FRR) goes into each tenant VRF, the tenants' routes come into the default VRF for the way back.
+
+```
+$ show ip route vrf all | match '0.0.0.0/0|VRF'
+{{fw-inet-routes}}
+```
+
+From a host the path is CE → PE → SRv6 → pe4 → firewall → NAT → the host's uplink:
+
+```
+$ traceroute -n -w 1 -q 1 1.1.1.1
+{{dc1-h1-traceroute-internet}}
+```
+
+The tenants still never meet. The firewall's forward policy is *established*, then *tenant VRF → uplink* per tenant, then
+drop and log — and anything for `172.16.0.0/12` is dropped first, because a tenant VRF only ever sends the **other**
+tenant's addresses here (its own are routed inside the VPN). A tenant-a host pinging a tenant-b host shows up in the
+firewall log, not on the other host:
+
+```
+$ show log firewall | match FWD-filter-8
+{{fw-inet-log-cross-tenant}}
+```
+
+(An "internet VRF" with route-target import/export was tried first and dropped: FRR installs a VPN route leaked locally
+between two VRFs with the exporting VRF's SRv6 encapsulation, which the kernel cannot forward through an IPv4 next hop, and
+the internet VRF's routes to every tenant made it a transit path between tenants that no rule on the PE can close — SRv6
+re-encapsulation skips the IPv4 forward hook. With the firewall as a plain CE of each tenant, neither problem exists.)
+
+## 9. Operating it like a network, not a demo
 
 The point of the lab is not the seven routers, it is everything around them:
 
@@ -356,7 +400,7 @@ The point of the lab is not the seven routers, it is everything around them:
   against `lab.conf` and against the routers.
 - **Provisioning** — a portal (FastAPI) adds a tenant or a site as a pipeline: allocate, model in Nautobot, render,
   bring up VMs, push configs, run the tests, back the configurations up to Gitea — with each step's log on the page.
-- **Verification** — 49 Robot Framework cases across 11 suites, run after every change; results (with every node's
+- **Verification** — 81 Robot Framework cases across 14 suites, run after every change; results (with every node's
   configuration and routing tables) are committed to the repository.
 - **Monitoring** — node-exporter and frr-exporter on every router, node-exporter on every host, and the portal's own
   `/metrics` for what exporters cannot see (tenant health, IS-IS/BFD adjacency counts), scraped by Prometheus into
@@ -372,7 +416,7 @@ $ curl -s http://127.0.0.1:8091/metrics | grep -E '^lab_(tenant_health|isis_adja
 {{portal-metrics}}
 ```
 
-## 9. Three things worth remembering
+## 10. Three things worth remembering
 
 1. **SRv6 is just IPv6 routing plus local instructions.** The P routers in this lab run IS-IS and forward IPv6; every
    SRv6 behaviour is a `seg6local` route on the node that owns the address. If you can read `ip -6 route`, you can debug
