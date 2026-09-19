@@ -42,10 +42,12 @@ class _Renderer:
                 f"set service monitoring telegraf global-tag dc value {n['dc']}"] + self.sflow(n)
 
     def sflow(self, n):
-        """sFlow (hsflowd) from the core-facing ports of PEs and Ps to the collector on the NMS (goflow2 -> VictoriaLogs):
-        the outer IPv6 flows show which uSIDs / paths carry the traffic. Lab traffic is small: sample 1 in 16 packets."""
+        """sFlow (hsflowd) from the P routers' ports to the collector on the NMS (goflow2 -> VictoriaLogs): the outer IPv6 flows
+        show which uSIDs / paths carry the traffic, and every path crosses a P. Not on the PEs: hsflowd samples through pcap
+        (every packet copied to user space), which costs a 1-vCPU PE ~15 % of its forwarding capacity on top of the
+        encapsulation work. Lab traffic is small: sample 1 in 16 packets."""
         core_ports = [p["name"] for p in n["ports"] if p["peer"] and self.NODES[p["peer"]]["role"] in ("pe", "p")]
-        if n["role"] not in ("pe", "p") or not core_ports: return []
+        if n["role"] != "p" or not core_ports: return []
         return ["# sFlow from the core-facing ports to the NMS collector (goflow2 -> VictoriaLogs): the outer IPv6 flows = SRv6 paths in use",
                 f"set system sflow agent-address {n['mgmt_ip']}", f"set system sflow server {NMS_IP} port {SFLOW_PORT}",
                 "set system sflow sampling-rate 16", "set system sflow polling 20"] + [f"set system sflow interface {p}" for p in core_ports]

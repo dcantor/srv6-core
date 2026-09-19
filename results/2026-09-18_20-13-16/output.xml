@@ -1,0 +1,402 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<robot generator="Robot 7.5 (Python 3.14.4 on linux)" generated="2026-09-18T20:16:45.215320" rpa="false" schemaversion="5">
+<suite id="s1" name="srv6 core lab" source="/home/dcantor/srv6-core/tests/suites/10_throughput.robot">
+<test id="s1-t1" name="TCP throughput across the core on the shortest path is above the floor" line="20">
+<kw name="Iperf" owner="LabLib">
+<msg time="2026-09-18T20:16:57.549766" level="INFO" html="true">&lt;pre&gt;iperf.py dc1-h1 dc3-h1
+{"src": "dc1-h1", "dst": "dc3-h1", "to": "172.20.3.2", "udp": false, "mbps_sent": 134.2, "mbps_received": 132.2, "retransmits": 60, "streams": 1, "seconds": 5}
+&lt;/pre&gt;</msg>
+<msg time="2026-09-18T20:16:57.549966" level="INFO">${r} = {'src': 'dc1-h1', 'dst': 'dc3-h1', 'to': '172.20.3.2', 'udp': False, 'mbps_sent': 134.2, 'mbps_received': 132.2, 'retransmits': 60, 'streams': 1, 'seconds': 5}</msg>
+<var>${r}</var>
+<arg>${SRC}</arg>
+<arg>${DST}</arg>
+<arg>5</arg>
+<doc>Throughput between two tenant hosts (tools/iperf.py); returns the parsed result dict.</doc>
+<status status="PASS" start="2026-09-18T20:16:48.025882" elapsed="9.524121"/>
+</kw>
+<kw name="Should Be True" owner="BuiltIn">
+<arg>${r}[mbps_received] &gt;= ${FLOOR_MBPS}</arg>
+<arg>msg=${SRC} -&gt; ${DST}: only ${r}[mbps_received] Mbit/s</arg>
+<doc>Fails if the given condition is not true.</doc>
+<status status="PASS" start="2026-09-18T20:16:57.550187" elapsed="0.000588"/>
+</kw>
+<kw name="Log" owner="BuiltIn">
+<msg time="2026-09-18T20:16:57.551160" level="INFO">dc1-h1 -&gt; dc3-h1 shortest path: 132.2 Mbit/s TCP (60 retransmits)</msg>
+<arg>${SRC} -&gt; ${DST} shortest path: ${r}[mbps_received] Mbit/s TCP (${r}[retransmits] retransmits)</arg>
+<arg>console=True</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="PASS" start="2026-09-18T20:16:57.550907" elapsed="0.000312"/>
+</kw>
+<status status="PASS" start="2026-09-18T20:16:48.025159" elapsed="9.526145"/>
+</test>
+<test id="s1-t2" name="UDP at a fixed rate crosses the core with negligible jitter" line="25">
+<kw name="Iperf" owner="LabLib">
+<msg time="2026-09-18T20:17:06.907316" level="INFO" html="true">&lt;pre&gt;iperf.py dc1-h1 dc3-h1
+{"src": "dc1-h1", "dst": "dc3-h1", "to": "172.20.3.2", "udp": true, "mbps": 20.0, "loss_pct": 0, "jitter_ms": 0.035, "seconds": 5}
+&lt;/pre&gt;</msg>
+<msg time="2026-09-18T20:17:06.907508" level="INFO">${r} = {'src': 'dc1-h1', 'dst': 'dc3-h1', 'to': '172.20.3.2', 'udp': True, 'mbps': 20.0, 'loss_pct': 0, 'jitter_ms': 0.035, 'seconds': 5}</msg>
+<var>${r}</var>
+<arg>${SRC}</arg>
+<arg>${DST}</arg>
+<arg>5</arg>
+<arg>udp=${True}</arg>
+<arg>rate=20M</arg>
+<doc>Throughput between two tenant hosts (tools/iperf.py); returns the parsed result dict.</doc>
+<status status="PASS" start="2026-09-18T20:16:57.551706" elapsed="9.355834"/>
+</kw>
+<kw name="Should Be True" owner="BuiltIn">
+<arg>${r}[mbps] &gt;= 18</arg>
+<arg>msg=UDP rate ${r}[mbps] Mbit/s below the 20 Mbit/s offered</arg>
+<doc>Fails if the given condition is not true.</doc>
+<status status="PASS" start="2026-09-18T20:17:06.907729" elapsed="0.000466"/>
+</kw>
+<kw name="Should Be True" owner="BuiltIn">
+<arg>${r}[loss_pct] &lt; 2</arg>
+<arg>msg=${r}[loss_pct] % loss at 20 Mbit/s</arg>
+<doc>Fails if the given condition is not true.</doc>
+<status status="PASS" start="2026-09-18T20:17:06.908294" elapsed="0.000263"/>
+</kw>
+<kw name="Should Be True" owner="BuiltIn">
+<arg>${r}[jitter_ms] &lt; 5</arg>
+<doc>Fails if the given condition is not true.</doc>
+<status status="PASS" start="2026-09-18T20:17:06.908680" elapsed="0.000222"/>
+</kw>
+<kw name="Log" owner="BuiltIn">
+<msg time="2026-09-18T20:17:06.909214" level="INFO">dc1-h1 -&gt; dc3-h1 UDP 20 Mbit/s: loss 0 %, jitter 0.035 ms</msg>
+<arg>${SRC} -&gt; ${DST} UDP 20 Mbit/s: loss ${r}[loss_pct] %, jitter ${r}[jitter_ms] ms</arg>
+<arg>console=True</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="PASS" start="2026-09-18T20:17:06.909010" elapsed="0.000265"/>
+</kw>
+<status status="PASS" start="2026-09-18T20:16:57.551450" elapsed="9.357909"/>
+</test>
+<test id="s1-t3" name="The core carries 100 Mbit/s host to host, in both tenants and both directions" line="32">
+<for flavor="IN">
+<iter>
+<kw name="Split String" owner="String">
+<msg time="2026-09-18T20:17:06.910220" level="INFO">${a} = dc1-h1</msg>
+<msg time="2026-09-18T20:17:06.910249" level="INFO">${b} = dc3-h1</msg>
+<var>${a}</var>
+<var>${b}</var>
+<arg>${pair}</arg>
+<arg>:</arg>
+<doc>Splits the `string` using `separator` as a delimiter string.</doc>
+<status status="PASS" start="2026-09-18T20:17:06.910074" elapsed="0.000190"/>
+</kw>
+<kw name="Iperf" owner="LabLib">
+<msg time="2026-09-18T20:17:21.231178" level="INFO" html="true">&lt;pre&gt;iperf.py dc1-h1 dc3-h1
+{"src": "dc1-h1", "dst": "dc3-h1", "to": "172.20.3.2", "udp": true, "mbps": 100.0, "loss_pct": 2.41, "jitter_ms": 0.121, "seconds": 10}
+&lt;/pre&gt;</msg>
+<msg time="2026-09-18T20:17:21.231354" level="INFO">${u} = {'src': 'dc1-h1', 'dst': 'dc3-h1', 'to': '172.20.3.2', 'udp': True, 'mbps': 100.0, 'loss_pct': 2.41, 'jitter_ms': 0.121, 'seconds': 10}</msg>
+<var>${u}</var>
+<arg>${a}</arg>
+<arg>${b}</arg>
+<arg>10</arg>
+<arg>udp=${True}</arg>
+<arg>rate=${TARGET_MBPS}M</arg>
+<doc>Throughput between two tenant hosts (tools/iperf.py); returns the parsed result dict.</doc>
+<status status="PASS" start="2026-09-18T20:17:06.910328" elapsed="14.321053"/>
+</kw>
+<kw name="Should Be True" owner="BuiltIn">
+<arg>${u}[mbps] &gt;= ${TARGET_MBPS} * 0.95</arg>
+<arg>msg=${a} -&gt; ${b}: UDP delivered ${u}[mbps] Mbit/s of ${TARGET_MBPS} offered</arg>
+<doc>Fails if the given condition is not true.</doc>
+<status status="PASS" start="2026-09-18T20:17:21.231537" elapsed="0.000520"/>
+</kw>
+<kw name="Should Be True" owner="BuiltIn">
+<arg>${u}[loss_pct] &lt; 5</arg>
+<arg>msg=${a} -&gt; ${b}: ${u}[loss_pct] % loss at ${TARGET_MBPS} Mbit/s</arg>
+<doc>Fails if the given condition is not true.</doc>
+<status status="PASS" start="2026-09-18T20:17:21.232174" elapsed="0.000327"/>
+</kw>
+<kw name="Should Be True" owner="BuiltIn">
+<arg>${u}[jitter_ms] &lt; 5</arg>
+<arg>msg=${a} -&gt; ${b}: jitter ${u}[jitter_ms] ms at ${TARGET_MBPS} Mbit/s</arg>
+<doc>Fails if the given condition is not true.</doc>
+<status status="PASS" start="2026-09-18T20:17:21.232598" elapsed="0.000334"/>
+</kw>
+<kw name="Iperf" owner="LabLib">
+<msg time="2026-09-18T20:17:35.607006" level="INFO" html="true">&lt;pre&gt;iperf.py dc1-h1 dc3-h1
+{"src": "dc1-h1", "dst": "dc3-h1", "to": "172.20.3.2", "udp": false, "mbps_sent": 126.2, "mbps_received": 125.1, "retransmits": 328, "streams": 2, "seconds": 10}
+&lt;/pre&gt;</msg>
+<msg time="2026-09-18T20:17:35.607178" level="INFO">${t} = {'src': 'dc1-h1', 'dst': 'dc3-h1', 'to': '172.20.3.2', 'udp': False, 'mbps_sent': 126.2, 'mbps_received': 125.1, 'retransmits': 328, 'streams': 2, 'seconds': 10}</msg>
+<var>${t}</var>
+<arg>${a}</arg>
+<arg>${b}</arg>
+<arg>10</arg>
+<arg>2</arg>
+<doc>Throughput between two tenant hosts (tools/iperf.py); returns the parsed result dict.</doc>
+<status status="PASS" start="2026-09-18T20:17:21.233025" elapsed="14.374188"/>
+</kw>
+<kw name="Should Be True" owner="BuiltIn">
+<arg>${t}[mbps_received] &gt;= ${TARGET_MBPS} * 0.9</arg>
+<arg>msg=${a} -&gt; ${b}: TCP ${t}[mbps_received] Mbit/s, below 90 % of ${TARGET_MBPS}</arg>
+<doc>Fails if the given condition is not true.</doc>
+<status status="PASS" start="2026-09-18T20:17:35.607382" elapsed="0.000539"/>
+</kw>
+<kw name="Log" owner="BuiltIn">
+<msg time="2026-09-18T20:17:35.608337" level="INFO">dc1-h1 -&gt; dc3-h1: UDP 100.0 Mbit/s (2.41 % loss, 0.121 ms jitter) · TCP 125.1 Mbit/s (2 streams)</msg>
+<arg>${a} -&gt; ${b}: UDP ${u}[mbps] Mbit/s (${u}[loss_pct] % loss, ${u}[jitter_ms] ms jitter) · TCP ${t}[mbps_received] Mbit/s (2 streams)</arg>
+<arg>console=True</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="PASS" start="2026-09-18T20:17:35.608075" elapsed="0.000319"/>
+</kw>
+<var name="${pair}">dc1-h1:dc3-h1</var>
+<status status="PASS" start="2026-09-18T20:17:06.909999" elapsed="28.698423"/>
+</iter>
+<iter>
+<kw name="Split String" owner="String">
+<msg time="2026-09-18T20:17:35.608802" level="INFO">${a} = dc4-h2</msg>
+<msg time="2026-09-18T20:17:35.608852" level="INFO">${b} = dc2-h2</msg>
+<var>${a}</var>
+<var>${b}</var>
+<arg>${pair}</arg>
+<arg>:</arg>
+<doc>Splits the `string` using `separator` as a delimiter string.</doc>
+<status status="PASS" start="2026-09-18T20:17:35.608642" elapsed="0.000227"/>
+</kw>
+<kw name="Iperf" owner="LabLib">
+<msg time="2026-09-18T20:17:50.005205" level="INFO" html="true">&lt;pre&gt;iperf.py dc4-h2 dc2-h2
+{"src": "dc4-h2", "dst": "dc2-h2", "to": "172.21.2.2", "udp": true, "mbps": 100.0, "loss_pct": 0.1, "jitter_ms": 0.101, "seconds": 10}
+&lt;/pre&gt;</msg>
+<msg time="2026-09-18T20:17:50.005383" level="INFO">${u} = {'src': 'dc4-h2', 'dst': 'dc2-h2', 'to': '172.21.2.2', 'udp': True, 'mbps': 100.0, 'loss_pct': 0.1, 'jitter_ms': 0.101, 'seconds': 10}</msg>
+<var>${u}</var>
+<arg>${a}</arg>
+<arg>${b}</arg>
+<arg>10</arg>
+<arg>udp=${True}</arg>
+<arg>rate=${TARGET_MBPS}M</arg>
+<doc>Throughput between two tenant hosts (tools/iperf.py); returns the parsed result dict.</doc>
+<status status="PASS" start="2026-09-18T20:17:35.608951" elapsed="14.396459"/>
+</kw>
+<kw name="Should Be True" owner="BuiltIn">
+<arg>${u}[mbps] &gt;= ${TARGET_MBPS} * 0.95</arg>
+<arg>msg=${a} -&gt; ${b}: UDP delivered ${u}[mbps] Mbit/s of ${TARGET_MBPS} offered</arg>
+<doc>Fails if the given condition is not true.</doc>
+<status status="PASS" start="2026-09-18T20:17:50.005571" elapsed="0.000577"/>
+</kw>
+<kw name="Should Be True" owner="BuiltIn">
+<arg>${u}[loss_pct] &lt; 5</arg>
+<arg>msg=${a} -&gt; ${b}: ${u}[loss_pct] % loss at ${TARGET_MBPS} Mbit/s</arg>
+<doc>Fails if the given condition is not true.</doc>
+<status status="PASS" start="2026-09-18T20:17:50.006296" elapsed="0.000337"/>
+</kw>
+<kw name="Should Be True" owner="BuiltIn">
+<arg>${u}[jitter_ms] &lt; 5</arg>
+<arg>msg=${a} -&gt; ${b}: jitter ${u}[jitter_ms] ms at ${TARGET_MBPS} Mbit/s</arg>
+<doc>Fails if the given condition is not true.</doc>
+<status status="PASS" start="2026-09-18T20:17:50.006737" elapsed="0.000274"/>
+</kw>
+<kw name="Iperf" owner="LabLib">
+<msg time="2026-09-18T20:18:04.586193" level="INFO" html="true">&lt;pre&gt;iperf.py dc4-h2 dc2-h2
+{"src": "dc4-h2", "dst": "dc2-h2", "to": "172.21.2.2", "udp": false, "mbps_sent": 99.4, "mbps_received": 98.5, "retransmits": 257, "streams": 2, "seconds": 10}
+&lt;/pre&gt;</msg>
+<msg time="2026-09-18T20:18:04.586446" level="INFO">${t} = {'src': 'dc4-h2', 'dst': 'dc2-h2', 'to': '172.21.2.2', 'udp': False, 'mbps_sent': 99.4, 'mbps_received': 98.5, 'retransmits': 257, 'streams': 2, 'seconds': 10}</msg>
+<var>${t}</var>
+<arg>${a}</arg>
+<arg>${b}</arg>
+<arg>10</arg>
+<arg>2</arg>
+<doc>Throughput between two tenant hosts (tools/iperf.py); returns the parsed result dict.</doc>
+<status status="PASS" start="2026-09-18T20:17:50.007101" elapsed="14.579394"/>
+</kw>
+<kw name="Should Be True" owner="BuiltIn">
+<arg>${t}[mbps_received] &gt;= ${TARGET_MBPS} * 0.9</arg>
+<arg>msg=${a} -&gt; ${b}: TCP ${t}[mbps_received] Mbit/s, below 90 % of ${TARGET_MBPS}</arg>
+<doc>Fails if the given condition is not true.</doc>
+<status status="PASS" start="2026-09-18T20:18:04.586765" elapsed="0.000681"/>
+</kw>
+<kw name="Log" owner="BuiltIn">
+<msg time="2026-09-18T20:18:04.588099" level="INFO">dc4-h2 -&gt; dc2-h2: UDP 100.0 Mbit/s (0.1 % loss, 0.101 ms jitter) · TCP 98.5 Mbit/s (2 streams)</msg>
+<arg>${a} -&gt; ${b}: UDP ${u}[mbps] Mbit/s (${u}[loss_pct] % loss, ${u}[jitter_ms] ms jitter) · TCP ${t}[mbps_received] Mbit/s (2 streams)</arg>
+<arg>console=True</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="PASS" start="2026-09-18T20:18:04.587693" elapsed="0.000481"/>
+</kw>
+<var name="${pair}">dc4-h2:dc2-h2</var>
+<status status="PASS" start="2026-09-18T20:17:35.608537" elapsed="28.979675"/>
+</iter>
+<var>${pair}</var>
+<value>${SRC}:${DST}</value>
+<value>${SRC_R}:${DST_R}</value>
+<status status="PASS" start="2026-09-18T20:17:06.909784" elapsed="57.678464"/>
+</for>
+<doc>UDP at a fixed 100 Mbit/s offered rate for 10 s must be delivered with less than 3 % loss and
+jitter under 5 ms — dc1 -&gt; dc3 in tenant-a (crosses p2) and dc4 -&gt; dc2 in tenant-b (the other way round);
+TCP on the same pairs must reach at least 90 % of the target. Measured on this host: UDP ~1 % loss, TCP 99-106.</doc>
+<status status="PASS" start="2026-09-18T20:17:06.909509" elapsed="57.678838"/>
+</test>
+<test id="s1-t4" name="A steered path (uSID carrier) and its uncompressed equivalent carry comparable TCP throughput" line="47">
+<kw name="Set Variable" owner="BuiltIn">
+<msg time="2026-09-18T20:18:04.589067" level="INFO">${lan} = 172.21.3.0/24</msg>
+<var>${lan}</var>
+<arg>${SITES}[tenant-b][dc3][lan]</arg>
+<doc>Returns the given values which can then be assigned to a variable.</doc>
+<status status="PASS" start="2026-09-18T20:18:04.588820" elapsed="0.000268"/>
+</kw>
+<kw name="Iperf" owner="LabLib">
+<msg time="2026-09-18T20:18:14.010706" level="INFO" html="true">&lt;pre&gt;iperf.py dc1-h2 dc3-h2
+{"src": "dc1-h2", "dst": "dc3-h2", "to": "172.21.3.2", "udp": false, "mbps_sent": 114.5, "mbps_received": 112.7, "retransmits": 75, "streams": 1, "seconds": 5}
+&lt;/pre&gt;</msg>
+<msg time="2026-09-18T20:18:14.010878" level="INFO">${base} = {'src': 'dc1-h2', 'dst': 'dc3-h2', 'to': '172.21.3.2', 'udp': False, 'mbps_sent': 114.5, 'mbps_received': 112.7, 'retransmits': 75, 'streams': 1, 'seconds': 5}</msg>
+<var>${base}</var>
+<arg>${SRC_B}</arg>
+<arg>${DST_B}</arg>
+<arg>5</arg>
+<doc>Throughput between two tenant hosts (tools/iperf.py); returns the parsed result dict.</doc>
+<status status="PASS" start="2026-09-18T20:18:04.589169" elapsed="9.421742"/>
+</kw>
+<kw name="Steer" owner="LabLib">
+<msg time="2026-09-18T20:18:45.745664" level="INFO" html="true">&lt;pre&gt;steer.py add pe1 tenant-b 172.21.3.0/24 p1 p3
+rc=0
+pe1: tenant-b 172.21.3.0/24 -&gt; p1 -&gt; p3 -&gt; pe3  segments fd00:c:11:13:3:e001::  (out eth1)  [uSID: one compressed segment]
+172.21.3.0/24 nhid 1271  encap seg6 mode encap segs 1 [ fd00:c:11:13:3:e001:: ] dev eth1 proto static metric 20 
+&lt;/pre&gt;</msg>
+<arg>add</arg>
+<arg>pe1</arg>
+<arg>tenant-b</arg>
+<arg>${lan}</arg>
+<arg>p1</arg>
+<arg>p3</arg>
+<doc>Run tools/steer.py (explicit-path SRv6 steering): add|del|show|sid ... — returns its output, fails on error.</doc>
+<status status="PASS" start="2026-09-18T20:18:14.011039" elapsed="31.734736"/>
+</kw>
+<kw name="Sleep" owner="BuiltIn">
+<msg time="2026-09-18T20:18:47.746404" level="INFO">Slept 2 seconds.</msg>
+<arg>2s</arg>
+<doc>Pauses execution for the given time.</doc>
+<status status="PASS" start="2026-09-18T20:18:45.745950" elapsed="2.000561"/>
+</kw>
+<kw name="Iperf" owner="LabLib">
+<msg time="2026-09-18T20:18:57.154343" level="INFO" html="true">&lt;pre&gt;iperf.py dc1-h2 dc3-h2
+{"src": "dc1-h2", "dst": "dc3-h2", "to": "172.21.3.2", "udp": false, "mbps_sent": 110.5, "mbps_received": 108.8, "retransmits": 60, "streams": 1, "seconds": 5}
+&lt;/pre&gt;</msg>
+<msg time="2026-09-18T20:18:57.154527" level="INFO">${usid} = {'src': 'dc1-h2', 'dst': 'dc3-h2', 'to': '172.21.3.2', 'udp': False, 'mbps_sent': 110.5, 'mbps_received': 108.8, 'retransmits': 60, 'streams': 1, 'seconds': 5}</msg>
+<var>${usid}</var>
+<arg>${SRC_B}</arg>
+<arg>${DST_B}</arg>
+<arg>5</arg>
+<doc>Throughput between two tenant hosts (tools/iperf.py); returns the parsed result dict.</doc>
+<status status="PASS" start="2026-09-18T20:18:47.746682" elapsed="9.407876"/>
+</kw>
+<kw name="Steer" owner="LabLib">
+<msg time="2026-09-18T20:19:28.963216" level="INFO" html="true">&lt;pre&gt;steer.py add pe1 tenant-b 172.21.3.0/24 p1 p3 --uncompressed
+rc=0
+pe1: tenant-b 172.21.3.0/24 -&gt; p1 -&gt; p3 -&gt; pe3  segments fd00:c:11:: / fd00:c:13:: / fd00:c:3:e001::  (out eth1)
+172.21.3.0/24 nhid 1298  encap seg6 mode encap segs 3 [ fd00:c:11:: fd00:c:13:: fd00:c:3:e001:: ] dev eth1 proto static metric 20 
+&lt;/pre&gt;</msg>
+<arg>add</arg>
+<arg>pe1</arg>
+<arg>tenant-b</arg>
+<arg>${lan}</arg>
+<arg>p1</arg>
+<arg>p3</arg>
+<arg>--uncompressed</arg>
+<doc>Run tools/steer.py (explicit-path SRv6 steering): add|del|show|sid ... — returns its output, fails on error.</doc>
+<status status="PASS" start="2026-09-18T20:18:57.154721" elapsed="31.808593"/>
+</kw>
+<kw name="Sleep" owner="BuiltIn">
+<msg time="2026-09-18T20:19:30.963919" level="INFO">Slept 2 seconds.</msg>
+<arg>2s</arg>
+<doc>Pauses execution for the given time.</doc>
+<status status="PASS" start="2026-09-18T20:19:28.963472" elapsed="2.000596"/>
+</kw>
+<kw name="Iperf" owner="LabLib">
+<msg time="2026-09-18T20:19:40.390754" level="INFO" html="true">&lt;pre&gt;iperf.py dc1-h2 dc3-h2
+{"src": "dc1-h2", "dst": "dc3-h2", "to": "172.21.3.2", "udp": false, "mbps_sent": 101.5, "mbps_received": 99.4, "retransmits": 40, "streams": 1, "seconds": 5}
+&lt;/pre&gt;</msg>
+<msg time="2026-09-18T20:19:40.390930" level="INFO">${plain} = {'src': 'dc1-h2', 'dst': 'dc3-h2', 'to': '172.21.3.2', 'udp': False, 'mbps_sent': 101.5, 'mbps_received': 99.4, 'retransmits': 40, 'streams': 1, 'seconds': 5}</msg>
+<var>${plain}</var>
+<arg>${SRC_B}</arg>
+<arg>${DST_B}</arg>
+<arg>5</arg>
+<doc>Throughput between two tenant hosts (tools/iperf.py); returns the parsed result dict.</doc>
+<status status="PASS" start="2026-09-18T20:19:30.964220" elapsed="9.426735"/>
+</kw>
+<kw name="Steer" owner="LabLib">
+<msg time="2026-09-18T20:20:06.387282" level="INFO" html="true">&lt;pre&gt;steer.py del pe1 tenant-b 172.21.3.0/24
+rc=0
+pe1: tenant-b 172.21.3.0/24 back on the IGP shortest path
+172.21.3.0/24 nhid 99  encap seg6 mode encap segs 1 [ fd00:c:3:e001:: ] via inet6 fe80::5054:ff:fec6:603 dev eth2 proto bgp metric 20 
+&lt;/pre&gt;</msg>
+<arg>del</arg>
+<arg>pe1</arg>
+<arg>tenant-b</arg>
+<arg>${lan}</arg>
+<doc>Run tools/steer.py (explicit-path SRv6 steering): add|del|show|sid ... — returns its output, fails on error.</doc>
+<status status="PASS" start="2026-09-18T20:19:40.391089" elapsed="25.996292"/>
+</kw>
+<kw name="Log" owner="BuiltIn">
+<msg time="2026-09-18T20:20:06.387938" level="INFO">tenant-b dc1 -&gt; dc3: shortest 112.7 · steered uSID 108.8 · steered uncompressed 99.4 Mbit/s</msg>
+<arg>tenant-b dc1 -&gt; dc3: shortest ${base}[mbps_received] · steered uSID ${usid}[mbps_received] · steered uncompressed ${plain}[mbps_received] Mbit/s</arg>
+<arg>console=True</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="PASS" start="2026-09-18T20:20:06.387565" elapsed="0.000434"/>
+</kw>
+<kw name="Should Be True" owner="BuiltIn">
+<arg>${usid}[mbps_received] &gt;= ${FLOOR_MBPS}</arg>
+<arg>msg=steered (uSID) path only ${usid}[mbps_received] Mbit/s</arg>
+<doc>Fails if the given condition is not true.</doc>
+<status status="PASS" start="2026-09-18T20:20:06.388114" elapsed="0.000401"/>
+</kw>
+<kw name="Should Be True" owner="BuiltIn">
+<arg>${plain}[mbps_received] &gt;= ${FLOOR_MBPS}</arg>
+<arg>msg=steered (uncompressed) path only ${plain}[mbps_received] Mbit/s</arg>
+<doc>Fails if the given condition is not true.</doc>
+<status status="PASS" start="2026-09-18T20:20:06.388630" elapsed="0.000366"/>
+</kw>
+<kw name="Should Be True" owner="BuiltIn">
+<arg>${usid}[mbps_received] &gt;= 0.5 * ${base}[mbps_received]</arg>
+<arg>msg=steering halved the throughput (${usid}[mbps_received] vs ${base}[mbps_received])</arg>
+<doc>Fails if the given condition is not true.</doc>
+<status status="PASS" start="2026-09-18T20:20:06.389087" elapsed="0.000315"/>
+</kw>
+<status status="PASS" start="2026-09-18T20:18:04.588487" elapsed="121.800996"/>
+</test>
+<kw name="Cleanup" type="TEARDOWN">
+<kw name="Run Keyword And Ignore Error" owner="BuiltIn">
+<kw name="Steer" owner="LabLib">
+<msg time="2026-09-18T20:20:30.160497" level="INFO" html="true">&lt;pre&gt;steer.py del pe1 tenant-b 172.21.3.0/24
+rc=0
+pe1: tenant-b 172.21.3.0/24 back on the IGP shortest path
+172.21.3.0/24 nhid 99  encap seg6 mode encap segs 1 [ fd00:c:3:e001:: ] via inet6 fe80::5054:ff:fec6:603 dev eth2 proto bgp metric 20 
+&lt;/pre&gt;</msg>
+<arg>del</arg>
+<arg>pe1</arg>
+<arg>tenant-b</arg>
+<arg>${SITES}[tenant-b][dc3][lan]</arg>
+<doc>Run tools/steer.py (explicit-path SRv6 steering): add|del|show|sid ... — returns its output, fails on error.</doc>
+<status status="PASS" start="2026-09-18T20:20:06.390385" elapsed="23.770208"/>
+</kw>
+<arg>Steer</arg>
+<arg>del</arg>
+<arg>pe1</arg>
+<arg>tenant-b</arg>
+<arg>${SITES}[tenant-b][dc3][lan]</arg>
+<doc>Runs the given keyword with the given arguments and ignores possible errorw.</doc>
+<status status="PASS" start="2026-09-18T20:20:06.390108" elapsed="23.770572"/>
+</kw>
+<kw name="Close All Connections" owner="LabLib">
+<status status="PASS" start="2026-09-18T20:20:30.160802" elapsed="0.000094"/>
+</kw>
+<status status="PASS" start="2026-09-18T20:20:06.389936" elapsed="23.771008"/>
+</kw>
+<doc>Throughput across the SRv6 core, measured with iperf3 between the Alpine tenant hosts: the shortest path, a
+steered path (one uSID carrier segment) and the same steered path as an uncompressed three-segment SRH.
+The numbers are what a 1 vCPU VyOS software data plane over UDP-tunnelled links gives (~100-150 Mbit/s);
+the test asserts a floor and that steering / uSID do not break or collapse throughput. Policies are removed.</doc>
+<status status="PASS" start="2026-09-18T20:16:45.216051" elapsed="224.944919"/>
+</suite>
+<statistics>
+<total>
+<stat pass="4" fail="0" skip="0">All Tests</stat>
+</total>
+<tag>
+</tag>
+<suite>
+<stat name="srv6 core lab" id="s1" pass="4" fail="0" skip="0">srv6 core lab</stat>
+</suite>
+</statistics>
+<errors>
+</errors>
+</robot>

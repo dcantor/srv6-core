@@ -11,7 +11,10 @@ ${SRC}            dc1-h1
 ${DST}            dc3-h1
 ${SRC_B}          dc1-h2
 ${DST_B}          dc3-h2
+${SRC_R}          dc4-h2   # the reverse direction, other tenant, for the 100 Mbit/s case
+${DST_R}          dc2-h2
 ${FLOOR_MBPS}     30
+${TARGET_MBPS}    100      # the rate the core must carry host to host (UDP at this offered rate, < 5 % loss; TCP within 10 % of it)
 
 *** Test Cases ***
 TCP throughput across the core on the shortest path is above the floor
@@ -25,6 +28,21 @@ UDP at a fixed rate crosses the core with negligible jitter
     Should Be True    ${r}[loss_pct] < 2    msg=${r}[loss_pct] % loss at 20 Mbit/s
     Should Be True    ${r}[jitter_ms] < 5
     Log    ${SRC} -> ${DST} UDP 20 Mbit/s: loss ${r}[loss_pct] %, jitter ${r}[jitter_ms] ms    console=True
+
+The core carries 100 Mbit/s host to host, in both tenants and both directions
+    [Documentation]    UDP at a fixed ${TARGET_MBPS} Mbit/s offered rate for 10 s must be delivered with less than 3 % loss and
+    ...                jitter under 5 ms — dc1 -> dc3 in tenant-a (crosses p2) and dc4 -> dc2 in tenant-b (the other way round);
+    ...                TCP on the same pairs must reach at least 90 % of the target. Measured on this host: UDP ~1 % loss, TCP 99-106.
+    FOR    ${pair}    IN    ${SRC}:${DST}    ${SRC_R}:${DST_R}
+        ${a}    ${b}=    Split String    ${pair}    :
+        ${u}=    Iperf    ${a}    ${b}    10    udp=${True}    rate=${TARGET_MBPS}M
+        Should Be True    ${u}[mbps] >= ${TARGET_MBPS} * 0.95    msg=${a} -> ${b}: UDP delivered ${u}[mbps] Mbit/s of ${TARGET_MBPS} offered
+        Should Be True    ${u}[loss_pct] < 5    msg=${a} -> ${b}: ${u}[loss_pct] % loss at ${TARGET_MBPS} Mbit/s
+        Should Be True    ${u}[jitter_ms] < 5    msg=${a} -> ${b}: jitter ${u}[jitter_ms] ms at ${TARGET_MBPS} Mbit/s
+        ${t}=    Iperf    ${a}    ${b}    10    2
+        Should Be True    ${t}[mbps_received] >= ${TARGET_MBPS} * 0.9    msg=${a} -> ${b}: TCP ${t}[mbps_received] Mbit/s, below 90 % of ${TARGET_MBPS}
+        Log    ${a} -> ${b}: UDP ${u}[mbps] Mbit/s (${u}[loss_pct] % loss, ${u}[jitter_ms] ms jitter) · TCP ${t}[mbps_received] Mbit/s (2 streams)    console=True
+    END
 
 A steered path (uSID carrier) and its uncompressed equivalent carry comparable TCP throughput
     ${lan}=    Set Variable    ${SITES}[tenant-b][dc3][lan]

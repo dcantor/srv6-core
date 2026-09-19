@@ -1,0 +1,80 @@
+# ce2 (10.3.0.32) show configuration commands captured 2026-09-18 20:20:33
+set interfaces ethernet eth0 address '10.3.0.32/24'
+set interfaces ethernet eth0 description 'OOB management'
+set interfaces ethernet eth0 hw-id '52:54:00:c6:09:00'
+set interfaces ethernet eth1 address '172.16.2.2/30'
+set interfaces ethernet eth1 address 'fd00:16:2::2/64'
+set interfaces ethernet eth1 description 'pe2 eth3 (tenant-a)'
+set interfaces ethernet eth1 hw-id '52:54:00:c6:09:01'
+set interfaces ethernet eth1 vrf 'tenant-a'
+set interfaces ethernet eth2 address '172.20.2.1/24'
+set interfaces ethernet eth2 address 'fd00:20:2::1/64'
+set interfaces ethernet eth2 description 'dc2 LAN tenant-a: dc2-h1'
+set interfaces ethernet eth2 hw-id '52:54:00:c6:09:02'
+set interfaces ethernet eth2 vrf 'tenant-a'
+set interfaces ethernet eth3 address '172.18.2.2/30'
+set interfaces ethernet eth3 address 'fd00:18:2::2/64'
+set interfaces ethernet eth3 description 'pe2 eth4 (tenant-b)'
+set interfaces ethernet eth3 hw-id '52:54:00:c6:09:03'
+set interfaces ethernet eth3 vrf 'tenant-b'
+set interfaces ethernet eth4 address '172.21.2.1/24'
+set interfaces ethernet eth4 address 'fd00:21:2::1/64'
+set interfaces ethernet eth4 description 'dc2 LAN tenant-b: dc2-h2'
+set interfaces ethernet eth4 hw-id '52:54:00:c6:09:04'
+set interfaces ethernet eth4 vrf 'tenant-b'
+set interfaces ethernet eth5 hw-id '52:54:00:c6:09:05'
+set interfaces ethernet eth6 hw-id '52:54:00:c6:09:06'
+set interfaces ethernet eth7 hw-id '52:54:00:c6:09:07'
+set interfaces ethernet eth8 hw-id '52:54:00:c6:09:08'
+set interfaces loopback lo
+set protocols bgp system-as '65002'
+set protocols static route 10.0.0.0/8 next-hop 10.3.0.1
+set service lldp interface all
+set service monitoring prometheus frr-exporter listen-address '10.3.0.32'
+set service monitoring prometheus node-exporter listen-address '10.3.0.32'
+set service monitoring telegraf global-tag dc value 'dc2'
+set service monitoring telegraf global-tag lab value 'srv6-core'
+set service monitoring telegraf global-tag role value 'ce'
+set service monitoring telegraf influxdb authentication organization 'lab'
+set service monitoring telegraf influxdb authentication token 'srv6core-lab-telegraf_________________________________________________________________=='
+set service monitoring telegraf influxdb bucket 'srv6-core'
+set service monitoring telegraf influxdb port '8428'
+set service monitoring telegraf influxdb url 'http://10.3.0.10'
+set service ssh port '22'
+set system config-management commit-revisions '100'
+set system console device ttyS0 kernel
+set system console device ttyS0 speed '115200'
+set system domain-name 'lab.local'
+set system host-name 'ce2'
+set system login operator-group default command-policy allow '*'
+set system login user vyos authentication encrypted-password '$6$rounds=656000$SYXYTxDqU2L1/Ffq$O8IwahNLu.I.8FzbpRO3hVarpdJACdiHinsqZJfDI9cDyF4Des6Q5UAIVJhitRxDJxK4L.EZWAHYfpuslrfGm0'
+set system option reboot-on-upgrade-failure '5'
+set system syslog local facility all level 'info'
+set system syslog local facility local7 level 'debug'
+set system syslog remote 10.3.0.10 facility all level 'info'
+set system syslog remote 10.3.0.10 port '5514'
+set system syslog remote 10.3.0.10 protocol 'udp'
+set vrf name tenant-a protocols bgp address-family ipv4-unicast network 172.20.2.0/24
+set vrf name tenant-a protocols bgp address-family ipv6-unicast network fd00:20:2::/64
+set vrf name tenant-a protocols bgp neighbor 172.16.2.1 address-family ipv4-unicast
+set vrf name tenant-a protocols bgp neighbor 172.16.2.1 description 'pe2 (tenant-a)'
+set vrf name tenant-a protocols bgp neighbor 172.16.2.1 remote-as '65000'
+set vrf name tenant-a protocols bgp neighbor fd00:16:2::1 address-family ipv6-unicast
+set vrf name tenant-a protocols bgp neighbor fd00:16:2::1 description 'pe2 (tenant-a, IPv6)'
+set vrf name tenant-a protocols bgp neighbor fd00:16:2::1 remote-as '65000'
+set vrf name tenant-a protocols bgp parameters log-neighbor-changes
+set vrf name tenant-a protocols bgp parameters router-id '172.20.2.1'
+set vrf name tenant-a protocols bgp system-as '65002'
+set vrf name tenant-a table '100'
+set vrf name tenant-b protocols bgp address-family ipv4-unicast network 172.21.2.0/24
+set vrf name tenant-b protocols bgp address-family ipv6-unicast network fd00:21:2::/64
+set vrf name tenant-b protocols bgp neighbor 172.18.2.1 address-family ipv4-unicast
+set vrf name tenant-b protocols bgp neighbor 172.18.2.1 description 'pe2 (tenant-b)'
+set vrf name tenant-b protocols bgp neighbor 172.18.2.1 remote-as '65000'
+set vrf name tenant-b protocols bgp neighbor fd00:18:2::1 address-family ipv6-unicast
+set vrf name tenant-b protocols bgp neighbor fd00:18:2::1 description 'pe2 (tenant-b, IPv6)'
+set vrf name tenant-b protocols bgp neighbor fd00:18:2::1 remote-as '65000'
+set vrf name tenant-b protocols bgp parameters log-neighbor-changes
+set vrf name tenant-b protocols bgp parameters router-id '172.21.2.1'
+set vrf name tenant-b protocols bgp system-as '65002'
+set vrf name tenant-b table '200'

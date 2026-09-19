@@ -259,8 +259,10 @@ Every device exports metrics on its OOB address and the NMS keeps them:
   shutdown: `Grafana Annotate` in suites 06 / 08) and steering changes, so a dip on a graph carries its cause. Getting
   FRR to log state changes at all needed `tools/frr_logging.py` (VyOS renders `log syslog notifications`; the changes are
   informational) and `log-neighbor-changes` in every VRF BGP instance — both are now part of `lab.sh configure`.
-- **Flows (sFlow)**: `system sflow` on every core-facing port of the PEs and Ps (hsflowd, 1 in 16 packets, agent = the OOB
-  address) → goflow2 on the NMS → VictoriaLogs. Each record is one sampled packet with the outer IPv6 header decoded —
+- **Flows (sFlow)**: `system sflow` on every port of the P routers (hsflowd, 1 in 16 packets, agent = the OOB address) →
+  goflow2 on the NMS → VictoriaLogs. Not on the PEs: hsflowd samples through pcap, so every packet is copied to user space,
+  which cost a 1-vCPU PE ~15 % of its forwarding capacity on top of the encapsulation work (TCP 100 → 118 Mbit/s without it);
+  every path crosses a P anyway. Each record is one sampled packet with the outer IPv6 header decoded —
   including the SRH's addresses and segments-left — so the dashboard **SRv6 flows** shows the paths in use: source PE →
   destination SID per sampler, which router forwards what, and steered packets (a uSID carrier has three or more uSIDs in
   the destination). The flow view of the packet walk.
@@ -339,7 +341,7 @@ rendered line is on the routers — suite 09 asserts both plus the model itself.
 invisible to REST reads (verify through GraphQL), VRF prefixes go through `vrf-prefix-assignments`, GraphQL returns
 choice fields upper-cased, and new custom fields need a Nautobot restart before GraphQL sees them.
 
-## Tests (`./lab.sh test`, 70 cases)
+## Tests (`./lab.sh test`, 71 cases)
 | Suite | Checks |
 |---|---|
 | 01 management | every node on the OOB network with SSH, host names, host LAN addresses, MTU 9000 on all core links, config saved |
@@ -350,7 +352,7 @@ choice fields upper-cased, and new custom fields need a Nautobot restart before 
 | 07 steering | `steer add` installs the one-segment uSID carrier (`fd00:c:11:13:3:e001::`); captures on p1/p3 show the destination shifting hop by hop with the carrier in a one-segment SRH, p2 carries none of it, pings work, the return path crosses p2; the same path as an uncompressed three-segment list also works; `steer del` restores the BGP route |
 | 08 failover | BFD up on all 24 adjacencies; silent cut of p2–pe3 with a live 0.2 s ping: pe3 moves every tenant route to p3 within seconds, BFD reports Down, ≤ 10 packets lost across cut and repair (measured: 4); all BFD sessions and adjacencies back afterwards |
 | 09 nautobot | every device/link/address/VRF/RD/peering in Nautobot matches the inventory; Nautobot's rendering == lab.conf's; every rendered line present on the routers |
-| 10 throughput | iperf3 dc1 → dc3: TCP above the floor, UDP at 20 Mbit/s with no loss, steered (uSID and uncompressed) within half of the shortest path |
+| 10 throughput | iperf3 dc1 → dc3: TCP above the floor, UDP at 20 Mbit/s with no loss; **the core carries 100 Mbit/s host to host** — UDP at a 100 Mbit/s offered rate for 10 s with < 5 % loss and < 5 ms jitter and TCP ≥ 90 Mbit/s, dc1→dc3 in tenant-a and dc4→dc2 in tenant-b (measured 0.1–2.4 % loss, 98–127 Mbit/s TCP); steered (uSID and uncompressed) within half of the shortest path |
 | 11 monitoring | node-exporter + frr-exporter on every VyOS node (every PE BGP session Established per the exporter), node-exporter on every host, the portal's `/api/sd` lists every exporter and `/metrics` reports every tenant up / core fully adjacent; Prometheus scrapes all 31 lab targets, the alert rules are loaded and none fires, VictoriaMetrics holds the remote-written series **and the Telegraf series every node pushes** (tags, freshness, no FRR daemon down), every node's syslog is in VictoriaLogs, the log-derived alert rules are healthy and a live BGP reset raises one, sFlow samples from every core node show the encapsulated flow of a ping burst, Grafana serves the provisioned dashboards with the annotation layers |
 | 12 interconnect | the IPsec headends as tenant-a CEs: PE↔headend eBGP with the right AS, headend + branch LANs on every PE with a SID from the attaching PE's locator and under its RD at the reflectors, absent from tenant-b, dc host ↔ branch pings both ways, the path dc → PE → core → headend → IPsec tunnel → branch, SRv6 encapsulation on p2 (skipped without `EXT_NODES`) |
 | 13 dual-stack | per VRF an Established IPv6 eBGP session with the CE announcing its IPv6 LAN; every IPv6 LAN at both reflectors under the right RD and on every PE once per reflector; **one End.DT46 per VRF** with the same SID and label on the IPv4 and the IPv6 route; SRv6 encap routes for every remote IPv6 LAN in the right VRF only; the 8×7 IPv6 host matrix (in-tenant ok, cross-tenant none); IPv6-in-IPv6 on p2 towards the same SID |
