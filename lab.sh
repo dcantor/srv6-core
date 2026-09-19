@@ -477,7 +477,9 @@ cmd_ci() {         # CI plumbing: setup (Gitea mirror + Actions), sync (mirror n
 }
 
 cmd_push() {       # push to GitHub, then have the local Gitea mirror it and run the CI workflow on the new commit
-  git -C "$LAB_DIR" pull -q --rebase origin main && git -C "$LAB_DIR" push origin HEAD && cmd_ci sync   # CI's results commits land on main: rebase on them first
+  # CI's results commits land on main: rebase on them first (the identity is what the lab's commits use; git has no global one here)
+  local id=(-c user.name="${GIT_AUTHOR_NAME:-dcantor}" -c user.email="${GIT_AUTHOR_EMAIL:-qwmp9wg46y@privaterelay.appleid.com}")
+  git -C "$LAB_DIR" "${id[@]}" pull -q --rebase origin main && git -C "$LAB_DIR" push origin HEAD && cmd_ci sync
 }
 
 cmd_webapp() {     # the tenant provisioning portal (FastAPI/uvicorn) on http://<host>:8091
