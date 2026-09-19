@@ -15,7 +15,9 @@ What is modelled
                  the RR role on p1/p3 endpoints; `sid vpn export auto` as extra attribute of the PE VRF address families
   config context srv6-core: IS-IS area / level, SRv6 locator structure, BFD, MTU, OOB gateway, tenant kernel tables
   GraphQL        saved query srv6-core-model — what nautobot/render.py reads to rebuild the inventory and render the configs
-Usage: NAUTOBOT_TOKEN=... seed.py [--url http://10.0.0.10:8080]"""
+Usage: NAUTOBOT_TOKEN=... seed.py [--url http://10.0.0.10:8080] [--check]
+  --check   dry run: every create / update / delete is recorded instead of sent; exit 1 if Nautobot is not in sync with
+            lab.conf (what CI runs on every push)"""
 import argparse, ipaddress, json, os, subprocess, sys
 from pathlib import Path
 import pynautobot, requests
@@ -24,12 +26,43 @@ LAB = Path(__file__).resolve().parents[1]
 p = argparse.ArgumentParser()
 p.add_argument("--url", default=os.environ.get("NAUTOBOT_URL", "http://10.0.0.10:8080"))
 p.add_argument("--token", default=os.environ.get("NAUTOBOT_TOKEN"))
+p.add_argument("--check", action="store_true", help="dry run: report what would change, exit 1 if anything")
 a = p.parse_args()
 inv = json.loads(subprocess.run([str(LAB / "lab.sh"), "inventory"], capture_output=True, text=True, check=True).stdout)
 SVC, OOB = inv["service"], inv["oob"]; N = {n["name"]: n for n in inv["nodes"]}
 SITE = "srv6-core"; MAC_OUI = "52:54:00:c6"
 nb = pynautobot.api(a.url, token=a.token); H = {"Authorization": f"Token {a.token}", "Accept": "application/json"}
 created = []
+
+if a.check:   # dry run: reads stay live; creates / deletes / raw writes become notes in `created` (updates are already noted by their callers)
+    from pynautobot.core.endpoint import Endpoint
+    from pynautobot.core.response import Record
+
+    class DryRecord:
+        """What a dry create hands back: the fields as attributes, a fake id, None for anything else."""
+        def __init__(self, ep, **fields): self.__dict__.update(fields); self.id = f"dry-{ep.rsplit('/', 1)[-1]}"; self.endpoint = ep
+        def __getattr__(self, k): return None
+        def update(self, data): return True
+        def delete(self): created.append(f"[dry] delete {self.endpoint} {self.id}"); return True
+
+    def _dry_create(self, *args, api_version=None, **kw):
+        fields = {**(args[0] if args and isinstance(args[0], dict) else {}), **kw}; created.append(f"[dry] create {self.url.replace(a.url, '')}: {fields}"); return DryRecord(self.url, **fields)
+    def _dry_update(self, data): return True
+    def _dry_delete(self): created.append(f"[dry] delete {self.endpoint.url.replace(a.url, '')} {getattr(self, 'name', None) or getattr(self, 'prefix', None) or getattr(self, 'address', None) or self.id}"); return True
+    Endpoint.create, Record.update, Record.delete = _dry_create, _dry_update, _dry_delete
+    _real_post = requests.post
+
+    class _DryResponse:
+        status_code = 200
+        def raise_for_status(self): pass
+        def json(self): return {}
+
+    def _dry_write(method):
+        def f(url, **kw):
+            if method == "post" and url.endswith("/graphql/"): return _real_post(url, **kw)   # a read
+            created.append(f"[dry] {method.upper()} {url.replace(a.url, '')} {kw.get('json', '')}"); return _DryResponse()
+        return f
+    requests.post, requests.patch, requests.delete = _dry_write("post"), _dry_write("patch"), _dry_write("delete")
 
 
 # ---- helpers (same idioms as the IPsec lab's seed) --------------------------------------------------------------
@@ -399,4 +432,5 @@ q = nb.extras.graphql_queries.get(name="srv6-core-model")
 if q is None: nb.extras.graphql_queries.create(name="srv6-core-model", query=QUERY); created.append("graphql-query:srv6-core-model")
 elif q.query.rstrip() != QUERY.rstrip(): q.update({"query": QUERY}); created.append("graphql-query updated")
 
-print(f"seed complete: {len(created)} changes" + (":\n  " + "\n  ".join(created[:60]) + ("\n  ..." if len(created) > 60 else "") if created else " (already in sync)"))
+print(f"seed {'check' if a.check else 'complete'}: {len(created)} changes{' would be made' if a.check else ''}" + (":\n  " + "\n  ".join(created[:60]) + ("\n  ..." if len(created) > 60 else "") if created else " (already in sync)"))
+if a.check and created: sys.exit(1)

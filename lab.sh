@@ -471,6 +471,15 @@ cmd_backup() {     # commit running + intended configs and routing tables to the
   "$PY" "$LAB_DIR/tools/backup_configs.py" "$@"
 }
 
+cmd_ci() {         # CI plumbing: setup (Gitea mirror + Actions), sync (mirror now, start the workflow), status (last runs)
+  [[ -x "$LAB_DIR/tests/.venv/bin/python" ]] || "$LAB_DIR/tests/setup.sh"
+  "$PY" "$LAB_DIR/tools/ci.py" "$@"
+}
+
+cmd_push() {       # push to GitHub, then have the local Gitea mirror it and run the CI workflow on the new commit
+  git -C "$LAB_DIR" push origin HEAD && cmd_ci sync
+}
+
 cmd_webapp() {     # the tenant provisioning portal (FastAPI/uvicorn) on http://<host>:8091
   [[ -x "$LAB_DIR/webapp/.venv/bin/uvicorn" ]] || { python3 -m venv "$LAB_DIR/webapp/.venv" && "$LAB_DIR/webapp/.venv/bin/pip" install -q -r "$LAB_DIR/webapp/requirements.txt"; }
   cd "$LAB_DIR/webapp" && exec .venv/bin/uvicorn app:app --host "${WEBAPP_HOST:-0.0.0.0}" --port "${WEBAPP_PORT:-8091}"
@@ -494,6 +503,8 @@ usage: $(basename "$0") <command> [node...]
   webapp             start the tenant provisioning portal on http://<host>:8091
   iperf <src> <dst> [-t s] [-u -b RATE] | iperf --scenarios   throughput between tenant hosts (iperf3 on the Alpine hosts)
   backup [-m msg]    commit running + intended configs and routing tables to the local Gitea (http://<nms>:3000/lab/srv6-core-configs)
+  push               git push to GitHub, then sync the Gitea mirror and start the CI workflow (validate + test + results committed)
+  ci setup|sync|status   the Gitea mirror / Actions side of that
   wait [node..]      wait until SSH answers
   down [node..]      stop VMs (VyOS: ACPI shutdown)
   status             nodes, addresses, links, consoles
@@ -511,6 +522,6 @@ U
 
 cmd="${1:-}"; shift || true
 case "$cmd" in
-  up|down|bootstrap|configure|steer|nautobot|webapp|iperf|backup|wait|status|inventory|verify|test|console|ssh|log|rebuild|clean) "cmd_$cmd" "$@" ;;
+  up|down|bootstrap|configure|steer|nautobot|webapp|iperf|backup|push|ci|wait|status|inventory|verify|test|console|ssh|log|rebuild|clean) "cmd_$cmd" "$@" ;;
   *) usage; exit 1 ;;
 esac

@@ -10,6 +10,9 @@
 set -uo pipefail
 cd "$(dirname "$(readlink -f "$0")")"
 [[ -x .venv/bin/robot ]] || { echo "error: run tests/setup.sh first" >&2; exit 1; }
+# one run at a time on this host (manual, portal, CI): the suites cut links and shut sessions, two runs would fail each other
+exec 9>/tmp/srv6-core-test.lock
+flock -n 9 || { echo "==> another test run holds /tmp/srv6-core-test.lock — waiting for it"; flock 9; }
 
 ts="$(date +%Y-%m-%d_%H-%M-%S)"
 out="$(cd .. && pwd)/results/$ts"

@@ -354,6 +354,27 @@ here, then `nautobot seed` / `render` / `nac apply` on the IPsec side.
   `EXT_NODES` is empty (the current state), and needs the IPsec lab up. Resource note: both labs plus the NMS need ~52 GiB and the eight
   C8000v each keep a core busy — run the two labs' test suites one after the other.
 
+## CI on every push (Gitea Actions on the lab host)
+![lab-ci](http://10.0.0.10:3000/lab/srv6-core/actions/workflows/lab-ci.yml/badge.svg?branch=main)
+
+GitHub stays the origin; the local Gitea (`http://10.0.0.10:3000/lab/srv6-core`) keeps a **pull mirror** of it and runs
+[`.gitea/workflows/lab-ci.yml`](.gitea/workflows/lab-ci.yml) on every new commit. The runner is the lab host itself
+(`gitea-runner` v3.5 in host mode as the lab user, label `lab-host`, `systemd --user` unit `gitea-runner.service`,
+capacity 1), because the checks need the VMs, the OOB network and Nautobot.
+
+- **validate** (minutes): `tools/gen_configs.py` must not change `nodes/*/vyos_config.txt` (the committed configs are
+  what `lab.conf` renders), `nautobot render --check` (Nautobot renders the same), `nautobot seed --check` (a dry run of
+  the seed: every create / update / delete is recorded instead of sent — exit 1 if Nautobot is not in sync with `lab.conf`).
+- **test** (~45 min): the 14 Robot suites against the running lab — skipped when the VMs are down — with the results
+  committed back to GitHub as `results/<ts>` (`[skip ci]`, so the results commit does not start another run); the job is
+  red when a case fails, the results are committed either way. `tests/run.sh` takes a host-wide lock, so a CI run, a
+  manual `./lab.sh test` and a portal run never overlap.
+
+`./lab.sh push` = `git push` to GitHub, then `./lab.sh ci sync` (mirror now, workflow started on the new commit — a
+`workflow_dispatch` if the sync itself does not trigger it); `./lab.sh ci status` lists the last runs; `./lab.sh ci setup`
+created the mirror (idempotent). Nothing is stored on the developer side: no second remote, no token — Gitea's password
+is read from the NMS at run time, as `lab.sh backup` does. Pull before committing: CI's results commits land on `main`.
+
 ## Nautobot: the source of truth
 The lab is modelled in the shared Nautobot (the cat9000v NMS, on this lab's OOB network as **10.3.0.10**):
 `./lab.sh nautobot seed` (idempotent, from `lab.conf`), `./lab.sh nautobot render --check | --live | --write`.
@@ -443,6 +464,7 @@ a terminal page; run it with the cat8000v-ipsec `webapp/.venv` python).
 | `tools/build_host_image.sh`, `tools/iperf.py` | the Alpine host base image (iperf3 etc.); throughput between hosts (`lab.sh iperf`) |
 | `tools/steer.py` | explicit-path SRv6 steering (`add / del / show / sid`; uSID carrier or `--uncompressed`) |
 | `tools/frr_logging.py` | FRR logs routing state changes to syslog (VyOS boot-hook flag + live vtysh; run by `configure`) |
+| `tools/ci.py`, `.gitea/workflows/lab-ci.yml` | the CI plumbing (Gitea mirror, sync, status) and the workflow the lab host's runner executes on every push |
 | `tools/backup_configs.py` | `lab.sh backup`: running + intended configs and routing tables → the local Gitea (`lab/srv6-core-configs`); also the last step of every portal run |
 | `webapp/` | the tenant provisioning portal (FastAPI + single page; `restart.sh`, `srv6-webapp.service`); `metrics.py` = `/metrics` and `/api/sd` for Prometheus |
 | `tools/chaos.py`, `.mcp.json`, `docs/ai-ops.md` | fault injection for drills; the MCP server registration; the AI-operator setup and a worked diagnosis |

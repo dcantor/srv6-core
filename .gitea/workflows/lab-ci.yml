@@ -1,0 +1,84 @@
+# CI for the SRv6 core lab, run by the Gitea runner on the lab host itself (label lab-host, host mode: the steps run as the
+# lab user, next to the VMs). The local Gitea (http://10.0.0.10:3000/lab/srv6-core) is a pull mirror of GitHub; `./lab.sh push`
+# pushes to GitHub, syncs the mirror and starts this workflow on the new commit.
+#   validate  (minutes)  the committed configs are what lab.conf renders; Nautobot renders the same; Nautobot is in sync
+#                        with lab.conf (seed --check = dry run)
+#   test      (~45 min)  the Robot Framework suites against the running lab (skipped when the lab is down), results
+#                        committed back to GitHub (results/<ts>, "[skip ci]"), the mirror picks them up
+name: lab-ci
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  LAB_CHECKOUT: /home/dcantor/srv6-core       # the live checkout: its test venv is reused (tests/.venv), nothing else
+  MIRROR: http://10.0.0.10:3000/lab/srv6-core.git
+  GITHUB_REPO: https://github.com/dcantor/srv6-core.git
+
+jobs:
+  validate:
+    runs-on: lab-host
+    timeout-minutes: 20
+    steps:
+      - name: checkout the pushed commit from the mirror
+        run: |
+          git clone -q "$MIRROR" . && git checkout -q "$GITHUB_SHA"
+          ln -s "$LAB_CHECKOUT/tests/.venv" tests/.venv
+          echo "$(git log -1 --format='%h %s' | cut -c1-120)"
+      - name: rendered configs match lab.conf
+        run: |
+          tests/.venv/bin/python tools/gen_configs.py
+          git diff --stat --exit-code -- nodes/ || { echo "::error::nodes/*/vyos_config.txt are not what lab.conf renders — run tools/gen_configs.py and commit"; exit 1; }
+      - name: Nautobot renders the same configuration
+        run: ./lab.sh nautobot render --check
+      - name: Nautobot is in sync with lab.conf (seed dry run)
+        run: ./lab.sh nautobot seed --check
+
+  test:
+    runs-on: lab-host
+    needs: validate
+    timeout-minutes: 120
+    steps:
+      - name: checkout
+        run: |
+          git clone -q "$MIRROR" . && git checkout -q "$GITHUB_SHA"
+          ln -s "$LAB_CHECKOUT/tests/.venv" tests/.venv
+      - name: the lab is up (otherwise the suites are skipped)
+        id: lab
+        run: |
+          total=$(./lab.sh inventory | python3 -c 'import json,sys; print(len(json.load(sys.stdin)["nodes"]))')
+          up=$(./lab.sh status | awk '$3=="running"' | wc -l)
+          echo "$up of $total VMs running"
+          if [ "$up" -ne "$total" ]; then echo "lab not fully up: test suites skipped"; echo "skip=1" >> "$GITHUB_OUTPUT"; else echo "skip=0" >> "$GITHUB_OUTPUT"; fi
+      - name: Robot Framework suites (one run at a time on this host)
+        if: steps.lab.outputs.skip == '0'
+        run: |
+          set +e
+          ./lab.sh test; rc=$?
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
+          ts=$(readlink results/latest); echo "ts=$ts" >> "$GITHUB_OUTPUT"
+          python3 - "$ts" <<'PY' >> "$GITHUB_OUTPUT"
+          import sys, xml.etree.ElementTree as ET
+          r = ET.parse(f"results/{sys.argv[1]}/output.xml").getroot(); s = r.find("statistics/total/stat")
+          print(f"passed={s.get('pass')}"); print(f"failed={s.get('fail')}"); print(f"skipped={s.get('skip')}")
+          PY
+          exit 0
+        id: robot
+      - name: commit the results back to GitHub
+        if: steps.lab.outputs.skip == '0'
+        env:
+          TS: ${{ steps.robot.outputs.ts }}
+          PASSED: ${{ steps.robot.outputs.passed }}
+          FAILED: ${{ steps.robot.outputs.failed }}
+          SKIPPED: ${{ steps.robot.outputs.skipped }}
+        run: |
+          git add "results/$TS"
+          git -c user.name=lab-ci -c user.email=lab-ci@lab.local commit -q -m "CI: test results for ${GITHUB_SHA:0:8} — $PASSED passed, $FAILED failed, $SKIPPED skipped (results/$TS) [skip ci]"
+          git fetch -q "$GITHUB_REPO" main && git rebase -q FETCH_HEAD
+          git push -q "$GITHUB_REPO" HEAD:main && echo "results/$TS pushed to GitHub ($PASSED passed, $FAILED failed)"
+      - name: verdict
+        if: steps.lab.outputs.skip == '0'
+        run: |
+          echo "${{ steps.robot.outputs.passed }} passed, ${{ steps.robot.outputs.failed }} failed, ${{ steps.robot.outputs.skipped }} skipped — results/${{ steps.robot.outputs.ts }}"
+          test "${{ steps.robot.outputs.rc }}" = "0"
