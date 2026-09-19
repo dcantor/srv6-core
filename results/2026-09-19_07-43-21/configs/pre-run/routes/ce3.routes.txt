@@ -1,0 +1,128 @@
+# ce3 (10.3.0.33) routing tables captured 2026-09-19 07:43:24
+
+==== IPv4 RIB, default VRF: show ip route
+Codes: K - kernel route, C - connected, L - local, S - static,
+       R - RIP, O - OSPF, I - IS-IS, B - BGP, E - EIGRP, N - NHRP,
+       T - Table, v - VNC, V - VNC-Direct, A - Babel, F - PBR,
+       f - OpenFabric, t - Table-Direct,
+       > - selected route, * - FIB route, q - queued, r - rejected, b - backup
+       t - trapped, o - offload failure
+
+IPv4 unicast VRF default:
+S>* 10.0.0.0/8 [1/0] via 10.3.0.1, eth0, weight 1, 1d09h40m
+C>* 10.3.0.0/24 is directly connected, eth0, weight 1, 1d09h40m
+L>* 10.3.0.33/32 is directly connected, eth0, weight 1, 1d09h40m
+
+==== IPv6 RIB, default VRF: show ipv6 route
+Codes: K - kernel route, C - connected, L - local, S - static,
+       R - RIPng, O - OSPFv3, I - IS-IS, B - BGP, N - NHRP,
+       T - Table, v - VNC, V - VNC-Direct, A - Babel, F - PBR,
+       f - OpenFabric, t - Table-Direct,
+       > - selected route, * - FIB route, q - queued, r - rejected, b - backup
+       t - trapped, o - offload failure
+
+IPv6 unicast VRF default:
+C * fe80::/64 is directly connected, eth6, weight 1, 1d09h40m
+C * fe80::/64 is directly connected, eth7, weight 1, 1d09h40m
+C * fe80::/64 is directly connected, eth8, weight 1, 1d09h40m
+C * fe80::/64 is directly connected, eth0, weight 1, 1d09h40m
+C * fe80::/64 is directly connected, eth5, weight 1, 1d09h40m
+C>* fe80::/64 is directly connected, lo, weight 1, 1d09h40m
+
+==== IPv4 RIB, VRF tenant-a: show ip route vrf tenant-a
+Codes: K - kernel route, C - connected, L - local, S - static,
+       R - RIP, O - OSPF, I - IS-IS, B - BGP, E - EIGRP, N - NHRP,
+       T - Table, v - VNC, V - VNC-Direct, A - Babel, F - PBR,
+       f - OpenFabric, t - Table-Direct,
+       > - selected route, * - FIB route, q - queued, r - rejected, b - backup
+       t - trapped, o - offload failure
+
+IPv4 unicast VRF tenant-a:
+B>* 0.0.0.0/0 [20/0] via 172.16.3.1, eth1, weight 1, 09:59:09
+B>* 172.16.1.0/30 [20/0] via 172.16.3.1, eth1, weight 1, 07:51:55
+B>* 172.16.2.0/30 [20/0] via 172.16.3.1, eth1, weight 1, 10:15:51
+B   172.16.3.0/30 [20/0] via 172.16.3.1 inactive, weight 1, 16:13:38
+C>* 172.16.3.0/30 is directly connected, eth1, weight 1, 1d09h40m
+L>* 172.16.3.2/32 is directly connected, eth1, weight 1, 1d09h40m
+B>* 172.16.4.0/30 [20/0] via 172.16.3.1, eth1, weight 1, 10:15:10
+B>* 172.16.5.0/30 [20/0] via 172.16.3.1, eth1, weight 1, 10:15:10
+B>* 172.20.1.0/24 [20/0] via 172.16.3.1, eth1, weight 1, 07:51:55
+B>* 172.20.2.0/24 [20/0] via 172.16.3.1, eth1, weight 1, 10:15:51
+C>* 172.20.3.0/24 is directly connected, eth2, weight 1, 1d09h40m
+L>* 172.20.3.1/32 is directly connected, eth2, weight 1, 1d09h40m
+B>* 172.20.4.0/24 [20/0] via 172.16.3.1, eth1, weight 1, 10:15:10
+
+==== IPv4 RIB, VRF tenant-b: show ip route vrf tenant-b
+Codes: K - kernel route, C - connected, L - local, S - static,
+       R - RIP, O - OSPF, I - IS-IS, B - BGP, E - EIGRP, N - NHRP,
+       T - Table, v - VNC, V - VNC-Direct, A - Babel, F - PBR,
+       f - OpenFabric, t - Table-Direct,
+       > - selected route, * - FIB route, q - queued, r - rejected, b - backup
+       t - trapped, o - offload failure
+
+IPv4 unicast VRF tenant-b:
+B>* 0.0.0.0/0 [20/0] via 172.18.3.1, eth3, weight 1, 09:59:10
+B>* 172.18.1.0/30 [20/0] via 172.18.3.1, eth3, weight 1, 07:32:17
+B>* 172.18.2.0/30 [20/0] via 172.18.3.1, eth3, weight 1, 10:15:52
+B   172.18.3.0/30 [20/0] via 172.18.3.1 inactive, weight 1, 1d00h26m
+C>* 172.18.3.0/30 is directly connected, eth3, weight 1, 1d08h00m
+L>* 172.18.3.2/32 is directly connected, eth3, weight 1, 1d08h00m
+B>* 172.18.4.0/30 [20/0] via 172.18.3.1, eth3, weight 1, 10:15:11
+B>* 172.18.5.0/30 [20/0] via 172.18.3.1, eth3, weight 1, 10:15:11
+B>* 172.21.1.0/24 [20/0] via 172.18.3.1, eth3, weight 1, 07:32:17
+B>* 172.21.2.0/24 [20/0] via 172.18.3.1, eth3, weight 1, 10:15:52
+C>* 172.21.3.0/24 is directly connected, eth4, weight 1, 1d09h40m
+L>* 172.21.3.1/32 is directly connected, eth4, weight 1, 1d09h40m
+B>* 172.21.4.0/24 [20/0] via 172.18.3.1, eth3, weight 1, 07:21:10
+
+==== IPv6 RIB, VRF tenant-a: show ipv6 route vrf tenant-a
+Codes: K - kernel route, C - connected, L - local, S - static,
+       R - RIPng, O - OSPFv3, I - IS-IS, B - BGP, N - NHRP,
+       T - Table, v - VNC, V - VNC-Direct, A - Babel, F - PBR,
+       f - OpenFabric, t - Table-Direct,
+       > - selected route, * - FIB route, q - queued, r - rejected, b - backup
+       t - trapped, o - offload failure
+
+IPv6 unicast VRF tenant-a:
+K>* ::1/128 [0/256] is directly connected, tenant-a, weight 1, 1d09h40m
+B>* fd00:16:1::/64 [20/0] via fe80::5054:ff:fec6:303, eth1, weight 1, 07:51:56
+B>* fd00:16:2::/64 [20/0] via fe80::5054:ff:fec6:303, eth1, weight 1, 10:15:52
+B   fd00:16:3::/64 [20/0] via fe80::5054:ff:fec6:303, eth1, weight 1, 15:34:07
+C>* fd00:16:3::/64 is directly connected, eth1, weight 1, 15:34:09
+K * fd00:16:3::/64 [0/256] is directly connected, eth1, weight 1, 15:34:11
+L>* fd00:16:3::2/128 is directly connected, eth1, weight 1, 15:34:09
+B>* fd00:16:4::/64 [20/0] via fe80::5054:ff:fec6:303, eth1, weight 1, 10:15:11
+B>* fd00:20:1::/64 [20/0] via fe80::5054:ff:fec6:303, eth1, weight 1, 07:51:56
+B>* fd00:20:2::/64 [20/0] via fe80::5054:ff:fec6:303, eth1, weight 1, 10:15:52
+C>* fd00:20:3::/64 is directly connected, eth2, weight 1, 15:34:09
+K * fd00:20:3::/64 [0/256] is directly connected, eth2, weight 1, 15:34:12
+L>* fd00:20:3::1/128 is directly connected, eth2, weight 1, 15:34:09
+B>* fd00:20:4::/64 [20/0] via fe80::5054:ff:fec6:303, eth1, weight 1, 10:15:11
+C * fe80::/64 is directly connected, eth2, weight 1, 1d09h40m
+C>* fe80::/64 is directly connected, eth1, weight 1, 1d09h40m
+
+==== IPv6 RIB, VRF tenant-b: show ipv6 route vrf tenant-b
+Codes: K - kernel route, C - connected, L - local, S - static,
+       R - RIPng, O - OSPFv3, I - IS-IS, B - BGP, N - NHRP,
+       T - Table, v - VNC, V - VNC-Direct, A - Babel, F - PBR,
+       f - OpenFabric, t - Table-Direct,
+       > - selected route, * - FIB route, q - queued, r - rejected, b - backup
+       t - trapped, o - offload failure
+
+IPv6 unicast VRF tenant-b:
+K>* ::1/128 [0/256] is directly connected, tenant-b, weight 1, 1d09h40m
+B>* fd00:18:1::/64 [20/0] via fe80::5054:ff:fec6:304, eth3, weight 1, 07:32:18
+B>* fd00:18:2::/64 [20/0] via fe80::5054:ff:fec6:304, eth3, weight 1, 10:15:53
+B   fd00:18:3::/64 [20/0] via fe80::5054:ff:fec6:304, eth3, weight 1, 15:34:08
+C>* fd00:18:3::/64 is directly connected, eth3, weight 1, 15:34:10
+K * fd00:18:3::/64 [0/256] is directly connected, eth3, weight 1, 15:34:12
+L>* fd00:18:3::2/128 is directly connected, eth3, weight 1, 15:34:10
+B>* fd00:18:4::/64 [20/0] via fe80::5054:ff:fec6:304, eth3, weight 1, 10:15:12
+B>* fd00:21:1::/64 [20/0] via fe80::5054:ff:fec6:304, eth3, weight 1, 07:32:18
+B>* fd00:21:2::/64 [20/0] via fe80::5054:ff:fec6:304, eth3, weight 1, 10:15:53
+C>* fd00:21:3::/64 is directly connected, eth4, weight 1, 15:34:10
+K * fd00:21:3::/64 [0/256] is directly connected, eth4, weight 1, 15:34:12
+L>* fd00:21:3::1/128 is directly connected, eth4, weight 1, 15:34:10
+B>* fd00:21:4::/64 [20/0] via fe80::5054:ff:fec6:304, eth3, weight 1, 10:15:12
+C * fe80::/64 is directly connected, eth3, weight 1, 1d09h40m
+C>* fe80::/64 is directly connected, eth4, weight 1, 1d09h40m
