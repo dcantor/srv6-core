@@ -1,0 +1,778 @@
+# pe2 (10.3.0.12) routing tables captured 2026-09-19 08:28:54
+
+==== IPv4 RIB, default VRF: show ip route
+Codes: K - kernel route, C - connected, L - local, S - static,
+       R - RIP, O - OSPF, I - IS-IS, B - BGP, E - EIGRP, N - NHRP,
+       T - Table, v - VNC, V - VNC-Direct, A - Babel, F - PBR,
+       f - OpenFabric, t - Table-Direct,
+       > - selected route, * - FIB route, q - queued, r - rejected, b - backup
+       t - trapped, o - offload failure
+
+IPv4 unicast VRF default:
+S>* 10.0.0.0/8 [1/0] via 10.3.0.1, eth0, weight 1, 1d01h09m
+C>* 10.3.0.0/24 is directly connected, eth0, weight 1, 1d01h09m
+L>* 10.3.0.12/32 is directly connected, eth0, weight 1, 1d01h09m
+
+==== IPv6 RIB, default VRF: show ipv6 route
+Codes: K - kernel route, C - connected, L - local, S - static,
+       R - RIPng, O - OSPFv3, I - IS-IS, B - BGP, N - NHRP,
+       T - Table, v - VNC, V - VNC-Direct, A - Babel, F - PBR,
+       f - OpenFabric, t - Table-Direct,
+       > - selected route, * - FIB route, q - queued, r - rejected, b - backup
+       t - trapped, o - offload failure
+
+IPv6 unicast VRF default:
+I>* fd00:a::1/128 [115/30] via fe80::5054:ff:fec6:504, eth1, weight 1, 16:55:26
+  *                        via fe80::5054:ff:fec6:604, eth2, weight 1, 16:55:26
+L * fd00:a::2/128 is directly connected, lo, weight 1, 1d01h09m
+C>* fd00:a::2/128 is directly connected, lo, weight 1, 1d01h09m
+I>* fd00:a::3/128 [115/30] via fe80::5054:ff:fec6:604, eth2, weight 1, 00:22:44
+I>* fd00:a::4/128 [115/30] via fe80::5054:ff:fec6:604, eth2, weight 1, 16:55:26
+I>* fd00:a::11/128 [115/20] via fe80::5054:ff:fec6:504, eth1, weight 1, 1d01h09m
+I>* fd00:a::12/128 [115/20] via fe80::5054:ff:fec6:604, eth2, weight 1, 16:55:26
+I>* fd00:a::13/128 [115/30] via fe80::5054:ff:fec6:504, eth1, weight 1, 16:55:26
+  *                         via fe80::5054:ff:fec6:604, eth2, weight 1, 16:55:26
+I>* fd00:b:0:12::/64 [115/20] via fe80::5054:ff:fec6:504, eth1, weight 1, 16:55:26
+  *                           via fe80::5054:ff:fec6:604, eth2, weight 1, 16:55:26
+I>* fd00:b:0:13::/64 [115/20] via fe80::5054:ff:fec6:504, eth1, weight 1, 1d01h09m
+I>* fd00:b:0:23::/64 [115/20] via fe80::5054:ff:fec6:604, eth2, weight 1, 16:55:26
+I>* fd00:b:0:101::/64 [115/20] via fe80::5054:ff:fec6:504, eth1, weight 1, 1d01h09m
+C>* fd00:b:0:102::/64 is directly connected, eth1, weight 1, 1d01h09m
+L>* fd00:b:0:102::2/128 is directly connected, eth1, weight 1, 1d01h09m
+I>* fd00:b:0:201::/64 [115/20] via fe80::5054:ff:fec6:604, eth2, weight 1, 16:55:26
+C>* fd00:b:0:202::/64 is directly connected, eth2, weight 1, 1d01h09m
+L>* fd00:b:0:202::2/128 is directly connected, eth2, weight 1, 1d01h09m
+I>* fd00:b:0:203::/64 [115/20] via fe80::5054:ff:fec6:604, eth2, weight 1, 16:55:26
+I>* fd00:b:0:204::/64 [115/20] via fe80::5054:ff:fec6:604, eth2, weight 1, 16:55:26
+I>* fd00:b:0:303::/64 [115/30] via fe80::5054:ff:fec6:504, eth1, weight 1, 16:55:26
+  *                            via fe80::5054:ff:fec6:604, eth2, weight 1, 16:55:26
+I>* fd00:b:0:304::/64 [115/30] via fe80::5054:ff:fec6:504, eth1, weight 1, 16:55:26
+  *                            via fe80::5054:ff:fec6:604, eth2, weight 1, 16:55:26
+I>* fd00:c:1::/48 [115/20] via fe80::5054:ff:fec6:504, eth1, weight 1, 11:34:44
+  *                        via fe80::5054:ff:fec6:604, eth2, weight 1, 11:34:44
+I>* fd00:c:1::1/128 [115/30] via fe80::5054:ff:fec6:504, eth1, weight 1, 16:55:26
+  *                          via fe80::5054:ff:fec6:604, eth2, weight 1, 16:55:26
+I>* fd00:c:2::/48 [115/0] is directly connected, dum0, seg6local uN, weight 1, 10:59:43
+L * fd00:c:2::1/128 is directly connected, dum0, weight 1, 1d01h09m
+C>* fd00:c:2::1/128 is directly connected, dum0, weight 1, 1d01h09m
+B>* fd00:c:2:e000::/128 [20/0] is directly connected, tenant-a, seg6local uDT46 table 100, weight 1, 10:59:43
+I>* fd00:c:2:e001::/64 [115/0] is directly connected, eth1, seg6local uA nh6 fe80::5054:ff:fec6:504, eth1, weight 1, 10:59:43
+I>* fd00:c:2:e002::/64 [115/0] is directly connected, eth2, seg6local uA nh6 fe80::5054:ff:fec6:604, eth2, weight 1, 10:59:43
+B>* fd00:c:2:e003::/128 [20/0] is directly connected, tenant-b, seg6local uDT46 table 200, weight 1, 10:59:43
+I>* fd00:c:3::/48 [115/20] via fe80::5054:ff:fec6:604, eth2, weight 1, 00:22:44
+I>* fd00:c:3::1/128 [115/30] via fe80::5054:ff:fec6:604, eth2, weight 1, 00:22:44
+I>* fd00:c:4::/48 [115/20] via fe80::5054:ff:fec6:604, eth2, weight 1, 16:55:26
+I>* fd00:c:4::1/128 [115/30] via fe80::5054:ff:fec6:604, eth2, weight 1, 16:55:26
+I>* fd00:c:11::/48 [115/10] via fe80::5054:ff:fec6:504, eth1, weight 1, 1d01h09m
+I>* fd00:c:11::1/128 [115/20] via fe80::5054:ff:fec6:504, eth1, weight 1, 1d01h09m
+I>* fd00:c:12::/48 [115/10] via fe80::5054:ff:fec6:604, eth2, weight 1, 16:55:26
+I>* fd00:c:12::1/128 [115/20] via fe80::5054:ff:fec6:604, eth2, weight 1, 16:55:26
+I>* fd00:c:13::/48 [115/20] via fe80::5054:ff:fec6:504, eth1, weight 1, 16:55:26
+  *                         via fe80::5054:ff:fec6:604, eth2, weight 1, 16:55:26
+I>* fd00:c:13::1/128 [115/30] via fe80::5054:ff:fec6:504, eth1, weight 1, 16:55:26
+  *                           via fe80::5054:ff:fec6:604, eth2, weight 1, 16:55:26
+C * fe80::/64 is directly connected, eth5, weight 1, 1d01h09m
+C * fe80::/64 is directly connected, eth6, weight 1, 1d01h09m
+C * fe80::/64 is directly connected, eth1, weight 1, 1d01h09m
+C * fe80::/64 is directly connected, eth2, weight 1, 1d01h09m
+C * fe80::/64 is directly connected, eth0, weight 1, 1d01h09m
+C * fe80::/64 is directly connected, dum0, weight 1, 1d01h09m
+C>* fe80::/64 is directly connected, lo, weight 1, 1d01h09m
+
+==== IPv4 RIB, VRF tenant-a: show ip route vrf tenant-a
+Codes: K - kernel route, C - connected, L - local, S - static,
+       R - RIP, O - OSPF, I - IS-IS, B - BGP, E - EIGRP, N - NHRP,
+       T - Table, v - VNC, V - VNC-Direct, A - Babel, F - PBR,
+       f - OpenFabric, t - Table-Direct,
+       > - selected route, * - FIB route, q - queued, r - rejected, b - backup
+       t - trapped, o - offload failure
+
+IPv4 unicast VRF tenant-a:
+B>  0.0.0.0/0 [200/0] via fd00:a::4 (vrf default) (recursive), label 917536, seg6 fd00:c:4:e002::, weight 1, 00:28:14
+  *                     via fe80::5054:ff:fec6:604, eth2 (vrf default), label 917536, seg6 fd00:c:4:e002::, weight 1, 00:28:14
+                      via fd00:a::4 (vrf default) (recursive) (dup), label 917536, seg6 fd00:c:4:e002::, weight 1, 00:28:14
+                        via fe80::5054:ff:fec6:604, eth2 (vrf default) (dup), label 917536, seg6 fd00:c:4:e002::, weight 1, 00:28:14
+B>  172.16.1.0/30 [200/0] via fd00:a::1 (vrf default) (recursive), label 917536, seg6 fd00:c:1:e002::, weight 1, 00:17:01
+  *                         via fe80::5054:ff:fec6:504, eth1 (vrf default), label 917536, seg6 fd00:c:1:e002::, weight 1, 00:17:01
+  *                         via fe80::5054:ff:fec6:604, eth2 (vrf default), label 917536, seg6 fd00:c:1:e002::, weight 1, 00:17:01
+                          via fd00:a::1 (vrf default) (recursive) (dup), label 917536, seg6 fd00:c:1:e002::, weight 1, 00:17:01
+                            via fe80::5054:ff:fec6:504, eth1 (vrf default) (dup), label 917536, seg6 fd00:c:1:e002::, weight 1, 00:17:01
+                            via fe80::5054:ff:fec6:604, eth2 (vrf default) (dup), label 917536, seg6 fd00:c:1:e002::, weight 1, 00:17:01
+C>* 172.16.2.0/30 is directly connected, eth3, weight 1, 1d01h09m
+L>* 172.16.2.1/32 is directly connected, eth3, weight 1, 1d01h09m
+B>  172.16.3.0/30 [200/0] via fd00:a::3 (vrf default) (recursive), label 917536, seg6 fd00:c:3:e002::, weight 1, 00:22:45
+  *                         via fe80::5054:ff:fec6:604, eth2 (vrf default), label 917536, seg6 fd00:c:3:e002::, weight 1, 00:22:45
+                          via fd00:a::3 (vrf default) (recursive) (dup), label 917536, seg6 fd00:c:3:e002::, weight 1, 00:22:45
+                            via fe80::5054:ff:fec6:604, eth2 (vrf default) (dup), label 917536, seg6 fd00:c:3:e002::, weight 1, 00:22:45
+B>  172.16.4.0/30 [200/0] via fd00:a::4 (vrf default) (recursive), label 917536, seg6 fd00:c:4:e002::, weight 1, 00:28:14
+  *                         via fe80::5054:ff:fec6:604, eth2 (vrf default), label 917536, seg6 fd00:c:4:e002::, weight 1, 00:28:14
+                          via fd00:a::4 (vrf default) (recursive) (dup), label 917536, seg6 fd00:c:4:e002::, weight 1, 00:28:14
+                            via fe80::5054:ff:fec6:604, eth2 (vrf default) (dup), label 917536, seg6 fd00:c:4:e002::, weight 1, 00:28:14
+B>  172.16.5.0/30 [200/0] via fd00:a::4 (vrf default) (recursive), label 917536, seg6 fd00:c:4:e002::, weight 1, 00:28:14
+  *                         via fe80::5054:ff:fec6:604, eth2 (vrf default), label 917536, seg6 fd00:c:4:e002::, weight 1, 00:28:14
+                          via fd00:a::4 (vrf default) (recursive) (dup), label 917536, seg6 fd00:c:4:e002::, weight 1, 00:28:14
+                            via fe80::5054:ff:fec6:604, eth2 (vrf default) (dup), label 917536, seg6 fd00:c:4:e002::, weight 1, 00:28:14
+B>  172.20.1.0/24 [200/0] via fd00:a::1 (vrf default) (recursive), label 917536, seg6 fd00:c:1:e002::, weight 1, 00:17:01
+  *                         via fe80::5054:ff:fec6:504, eth1 (vrf default), label 917536, seg6 fd00:c:1:e002::, weight 1, 00:17:01
+  *                         via fe80::5054:ff:fec6:604, eth2 (vrf default), label 917536, seg6 fd00:c:1:e002::, weight 1, 00:17:01
+                          via fd00:a::1 (vrf default) (recursive) (dup), label 917536, seg6 fd00:c:1:e002::, weight 1, 00:17:01
+                            via fe80::5054:ff:fec6:504, eth1 (vrf default) (dup), label 917536, seg6 fd00:c:1:e002::, weight 1, 00:17:01
+                            via fe80::5054:ff:fec6:604, eth2 (vrf default) (dup), label 917536, seg6 fd00:c:1:e002::, weight 1, 00:17:01
+B>* 172.20.2.0/24 [20/0] via 172.16.2.2, eth3, weight 1, 12:58:05
+B>  172.20.3.0/24 [200/0] via fd00:a::3 (vrf default) (recursive), label 917536, seg6 fd00:c:3:e002::, weight 1, 00:22:45
+  *                         via fe80::5054:ff:fec6:604, eth2 (vrf default), label 917536, seg6 fd00:c:3:e002::, weight 1, 00:22:45
+                          via fd00:a::3 (vrf default) (recursive) (dup), label 917536, seg6 fd00:c:3:e002::, weight 1, 00:22:45
+                            via fe80::5054:ff:fec6:604, eth2 (vrf default) (dup), label 917536, seg6 fd00:c:3:e002::, weight 1, 00:22:45
+B>  172.20.4.0/24 [200/0] via fd00:a::4 (vrf default) (recursive), label 917536, seg6 fd00:c:4:e002::, weight 1, 00:28:14
+  *                         via fe80::5054:ff:fec6:604, eth2 (vrf default), label 917536, seg6 fd00:c:4:e002::, weight 1, 00:28:14
+                          via fd00:a::4 (vrf default) (recursive) (dup), label 917536, seg6 fd00:c:4:e002::, weight 1, 00:28:14
+                            via fe80::5054:ff:fec6:604, eth2 (vrf default) (dup), label 917536, seg6 fd00:c:4:e002::, weight 1, 00:28:14
+
+==== IPv4 RIB, VRF tenant-b: show ip route vrf tenant-b
+Codes: K - kernel route, C - connected, L - local, S - static,
+       R - RIP, O - OSPF, I - IS-IS, B - BGP, E - EIGRP, N - NHRP,
+       T - Table, v - VNC, V - VNC-Direct, A - Babel, F - PBR,
+       f - OpenFabric, t - Table-Direct,
+       > - selected route, * - FIB route, q - queued, r - rejected, b - backup
+       t - trapped, o - offload failure
+
+IPv4 unicast VRF tenant-b:
+B>  0.0.0.0/0 [200/0] via fd00:a::4 (vrf default) (recursive), label 917552, seg6 fd00:c:4:e003::, weight 1, 00:28:15
+  *                     via fe80::5054:ff:fec6:604, eth2 (vrf default), label 917552, seg6 fd00:c:4:e003::, weight 1, 00:28:15
+                      via fd00:a::4 (vrf default) (recursive) (dup), label 917552, seg6 fd00:c:4:e003::, weight 1, 00:28:15
+                        via fe80::5054:ff:fec6:604, eth2 (vrf default) (dup), label 917552, seg6 fd00:c:4:e003::, weight 1, 00:28:15
+B>  172.18.1.0/30 [200/0] via fd00:a::1 (vrf default) (recursive), label 917552, seg6 fd00:c:1:e003::, weight 1, 00:17:02
+  *                         via fe80::5054:ff:fec6:504, eth1 (vrf default), label 917552, seg6 fd00:c:1:e003::, weight 1, 00:17:02
+  *                         via fe80::5054:ff:fec6:604, eth2 (vrf default), label 917552, seg6 fd00:c:1:e003::, weight 1, 00:17:02
+                          via fd00:a::1 (vrf default) (recursive) (dup), label 917552, seg6 fd00:c:1:e003::, weight 1, 00:17:02
+                            via fe80::5054:ff:fec6:504, eth1 (vrf default) (dup), label 917552, seg6 fd00:c:1:e003::, weight 1, 00:17:02
+                            via fe80::5054:ff:fec6:604, eth2 (vrf default) (dup), label 917552, seg6 fd00:c:1:e003::, weight 1, 00:17:02
+C>* 172.18.2.0/30 is directly connected, eth4, weight 1, 1d01h09m
+L>* 172.18.2.1/32 is directly connected, eth4, weight 1, 1d01h09m
+B>  172.18.3.0/30 [200/0] via fd00:a::3 (vrf default) (recursive), label 917552, seg6 fd00:c:3:e003::, weight 1, 00:22:46
+  *                         via fe80::5054:ff:fec6:604, eth2 (vrf default), label 917552, seg6 fd00:c:3:e003::, weight 1, 00:22:46
+                          via fd00:a::3 (vrf default) (recursive) (dup), label 917552, seg6 fd00:c:3:e003::, weight 1, 00:22:46
+                            via fe80::5054:ff:fec6:604, eth2 (vrf default) (dup), label 917552, seg6 fd00:c:3:e003::, weight 1, 00:22:46
+B>  172.18.4.0/30 [200/0] via fd00:a::4 (vrf default) (recursive), label 917552, seg6 fd00:c:4:e003::, weight 1, 00:28:15
+  *                         via fe80::5054:ff:fec6:604, eth2 (vrf default), label 917552, seg6 fd00:c:4:e003::, weight 1, 00:28:15
+                          via fd00:a::4 (vrf default) (recursive) (dup), label 917552, seg6 fd00:c:4:e003::, weight 1, 00:28:15
+                            via fe80::5054:ff:fec6:604, eth2 (vrf default) (dup), label 917552, seg6 fd00:c:4:e003::, weight 1, 00:28:15
+B>  172.18.5.0/30 [200/0] via fd00:a::4 (vrf default) (recursive), label 917552, seg6 fd00:c:4:e003::, weight 1, 00:28:15
+  *                         via fe80::5054:ff:fec6:604, eth2 (vrf default), label 917552, seg6 fd00:c:4:e003::, weight 1, 00:28:15
+                          via fd00:a::4 (vrf default) (recursive) (dup), label 917552, seg6 fd00:c:4:e003::, weight 1, 00:28:15
+                            via fe80::5054:ff:fec6:604, eth2 (vrf default) (dup), label 917552, seg6 fd00:c:4:e003::, weight 1, 00:28:15
+B>  172.21.1.0/24 [200/0] via fd00:a::1 (vrf default) (recursive), label 917552, seg6 fd00:c:1:e003::, weight 1, 00:17:02
+  *                         via fe80::5054:ff:fec6:504, eth1 (vrf default), label 917552, seg6 fd00:c:1:e003::, weight 1, 00:17:02
+  *                         via fe80::5054:ff:fec6:604, eth2 (vrf default), label 917552, seg6 fd00:c:1:e003::, weight 1, 00:17:02
+                          via fd00:a::1 (vrf default) (recursive) (dup), label 917552, seg6 fd00:c:1:e003::, weight 1, 00:17:02
+                            via fe80::5054:ff:fec6:504, eth1 (vrf default) (dup), label 917552, seg6 fd00:c:1:e003::, weight 1, 00:17:02
+                            via fe80::5054:ff:fec6:604, eth2 (vrf default) (dup), label 917552, seg6 fd00:c:1:e003::, weight 1, 00:17:02
+B>* 172.21.2.0/24 [20/0] via 172.18.2.2, eth4, weight 1, 1d01h09m
+B>  172.21.3.0/24 [200/0] via fd00:a::3 (vrf default) (recursive), label 917552, seg6 fd00:c:3:e003::, weight 1, 00:22:46
+  *                         via fe80::5054:ff:fec6:604, eth2 (vrf default), label 917552, seg6 fd00:c:3:e003::, weight 1, 00:22:46
+                          via fd00:a::3 (vrf default) (recursive) (dup), label 917552, seg6 fd00:c:3:e003::, weight 1, 00:22:46
+                            via fe80::5054:ff:fec6:604, eth2 (vrf default) (dup), label 917552, seg6 fd00:c:3:e003::, weight 1, 00:22:46
+B>  172.21.4.0/24 [200/0] via fd00:a::4 (vrf default) (recursive), label 917552, seg6 fd00:c:4:e003::, weight 1, 00:15:42
+  *                         via fe80::5054:ff:fec6:604, eth2 (vrf default), label 917552, seg6 fd00:c:4:e003::, weight 1, 00:15:42
+                          via fd00:a::4 (vrf default) (recursive) (dup), label 917552, seg6 fd00:c:4:e003::, weight 1, 00:15:42
+                            via fe80::5054:ff:fec6:604, eth2 (vrf default) (dup), label 917552, seg6 fd00:c:4:e003::, weight 1, 00:15:42
+
+==== IPv6 RIB, VRF tenant-a: show ipv6 route vrf tenant-a
+Codes: K - kernel route, C - connected, L - local, S - static,
+       R - RIPng, O - OSPFv3, I - IS-IS, B - BGP, N - NHRP,
+       T - Table, v - VNC, V - VNC-Direct, A - Babel, F - PBR,
+       f - OpenFabric, t - Table-Direct,
+       > - selected route, * - FIB route, q - queued, r - rejected, b - backup
+       t - trapped, o - offload failure
+
+IPv6 unicast VRF tenant-a:
+K>* ::1/128 [0/256] is directly connected, tenant-a, weight 1, 1d01h09m
+S>  fd00:c::/32 [1/0] via fd00:a::11 (vrf default) (recursive), weight 1, 16:55:28
+  *                     via fe80::5054:ff:fec6:504, eth1 (vrf default), weight 1, 16:55:28
+                      via fd00:a::12 (vrf default) (recursive), weight 1, 16:55:28
+  *                     via fe80::5054:ff:fec6:604, eth2 (vrf default), weight 1, 16:55:28
+S>  fd00:c:1::/48 [1/0] via fd00:a::11 (vrf default) (recursive), weight 1, 16:55:28
+  *                       via fe80::5054:ff:fec6:504, eth1 (vrf default), weight 1, 16:55:28
+                        via fd00:a::12 (vrf default) (recursive), weight 1, 16:55:28
+  *                       via fe80::5054:ff:fec6:604, eth2 (vrf default), weight 1, 16:55:28
+S>  fd00:c:3::/48 [1/0] via fd00:a::12 (vrf default) (recursive), weight 1, 16:55:28
+  *                       via fe80::5054:ff:fec6:604, eth2 (vrf default), weight 1, 16:55:28
+S>  fd00:c:4::/48 [1/0] via fd00:a::12 (vrf default) (recursive), weight 1, 16:55:28
+  *                       via fe80::5054:ff:fec6:604, eth2 (vrf default), weight 1, 16:55:28
+S>  fd00:c:11::/48 [1/0] via fd00:a::11 (vrf default) (recursive), weight 1, 1d01h09m
+  *                        via fe80::5054:ff:fec6:504, eth1 (vrf default), weight 1, 1d01h09m
+S>  fd00:c:12::/48 [1/0] via fd00:a::12 (vrf default) (recursive), weight 1, 16:55:28
+  *                        via fe80::5054:ff:fec6:604, eth2 (vrf default), weight 1, 16:55:28
+S>  fd00:c:13::/48 [1/0] via fd00:a::11 (vrf default) (recursive), weight 1, 16:55:28
+  *                        via fe80::5054:ff:fec6:504, eth1 (vrf default), weight 1, 16:55:28
+                         via fd00:a::12 (vrf default) (recursive), weight 1, 16:55:28
+  *                        via fe80::5054:ff:fec6:604, eth2 (vrf default), weight 1, 16:55:28
+B>  fd00:16:1::/64 [200/0] via fd00:a::1 (vrf default) (recursive), label 917536, seg6 fd00:c:1:e002::, weight 1, 00:17:02
+  *                          via fe80::5054:ff:fec6:504, eth1 (vrf default), label 917536, seg6 fd00:c:1:e002::, weight 1, 00:17:02
+  *                          via fe80::5054:ff:fec6:604, eth2 (vrf default), label 917536, seg6 fd00:c:1:e002::, weight 1, 00:17:02
+                           via fd00:a::1 (vrf default) (recursive) (dup), label 917536, seg6 fd00:c:1:e002::, weight 1, 00:17:02
+                             via fe80::5054:ff:fec6:504, eth1 (vrf default) (dup), label 917536, seg6 fd00:c:1:e002::, weight 1, 00:17:02
+                             via fe80::5054:ff:fec6:604, eth2 (vrf default) (dup), label 917536, seg6 fd00:c:1:e002::, weight 1, 00:17:02
+C>* fd00:16:2::/64 is directly connected, eth3, weight 1, 16:21:36
+K * fd00:16:2::/64 [0/256] is directly connected, eth3, weight 1, 16:21:37
+L>* fd00:16:2::1/128 is directly connected, eth3, weight 1, 16:21:36
+B>  fd00:16:3::/64 [200/0] via fd00:a::3 (vrf default) (recursive), label 917536, seg6 fd00:c:3:e002::, weight 1, 00:22:46
+  *                          via fe80::5054:ff:fec6:604, eth2 (vrf default), label 917536, seg6 fd00:c:3:e002::, weight 1, 00:22:46
+                           via fd00:a::3 (vrf default) (recursive) (dup), label 917536, seg6 fd00:c:3:e002::, weight 1, 00:22:46
+                             via fe80::5054:ff:fec6:604, eth2 (vrf default) (dup), label 917536, seg6 fd00:c:3:e002::, weight 1, 00:22:46
+B>  fd00:16:4::/64 [200/0] via fd00:a::4 (vrf default) (recursive), label 917536, seg6 fd00:c:4:e002::, weight 1, 00:28:15
+  *                          via fe80::5054:ff:fec6:604, eth2 (vrf default), label 917536, seg6 fd00:c:4:e002::, weight 1, 00:28:15
+                           via fd00:a::4 (vrf default) (recursive) (dup), label 917536, seg6 fd00:c:4:e002::, weight 1, 00:28:15
+                             via fe80::5054:ff:fec6:604, eth2 (vrf default) (dup), label 917536, seg6 fd00:c:4:e002::, weight 1, 00:28:15
+B>  fd00:20:1::/64 [200/0] via fd00:a::1 (vrf default) (recursive), label 917536, seg6 fd00:c:1:e002::, weight 1, 00:17:02
+  *                          via fe80::5054:ff:fec6:504, eth1 (vrf default), label 917536, seg6 fd00:c:1:e002::, weight 1, 00:17:02
+  *                          via fe80::5054:ff:fec6:604, eth2 (vrf default), label 917536, seg6 fd00:c:1:e002::, weight 1, 00:17:02
+                           via fd00:a::1 (vrf default) (recursive) (dup), label 917536, seg6 fd00:c:1:e002::, weight 1, 00:17:02
+                             via fe80::5054:ff:fec6:504, eth1 (vrf default) (dup), label 917536, seg6 fd00:c:1:e002::, weight 1, 00:17:02
+                             via fe80::5054:ff:fec6:604, eth2 (vrf default) (dup), label 917536, seg6 fd00:c:1:e002::, weight 1, 00:17:02
+B>* fd00:20:2::/64 [20/0] via fe80::5054:ff:fec6:901, eth3, weight 1, 16:17:52
+B>  fd00:20:3::/64 [200/0] via fd00:a::3 (vrf default) (recursive), label 917536, seg6 fd00:c:3:e002::, weight 1, 00:22:46
+  *                          via fe80::5054:ff:fec6:604, eth2 (vrf default), label 917536, seg6 fd00:c:3:e002::, weight 1, 00:22:46
+                           via fd00:a::3 (vrf default) (recursive) (dup), label 917536, seg6 fd00:c:3:e002::, weight 1, 00:22:46
+                             via fe80::5054:ff:fec6:604, eth2 (vrf default) (dup), label 917536, seg6 fd00:c:3:e002::, weight 1, 00:22:46
+B>  fd00:20:4::/64 [200/0] via fd00:a::4 (vrf default) (recursive), label 917536, seg6 fd00:c:4:e002::, weight 1, 00:28:15
+  *                          via fe80::5054:ff:fec6:604, eth2 (vrf default), label 917536, seg6 fd00:c:4:e002::, weight 1, 00:28:15
+                           via fd00:a::4 (vrf default) (recursive) (dup), label 917536, seg6 fd00:c:4:e002::, weight 1, 00:28:15
+                             via fe80::5054:ff:fec6:604, eth2 (vrf default) (dup), label 917536, seg6 fd00:c:4:e002::, weight 1, 00:28:15
+C>* fe80::/64 is directly connected, eth3, weight 1, 1d01h09m
+
+==== IPv6 RIB, VRF tenant-b: show ipv6 route vrf tenant-b
+Codes: K - kernel route, C - connected, L - local, S - static,
+       R - RIPng, O - OSPFv3, I - IS-IS, B - BGP, N - NHRP,
+       T - Table, v - VNC, V - VNC-Direct, A - Babel, F - PBR,
+       f - OpenFabric, t - Table-Direct,
+       > - selected route, * - FIB route, q - queued, r - rejected, b - backup
+       t - trapped, o - offload failure
+
+IPv6 unicast VRF tenant-b:
+K>* ::1/128 [0/256] is directly connected, tenant-b, weight 1, 1d01h09m
+S>  fd00:c::/32 [1/0] via fd00:a::11 (vrf default) (recursive), weight 1, 16:55:29
+  *                     via fe80::5054:ff:fec6:504, eth1 (vrf default), weight 1, 16:55:29
+                      via fd00:a::12 (vrf default) (recursive), weight 1, 16:55:29
+  *                     via fe80::5054:ff:fec6:604, eth2 (vrf default), weight 1, 16:55:29
+S>  fd00:c:1::/48 [1/0] via fd00:a::11 (vrf default) (recursive), weight 1, 16:55:29
+  *                       via fe80::5054:ff:fec6:504, eth1 (vrf default), weight 1, 16:55:29
+                        via fd00:a::12 (vrf default) (recursive), weight 1, 16:55:29
+  *                       via fe80::5054:ff:fec6:604, eth2 (vrf default), weight 1, 16:55:29
+S>  fd00:c:3::/48 [1/0] via fd00:a::12 (vrf default) (recursive), weight 1, 16:55:29
+  *                       via fe80::5054:ff:fec6:604, eth2 (vrf default), weight 1, 16:55:29
+S>  fd00:c:4::/48 [1/0] via fd00:a::12 (vrf default) (recursive), weight 1, 16:55:29
+  *                       via fe80::5054:ff:fec6:604, eth2 (vrf default), weight 1, 16:55:29
+S>  fd00:c:11::/48 [1/0] via fd00:a::11 (vrf default) (recursive), weight 1, 1d01h09m
+  *                        via fe80::5054:ff:fec6:504, eth1 (vrf default), weight 1, 1d01h09m
+S>  fd00:c:12::/48 [1/0] via fd00:a::12 (vrf default) (recursive), weight 1, 16:55:29
+  *                        via fe80::5054:ff:fec6:604, eth2 (vrf default), weight 1, 16:55:29
+S>  fd00:c:13::/48 [1/0] via fd00:a::11 (vrf default) (recursive), weight 1, 16:55:29
+  *                        via fe80::5054:ff:fec6:504, eth1 (vrf default), weight 1, 16:55:29
+                         via fd00:a::12 (vrf default) (recursive), weight 1, 16:55:29
+  *                        via fe80::5054:ff:fec6:604, eth2 (vrf default), weight 1, 16:55:29
+B>  fd00:18:1::/64 [200/0] via fd00:a::1 (vrf default) (recursive), label 917552, seg6 fd00:c:1:e003::, weight 1, 00:17:03
+  *                          via fe80::5054:ff:fec6:504, eth1 (vrf default), label 917552, seg6 fd00:c:1:e003::, weight 1, 00:17:03
+  *                          via fe80::5054:ff:fec6:604, eth2 (vrf default), label 917552, seg6 fd00:c:1:e003::, weight 1, 00:17:03
+                           via fd00:a::1 (vrf default) (recursive) (dup), label 917552, seg6 fd00:c:1:e003::, weight 1, 00:17:03
+                             via fe80::5054:ff:fec6:504, eth1 (vrf default) (dup), label 917552, seg6 fd00:c:1:e003::, weight 1, 00:17:03
+                             via fe80::5054:ff:fec6:604, eth2 (vrf default) (dup), label 917552, seg6 fd00:c:1:e003::, weight 1, 00:17:03
+C>* fd00:18:2::/64 is directly connected, eth4, weight 1, 16:21:37
+K * fd00:18:2::/64 [0/256] is directly connected, eth4, weight 1, 16:21:39
+L>* fd00:18:2::1/128 is directly connected, eth4, weight 1, 16:21:37
+B>  fd00:18:3::/64 [200/0] via fd00:a::3 (vrf default) (recursive), label 917552, seg6 fd00:c:3:e003::, weight 1, 00:22:47
+  *                          via fe80::5054:ff:fec6:604, eth2 (vrf default), label 917552, seg6 fd00:c:3:e003::, weight 1, 00:22:47
+                           via fd00:a::3 (vrf default) (recursive) (dup), label 917552, seg6 fd00:c:3:e003::, weight 1, 00:22:47
+                             via fe80::5054:ff:fec6:604, eth2 (vrf default) (dup), label 917552, seg6 fd00:c:3:e003::, weight 1, 00:22:47
+B>  fd00:18:4::/64 [200/0] via fd00:a::4 (vrf default) (recursive), label 917552, seg6 fd00:c:4:e003::, weight 1, 00:28:16
+  *                          via fe80::5054:ff:fec6:604, eth2 (vrf default), label 917552, seg6 fd00:c:4:e003::, weight 1, 00:28:16
+                           via fd00:a::4 (vrf default) (recursive) (dup), label 917552, seg6 fd00:c:4:e003::, weight 1, 00:28:16
+                             via fe80::5054:ff:fec6:604, eth2 (vrf default) (dup), label 917552, seg6 fd00:c:4:e003::, weight 1, 00:28:16
+B>  fd00:21:1::/64 [200/0] via fd00:a::1 (vrf default) (recursive), label 917552, seg6 fd00:c:1:e003::, weight 1, 00:17:03
+  *                          via fe80::5054:ff:fec6:504, eth1 (vrf default), label 917552, seg6 fd00:c:1:e003::, weight 1, 00:17:03
+  *                          via fe80::5054:ff:fec6:604, eth2 (vrf default), label 917552, seg6 fd00:c:1:e003::, weight 1, 00:17:03
+                           via fd00:a::1 (vrf default) (recursive) (dup), label 917552, seg6 fd00:c:1:e003::, weight 1, 00:17:03
+                             via fe80::5054:ff:fec6:504, eth1 (vrf default) (dup), label 917552, seg6 fd00:c:1:e003::, weight 1, 00:17:03
+                             via fe80::5054:ff:fec6:604, eth2 (vrf default) (dup), label 917552, seg6 fd00:c:1:e003::, weight 1, 00:17:03
+B>* fd00:21:2::/64 [20/0] via fe80::5054:ff:fec6:903, eth4, weight 1, 16:17:53
+B>  fd00:21:3::/64 [200/0] via fd00:a::3 (vrf default) (recursive), label 917552, seg6 fd00:c:3:e003::, weight 1, 00:22:47
+  *                          via fe80::5054:ff:fec6:604, eth2 (vrf default), label 917552, seg6 fd00:c:3:e003::, weight 1, 00:22:47
+                           via fd00:a::3 (vrf default) (recursive) (dup), label 917552, seg6 fd00:c:3:e003::, weight 1, 00:22:47
+                             via fe80::5054:ff:fec6:604, eth2 (vrf default) (dup), label 917552, seg6 fd00:c:3:e003::, weight 1, 00:22:47
+B>  fd00:21:4::/64 [200/0] via fd00:a::4 (vrf default) (recursive), label 917552, seg6 fd00:c:4:e003::, weight 1, 00:28:16
+  *                          via fe80::5054:ff:fec6:604, eth2 (vrf default), label 917552, seg6 fd00:c:4:e003::, weight 1, 00:28:16
+                           via fd00:a::4 (vrf default) (recursive) (dup), label 917552, seg6 fd00:c:4:e003::, weight 1, 00:28:16
+                             via fe80::5054:ff:fec6:604, eth2 (vrf default) (dup), label 917552, seg6 fd00:c:4:e003::, weight 1, 00:28:16
+C>* fe80::/64 is directly connected, eth4, weight 1, 1d01h09m
+
+==== IS-IS SPF result: show isis route
+Area VyOS:
+IS-IS paths to level-2 routers that speak IP
+ Vertex  Type   Metric  Next-Hop  Interface  Parent  
+ ----------------------------------------------------
+ pe2                                                 
+ p1      TE-IS  10      p1        eth1       pe2(4)  
+ p2      TE-IS  10      p2        eth2       pe2(4)  
+ p3      TE-IS  20      p1        eth1       p1(4)   
+                        p2        eth2       p2(4)   
+ pe1     TE-IS  20      p1        eth1       p1(4)   
+                        p2        eth2       p2(4)   
+ pe3     TE-IS  20      p2        eth2       p2(4)   
+ pe4     TE-IS  20      p2        eth2       p2(4)   
+
+
+IS-IS L2 IPv4 routing table:
+
+IS-IS paths to level-2 routers that speak IPv6
+ Vertex             Type          Metric  Next-Hop  Interface  Parent  
+ ----------------------------------------------------------------------
+ pe2                                                                   
+ fd00:c:2::/48      IP6 internal  0                            pe2(4)  
+ fd00:c:2::1/128    IP6 internal  0                            pe2(4)  
+ fd00:b:0:102::/64  IP6 internal  0                            pe2(4)  
+ fd00:b:0:202::/64  IP6 internal  0                            pe2(4)  
+ fd00:a::2/128      IP6 internal  0                            pe2(4)  
+ p1                 TE-IS         10      p1        eth1       pe2(4)  
+ p2                 TE-IS         10      p2        eth2       pe2(4)  
+ fd00:c:11::/48     IP6 internal  10      p1        eth1       p1(4)   
+ fd00:c:12::/48     IP6 internal  10      p2        eth2       p2(4)   
+ p3                 TE-IS         20      p1        eth1       p1(4)   
+                                          p2        eth2       p2(4)   
+ pe1                TE-IS         20      p1        eth1       p1(4)   
+                                          p2        eth2       p2(4)   
+ pe3                TE-IS         20      p2        eth2       p2(4)   
+ pe4                TE-IS         20      p2        eth2       p2(4)   
+ fd00:c:11::1/128   IP6 internal  20      p1        eth1       p1(4)   
+ fd00:b:0:12::/64   IP6 internal  20      p1        eth1       p1(4)   
+                                          p2        eth2       p2(4)   
+ fd00:b:0:13::/64   IP6 internal  20      p1        eth1       p1(4)   
+ fd00:b:0:101::/64  IP6 internal  20      p1        eth1       p1(4)   
+ fd00:a::11/128     IP6 internal  20      p1        eth1       p1(4)   
+ fd00:c:12::1/128   IP6 internal  20      p2        eth2       p2(4)   
+ fd00:b:0:23::/64   IP6 internal  20      p2        eth2       p2(4)   
+ fd00:b:0:201::/64  IP6 internal  20      p2        eth2       p2(4)   
+ fd00:b:0:203::/64  IP6 internal  20      p2        eth2       p2(4)   
+ fd00:b:0:204::/64  IP6 internal  20      p2        eth2       p2(4)   
+ fd00:a::12/128     IP6 internal  20      p2        eth2       p2(4)   
+ fd00:c:13::/48     IP6 internal  20      p1        eth1       p3(4)   
+                                          p2        eth2       p3(4)   
+ fd00:c:1::/48      IP6 internal  20      p1        eth1       pe1(4)  
+                                          p2        eth2       pe1(4)  
+ fd00:c:3::/48      IP6 internal  20      p2        eth2       pe3(4)  
+ fd00:c:4::/48      IP6 internal  20      p2        eth2       pe4(4)  
+ fd00:c:13::1/128   IP6 internal  30      p1        eth1       p3(4)   
+                                          p2        eth2       p3(4)   
+ fd00:b:0:303::/64  IP6 internal  30      p1        eth1       p3(4)   
+                                          p2        eth2       pe3(4)  
+ fd00:b:0:304::/64  IP6 internal  30      p1        eth1       p3(4)   
+                                          p2        eth2       pe4(4)  
+ fd00:a::13/128     IP6 internal  30      p1        eth1       p3(4)   
+                                          p2        eth2       p3(4)   
+ fd00:c:1::1/128    IP6 internal  30      p1        eth1       pe1(4)  
+                                          p2        eth2       pe1(4)  
+ fd00:a::1/128      IP6 internal  30      p1        eth1       pe1(4)  
+                                          p2        eth2       pe1(4)  
+ fd00:c:3::1/128    IP6 internal  30      p2        eth2       pe3(4)  
+ fd00:a::3/128      IP6 internal  30      p2        eth2       pe3(4)  
+ fd00:c:4::1/128    IP6 internal  30      p2        eth2       pe4(4)  
+ fd00:a::4/128      IP6 internal  30      p2        eth2       pe4(4)  
+
+
+IS-IS L2 IPv6 routing table:
+
+ Prefix             Metric  Interface  Nexthop                 Label(s)  
+ ------------------------------------------------------------------------
+ fd00:a::1/128      30      eth1       fe80::5054:ff:fec6:504  -         
+                            eth2       fe80::5054:ff:fec6:604  -         
+ fd00:a::2/128      0       -          -                       -         
+ fd00:a::3/128      30      eth2       fe80::5054:ff:fec6:604  -         
+ fd00:a::4/128      30      eth2       fe80::5054:ff:fec6:604  -         
+ fd00:a::11/128     20      eth1       fe80::5054:ff:fec6:504  -         
+ fd00:a::12/128     20      eth2       fe80::5054:ff:fec6:604  -         
+ fd00:a::13/128     30      eth1       fe80::5054:ff:fec6:504  -         
+                            eth2       fe80::5054:ff:fec6:604  -         
+ fd00:b:0:12::/64   20      eth1       fe80::5054:ff:fec6:504  -         
+                            eth2       fe80::5054:ff:fec6:604  -         
+ fd00:b:0:13::/64   20      eth1       fe80::5054:ff:fec6:504  -         
+ fd00:b:0:23::/64   20      eth2       fe80::5054:ff:fec6:604  -         
+ fd00:b:0:101::/64  20      eth1       fe80::5054:ff:fec6:504  -         
+ fd00:b:0:102::/64  0       -          -                       -         
+ fd00:b:0:201::/64  20      eth2       fe80::5054:ff:fec6:604  -         
+ fd00:b:0:202::/64  0       -          -                       -         
+ fd00:b:0:203::/64  20      eth2       fe80::5054:ff:fec6:604  -         
+ fd00:b:0:204::/64  20      eth2       fe80::5054:ff:fec6:604  -         
+ fd00:b:0:303::/64  30      eth1       fe80::5054:ff:fec6:504  -         
+                            eth2       fe80::5054:ff:fec6:604  -         
+ fd00:b:0:304::/64  30      eth1       fe80::5054:ff:fec6:504  -         
+                            eth2       fe80::5054:ff:fec6:604  -         
+ fd00:c:1::/48      20      eth1       fe80::5054:ff:fec6:504  -         
+                            eth2       fe80::5054:ff:fec6:604  -         
+ fd00:c:1::1/128    30      eth1       fe80::5054:ff:fec6:504  -         
+                            eth2       fe80::5054:ff:fec6:604  -         
+ fd00:c:2::/48      0       -          -                       -         
+ fd00:c:2::1/128    0       -          -                       -         
+ fd00:c:3::/48      20      eth2       fe80::5054:ff:fec6:604  -         
+ fd00:c:3::1/128    30      eth2       fe80::5054:ff:fec6:604  -         
+ fd00:c:4::/48      20      eth2       fe80::5054:ff:fec6:604  -         
+ fd00:c:4::1/128    30      eth2       fe80::5054:ff:fec6:604  -         
+ fd00:c:11::/48     10      eth1       fe80::5054:ff:fec6:504  -         
+ fd00:c:11::1/128   20      eth1       fe80::5054:ff:fec6:504  -         
+ fd00:c:12::/48     10      eth2       fe80::5054:ff:fec6:604  -         
+ fd00:c:12::1/128   20      eth2       fe80::5054:ff:fec6:604  -         
+ fd00:c:13::/48     20      eth1       fe80::5054:ff:fec6:504  -         
+                            eth2       fe80::5054:ff:fec6:604  -         
+ fd00:c:13::1/128   30      eth1       fe80::5054:ff:fec6:504  -         
+                            eth2       fe80::5054:ff:fec6:604  -
+
+==== IS-IS SRv6 nodes: show isis segment-routing srv6 node
+Area VyOS:
+ IS-IS L1 SRv6-Nodes:
+
+ IS-IS L2 SRv6-Nodes:
+
+ System ID       Algorithm  SRH Max SL  SRH Max End Pop  SRH Max H.encaps  SRH Max End D  
+ -----------------------------------------------------------------------------------------
+ 0000.0000.0001  SPF        3           3                2                 5              
+ 0000.0000.0002  SPF        3           3                2                 5              
+ 0000.0000.0003  SPF        3           3                2                 5              
+ 0000.0000.0004  SPF        3           3                2                 5              
+ 0000.0000.0011  SPF        3           3                2                 5              
+ 0000.0000.0012  SPF        3           3                2                 5              
+ 0000.0000.0013  SPF        3           3                2                 5
+
+==== SRv6 locators: show segment-routing srv6 locator
+Locator:
+Name                 ID      Prefix                   Status
+-------------------- ------- ------------------------ -------
+main                       1 fd00:c:2::/48            Up
+
+==== BGP VPNv4 table: show bgp ipv4 vpn
+BGP table version is 320, local router ID is 10.255.0.2, vrf id 0
+Default local pref 100, local AS 65000
+Status codes:  s suppressed, d damped, h history, u unsorted, * valid, > best, = multipath,
+               i internal, r RIB-failure, S Stale, R Removed
+Nexthop codes: @NNN nexthop's vrf id, < announce-nh-self
+Origin codes:  i - IGP, e - EGP, ? - incomplete
+RPKI validation codes: V valid, I invalid, N Not found
+
+     Network          Next Hop            Metric LocPrf Weight Path
+Route Distinguisher: 65000:101
+ *>i 172.16.1.0/30    fd00:a::1                0    100      0 ?
+    UN=fd00:a::1 EC{65000:100} label=917536 sid=fd00:c:1:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::1                0    100      0 ?
+    UN=fd00:a::1 EC{65000:100} label=917536 sid=fd00:c:1:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *>i 172.20.1.0/24    fd00:a::1                0    100      0 65001 i
+    UN=fd00:a::1 EC{65000:100} label=917536 sid=fd00:c:1:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::1                0    100      0 65001 i
+    UN=fd00:a::1 EC{65000:100} label=917536 sid=fd00:c:1:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+Route Distinguisher: 65000:102
+ *>  172.16.2.0/30    0.0.0.0@10<              0         32768 ?
+    UN=0.0.0.0 EC{65000:100} label=917504 sid=fd00:c:2:: sid_structure=[32,16,16,0] type=bgp, subtype=5
+ *>  172.20.2.0/24    172.16.2.2@10<           0             0 65002 i
+    UN=172.16.2.2 EC{65000:100} label=917504 sid=fd00:c:2:: sid_structure=[32,16,16,0] type=bgp, subtype=5
+Route Distinguisher: 65000:103
+ *>i 172.16.3.0/30    fd00:a::3                0    100      0 ?
+    UN=fd00:a::3 EC{65000:100} label=917536 sid=fd00:c:3:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::3                0    100      0 ?
+    UN=fd00:a::3 EC{65000:100} label=917536 sid=fd00:c:3:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *>i 172.20.3.0/24    fd00:a::3                0    100      0 65003 i
+    UN=fd00:a::3 EC{65000:100} label=917536 sid=fd00:c:3:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::3                0    100      0 65003 i
+    UN=fd00:a::3 EC{65000:100} label=917536 sid=fd00:c:3:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+Route Distinguisher: 65000:104
+ *>i 0.0.0.0/0        fd00:a::4                0    100      0 65010 i
+    UN=fd00:a::4 EC{65000:100} label=917536 sid=fd00:c:4:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::4                0    100      0 65010 i
+    UN=fd00:a::4 EC{65000:100} label=917536 sid=fd00:c:4:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *>i 172.16.4.0/30    fd00:a::4                0    100      0 ?
+    UN=fd00:a::4 EC{65000:100} label=917536 sid=fd00:c:4:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::4                0    100      0 ?
+    UN=fd00:a::4 EC{65000:100} label=917536 sid=fd00:c:4:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *>i 172.16.5.0/30    fd00:a::4                0    100      0 ?
+    UN=fd00:a::4 EC{65000:100} label=917536 sid=fd00:c:4:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::4                0    100      0 ?
+    UN=fd00:a::4 EC{65000:100} label=917536 sid=fd00:c:4:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *>i 172.20.4.0/24    fd00:a::4                0    100      0 65004 i
+    UN=fd00:a::4 EC{65000:100} label=917536 sid=fd00:c:4:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::4                0    100      0 65004 i
+    UN=fd00:a::4 EC{65000:100} label=917536 sid=fd00:c:4:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+Route Distinguisher: 65000:201
+ *>i 172.18.1.0/30    fd00:a::1                0    100      0 ?
+    UN=fd00:a::1 EC{65000:200} label=917552 sid=fd00:c:1:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::1                0    100      0 ?
+    UN=fd00:a::1 EC{65000:200} label=917552 sid=fd00:c:1:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *>i 172.21.1.0/24    fd00:a::1                0    100      0 65001 i
+    UN=fd00:a::1 EC{65000:200} label=917552 sid=fd00:c:1:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::1                0    100      0 65001 i
+    UN=fd00:a::1 EC{65000:200} label=917552 sid=fd00:c:1:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+Route Distinguisher: 65000:202
+ *>  172.18.2.0/30    0.0.0.0@12<              0         32768 ?
+    UN=0.0.0.0 EC{65000:200} label=917552 sid=fd00:c:2:: sid_structure=[32,16,16,0] type=bgp, subtype=5
+ *>  172.21.2.0/24    172.18.2.2@12<           0             0 65002 i
+    UN=172.18.2.2 EC{65000:200} label=917552 sid=fd00:c:2:: sid_structure=[32,16,16,0] type=bgp, subtype=5
+Route Distinguisher: 65000:203
+ *>i 172.18.3.0/30    fd00:a::3                0    100      0 ?
+    UN=fd00:a::3 EC{65000:200} label=917552 sid=fd00:c:3:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::3                0    100      0 ?
+    UN=fd00:a::3 EC{65000:200} label=917552 sid=fd00:c:3:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *>i 172.21.3.0/24    fd00:a::3                0    100      0 65003 i
+    UN=fd00:a::3 EC{65000:200} label=917552 sid=fd00:c:3:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::3                0    100      0 65003 i
+    UN=fd00:a::3 EC{65000:200} label=917552 sid=fd00:c:3:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+Route Distinguisher: 65000:204
+ *>i 0.0.0.0/0        fd00:a::4                0    100      0 65010 i
+    UN=fd00:a::4 EC{65000:200} label=917552 sid=fd00:c:4:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::4                0    100      0 65010 i
+    UN=fd00:a::4 EC{65000:200} label=917552 sid=fd00:c:4:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *>i 172.18.4.0/30    fd00:a::4                0    100      0 ?
+    UN=fd00:a::4 EC{65000:200} label=917552 sid=fd00:c:4:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::4                0    100      0 ?
+    UN=fd00:a::4 EC{65000:200} label=917552 sid=fd00:c:4:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *>i 172.18.5.0/30    fd00:a::4                0    100      0 ?
+    UN=fd00:a::4 EC{65000:200} label=917552 sid=fd00:c:4:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::4                0    100      0 ?
+    UN=fd00:a::4 EC{65000:200} label=917552 sid=fd00:c:4:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *>i 172.21.4.0/24    fd00:a::4                0    100      0 65004 i
+    UN=fd00:a::4 EC{65000:200} label=917552 sid=fd00:c:4:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::4                0    100      0 65004 i
+    UN=fd00:a::4 EC{65000:200} label=917552 sid=fd00:c:4:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+
+Displayed 20 routes and 36 total paths
+
+==== BGP VPNv6 table: show bgp ipv6 vpn
+BGP table version is 264, local router ID is 10.255.0.2, vrf id 0
+Default local pref 100, local AS 65000
+Status codes:  s suppressed, d damped, h history, u unsorted, * valid, > best, = multipath,
+               i internal, r RIB-failure, S Stale, R Removed
+Nexthop codes: @NNN nexthop's vrf id, < announce-nh-self
+Origin codes:  i - IGP, e - EGP, ? - incomplete
+RPKI validation codes: V valid, I invalid, N Not found
+
+     Network          Next Hop            Metric LocPrf Weight Path
+Route Distinguisher: 65000:101
+ *>i fd00:16:1::/64   fd00:a::1                0    100      0 ?
+    UN=fd00:a::1 EC{65000:100} label=917536 sid=fd00:c:1:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::1                0    100      0 ?
+    UN=fd00:a::1 EC{65000:100} label=917536 sid=fd00:c:1:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *>i fd00:20:1::/64   fd00:a::1                0    100      0 65001 i
+    UN=fd00:a::1 EC{65000:100} label=917536 sid=fd00:c:1:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::1                0    100      0 65001 i
+    UN=fd00:a::1 EC{65000:100} label=917536 sid=fd00:c:1:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+Route Distinguisher: 65000:102
+ *>  fd00:16:2::/64   ::@10<                   0         32768 ?
+    UN=:: EC{65000:100} label=917504 sid=fd00:c:2:: sid_structure=[32,16,16,0] type=bgp, subtype=5
+ *>  fd00:20:2::/64   fd00:16:2::2@10<
+                                               0             0 65002 i
+    UN=fd00:16:2::2 EC{65000:100} label=917504 sid=fd00:c:2:: sid_structure=[32,16,16,0] type=bgp, subtype=5
+Route Distinguisher: 65000:103
+ *>i fd00:16:3::/64   fd00:a::3                0    100      0 ?
+    UN=fd00:a::3 EC{65000:100} label=917536 sid=fd00:c:3:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::3                0    100      0 ?
+    UN=fd00:a::3 EC{65000:100} label=917536 sid=fd00:c:3:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *>i fd00:20:3::/64   fd00:a::3                0    100      0 65003 i
+    UN=fd00:a::3 EC{65000:100} label=917536 sid=fd00:c:3:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::3                0    100      0 65003 i
+    UN=fd00:a::3 EC{65000:100} label=917536 sid=fd00:c:3:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+Route Distinguisher: 65000:104
+ *>i fd00:16:4::/64   fd00:a::4                0    100      0 ?
+    UN=fd00:a::4 EC{65000:100} label=917536 sid=fd00:c:4:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::4                0    100      0 ?
+    UN=fd00:a::4 EC{65000:100} label=917536 sid=fd00:c:4:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *>i fd00:20:4::/64   fd00:a::4                0    100      0 65004 i
+    UN=fd00:a::4 EC{65000:100} label=917536 sid=fd00:c:4:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::4                0    100      0 65004 i
+    UN=fd00:a::4 EC{65000:100} label=917536 sid=fd00:c:4:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+Route Distinguisher: 65000:201
+ *>i fd00:18:1::/64   fd00:a::1                0    100      0 ?
+    UN=fd00:a::1 EC{65000:200} label=917552 sid=fd00:c:1:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::1                0    100      0 ?
+    UN=fd00:a::1 EC{65000:200} label=917552 sid=fd00:c:1:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *>i fd00:21:1::/64   fd00:a::1                0    100      0 65001 i
+    UN=fd00:a::1 EC{65000:200} label=917552 sid=fd00:c:1:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::1                0    100      0 65001 i
+    UN=fd00:a::1 EC{65000:200} label=917552 sid=fd00:c:1:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+Route Distinguisher: 65000:202
+ *>  fd00:18:2::/64   ::@12<                   0         32768 ?
+    UN=:: EC{65000:200} label=917552 sid=fd00:c:2:: sid_structure=[32,16,16,0] type=bgp, subtype=5
+ *>  fd00:21:2::/64   fd00:18:2::2@12<
+                                               0             0 65002 i
+    UN=fd00:18:2::2 EC{65000:200} label=917552 sid=fd00:c:2:: sid_structure=[32,16,16,0] type=bgp, subtype=5
+Route Distinguisher: 65000:203
+ *>i fd00:18:3::/64   fd00:a::3                0    100      0 ?
+    UN=fd00:a::3 EC{65000:200} label=917552 sid=fd00:c:3:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::3                0    100      0 ?
+    UN=fd00:a::3 EC{65000:200} label=917552 sid=fd00:c:3:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *>i fd00:21:3::/64   fd00:a::3                0    100      0 65003 i
+    UN=fd00:a::3 EC{65000:200} label=917552 sid=fd00:c:3:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::3                0    100      0 65003 i
+    UN=fd00:a::3 EC{65000:200} label=917552 sid=fd00:c:3:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+Route Distinguisher: 65000:204
+ *>i fd00:18:4::/64   fd00:a::4                0    100      0 ?
+    UN=fd00:a::4 EC{65000:200} label=917552 sid=fd00:c:4:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::4                0    100      0 ?
+    UN=fd00:a::4 EC{65000:200} label=917552 sid=fd00:c:4:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *>i fd00:21:4::/64   fd00:a::4                0    100      0 65004 i
+    UN=fd00:a::4 EC{65000:200} label=917552 sid=fd00:c:4:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::4                0    100      0 65004 i
+    UN=fd00:a::4 EC{65000:200} label=917552 sid=fd00:c:4:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+
+Displayed 16 routes and 28 total paths
+
+==== BGP SRv6 SIDs: show bgp segment-routing srv6
+locator_name: main
+  prefix: fd00:c:2::/48
+  block-length: 32
+  node-length: 16
+  func-length: 16
+  arg-length: 0
+locator_chunks:
+functions:
+- sid: fd00:c:2:e000::
+  locator: main
+- sid: fd00:c:2:e003::
+  locator: main
+bgps:
+- name: default
+  vpn_policy[AFI_IP].tovpn_sid: (null)
+  vpn_policy[AFI_IP6].tovpn_sid: (null)
+  per-vrf tovpn_sid: (null)
+  srv6_unicast[AFI_IP].sid: (null)
+  srv6_unicast[AFI_IP6].sid: (null)
+- name: tenant-a
+  vpn_policy[AFI_IP].tovpn_sid: (null)
+  vpn_policy[AFI_IP6].tovpn_sid: (null)
+  per-vrf tovpn_sid: fd00:c:2:e000::
+  srv6_unicast[AFI_IP].sid: (null)
+  srv6_unicast[AFI_IP6].sid: (null)
+- name: tenant-b
+  vpn_policy[AFI_IP].tovpn_sid: (null)
+  vpn_policy[AFI_IP6].tovpn_sid: (null)
+  per-vrf tovpn_sid: fd00:c:2:e003::
+  srv6_unicast[AFI_IP].sid: (null)
+  srv6_unicast[AFI_IP6].sid: (null)
+
+==== kernel: local SIDs (seg6local): sudo ip -c=never -6 route show | grep seg6local
+fd00:c:2:e000:: nhid 512  encap seg6local action End.DT46 vrftable tenant-a dev tenant-a proto bgp metric 20 pref medium
+fd00:c:2:e001::/64 nhid 47  encap seg6local action End.X nh6 fe80::5054:ff:fec6:504 oif eth1 flavors next-csid lblen 32 nflen 16 dev eth1 proto isis metric 20 pref medium
+fd00:c:2:e002::/64 nhid 48  encap seg6local action End.X nh6 fe80::5054:ff:fec6:604 oif eth2 flavors next-csid lblen 32 nflen 16 dev eth2 proto isis metric 20 pref medium
+fd00:c:2:e003:: nhid 514  encap seg6local action End.DT46 vrftable tenant-b dev tenant-b proto bgp metric 20 pref medium
+fd00:c:2::/48 nhid 39  encap seg6local action End flavors next-csid lblen 32 nflen 16 dev dum0 proto isis metric 20 pref medium
+
+==== kernel: VRF tenant-a (SRv6 encapsulation routes): sudo ip -c=never route show vrf tenant-a
+default nhid 1202  encap seg6 mode encap segs 1 [ fd00:c:4:e002:: ] via inet6 fe80::5054:ff:fec6:604 dev eth2 proto bgp metric 20 
+127.0.0.0/8 dev tenant-a proto kernel scope link src 127.0.0.1 
+172.16.1.0/30 nhid 1564 proto bgp metric 20 
+	nexthop  encap seg6 mode encap segs 1 [ fd00:c:1:e002:: ] via inet6 fe80::5054:ff:fec6:504 dev eth1 weight 1 
+	nexthop  encap seg6 mode encap segs 1 [ fd00:c:1:e002:: ] via inet6 fe80::5054:ff:fec6:604 dev eth2 weight 1 
+172.16.2.0/30 dev eth3 proto kernel scope link src 172.16.2.1 
+172.16.3.0/30 nhid 1180  encap seg6 mode encap segs 1 [ fd00:c:3:e002:: ] via inet6 fe80::5054:ff:fec6:604 dev eth2 proto bgp metric 20 
+172.16.4.0/30 nhid 1202  encap seg6 mode encap segs 1 [ fd00:c:4:e002:: ] via inet6 fe80::5054:ff:fec6:604 dev eth2 proto bgp metric 20 
+172.16.5.0/30 nhid 1202  encap seg6 mode encap segs 1 [ fd00:c:4:e002:: ] via inet6 fe80::5054:ff:fec6:604 dev eth2 proto bgp metric 20 
+172.20.1.0/24 nhid 1564 proto bgp metric 20 
+	nexthop  encap seg6 mode encap segs 1 [ fd00:c:1:e002:: ] via inet6 fe80::5054:ff:fec6:504 dev eth1 weight 1 
+	nexthop  encap seg6 mode encap segs 1 [ fd00:c:1:e002:: ] via inet6 fe80::5054:ff:fec6:604 dev eth2 weight 1 
+172.20.2.0/24 nhid 58 via 172.16.2.2 dev eth3 proto bgp metric 20 
+172.20.3.0/24 nhid 1180  encap seg6 mode encap segs 1 [ fd00:c:3:e002:: ] via inet6 fe80::5054:ff:fec6:604 dev eth2 proto bgp metric 20 
+172.20.4.0/24 nhid 1202  encap seg6 mode encap segs 1 [ fd00:c:4:e002:: ] via inet6 fe80::5054:ff:fec6:604 dev eth2 proto bgp metric 20
+
+==== kernel: VRF tenant-b (SRv6 encapsulation routes): sudo ip -c=never route show vrf tenant-b
+default nhid 1203  encap seg6 mode encap segs 1 [ fd00:c:4:e003:: ] via inet6 fe80::5054:ff:fec6:604 dev eth2 proto bgp metric 20 
+127.0.0.0/8 dev tenant-b proto kernel scope link src 127.0.0.1 
+172.18.1.0/30 nhid 1567 proto bgp metric 20 
+	nexthop  encap seg6 mode encap segs 1 [ fd00:c:1:e003:: ] via inet6 fe80::5054:ff:fec6:504 dev eth1 weight 1 
+	nexthop  encap seg6 mode encap segs 1 [ fd00:c:1:e003:: ] via inet6 fe80::5054:ff:fec6:604 dev eth2 weight 1 
+172.18.2.0/30 dev eth4 proto kernel scope link src 172.18.2.1 
+172.18.3.0/30 nhid 1181  encap seg6 mode encap segs 1 [ fd00:c:3:e003:: ] via inet6 fe80::5054:ff:fec6:604 dev eth2 proto bgp metric 20 
+172.18.4.0/30 nhid 1203  encap seg6 mode encap segs 1 [ fd00:c:4:e003:: ] via inet6 fe80::5054:ff:fec6:604 dev eth2 proto bgp metric 20 
+172.18.5.0/30 nhid 1203  encap seg6 mode encap segs 1 [ fd00:c:4:e003:: ] via inet6 fe80::5054:ff:fec6:604 dev eth2 proto bgp metric 20 
+172.21.1.0/24 nhid 1567 proto bgp metric 20 
+	nexthop  encap seg6 mode encap segs 1 [ fd00:c:1:e003:: ] via inet6 fe80::5054:ff:fec6:504 dev eth1 weight 1 
+	nexthop  encap seg6 mode encap segs 1 [ fd00:c:1:e003:: ] via inet6 fe80::5054:ff:fec6:604 dev eth2 weight 1 
+172.21.2.0/24 nhid 59 via 172.18.2.2 dev eth4 proto bgp metric 20 
+172.21.3.0/24 nhid 1181  encap seg6 mode encap segs 1 [ fd00:c:3:e003:: ] via inet6 fe80::5054:ff:fec6:604 dev eth2 proto bgp metric 20 
+172.21.4.0/24 nhid 1203  encap seg6 mode encap segs 1 [ fd00:c:4:e003:: ] via inet6 fe80::5054:ff:fec6:604 dev eth2 proto bgp metric 20
+
+==== kernel: VRF tenant-a IPv6 (SRv6 encapsulation routes, locator leaks): sudo ip -c=never -6 route show vrf tenant-a
+::1 dev tenant-a proto kernel metric 256 pref medium
+fd00:c:1::/48 nhid 69 proto static metric 20 pref medium
+	nexthop via fe80::5054:ff:fec6:504 dev eth1 weight 1 
+	nexthop via fe80::5054:ff:fec6:604 dev eth2 weight 1 
+fd00:c:3::/48 nhid 64 via fe80::5054:ff:fec6:604 dev eth2 proto static metric 20 pref medium
+fd00:c:4::/48 nhid 64 via fe80::5054:ff:fec6:604 dev eth2 proto static metric 20 pref medium
+fd00:c:11::/48 nhid 63 via fe80::5054:ff:fec6:504 dev eth1 proto static metric 20 pref medium
+fd00:c:12::/48 nhid 64 via fe80::5054:ff:fec6:604 dev eth2 proto static metric 20 pref medium
+fd00:c:13::/48 nhid 69 proto static metric 20 pref medium
+	nexthop via fe80::5054:ff:fec6:504 dev eth1 weight 1 
+	nexthop via fe80::5054:ff:fec6:604 dev eth2 weight 1 
+fd00:c::/32 nhid 69 proto static metric 20 pref medium
+	nexthop via fe80::5054:ff:fec6:504 dev eth1 weight 1 
+	nexthop via fe80::5054:ff:fec6:604 dev eth2 weight 1 
+fd00:16:1::/64 nhid 1564 proto bgp metric 20 pref medium
+	nexthop  encap seg6 mode encap segs 1 [ fd00:c:1:e002:: ] via fe80::5054:ff:fec6:504 dev eth1 weight 1 
+	nexthop  encap seg6 mode encap segs 1 [ fd00:c:1:e002:: ] via fe80::5054:ff:fec6:604 dev eth2 weight 1 
+anycast fd00:16:2:: dev eth3 proto kernel metric 0 pref medium
+fd00:16:2::/64 dev eth3 proto kernel metric 256 pref medium
+fd00:16:3::/64 nhid 1180 proto bgp metric 20 pref medium
+	nexthop  encap seg6 mode encap segs 1 [ fd00:c:3:e002:: ] via fe80::5054:ff:fec6:604 dev eth2 weight 1 
+fd00:16:4::/64 nhid 1202 proto bgp metric 20 pref medium
+	nexthop  encap seg6 mode encap segs 1 [ fd00:c:4:e002:: ] via fe80::5054:ff:fec6:604 dev eth2 weight 1 
+fd00:20:1::/64 nhid 1564 proto bgp metric 20 pref medium
+	nexthop  encap seg6 mode encap segs 1 [ fd00:c:1:e002:: ] via fe80::5054:ff:fec6:504 dev eth1 weight 1 
+	nexthop  encap seg6 mode encap segs 1 [ fd00:c:1:e002:: ] via fe80::5054:ff:fec6:604 dev eth2 weight 1 
+fd00:20:2::/64 nhid 658 via fe80::5054:ff:fec6:901 dev eth3 proto bgp metric 20 pref medium
+fd00:20:3::/64 nhid 1180 proto bgp metric 20 pref medium
+	nexthop  encap seg6 mode encap segs 1 [ fd00:c:3:e002:: ] via fe80::5054:ff:fec6:604 dev eth2 weight 1 
+fd00:20:4::/64 nhid 1202 proto bgp metric 20 pref medium
+	nexthop  encap seg6 mode encap segs 1 [ fd00:c:4:e002:: ] via fe80::5054:ff:fec6:604 dev eth2 weight 1 
+anycast fe80:: dev eth3 proto kernel metric 0 pref medium
+fe80::/64 dev eth3 proto kernel metric 256 pref medium
+multicast ff00::/8 dev eth3 proto kernel metric 256 pref medium
+
+==== kernel: VRF tenant-b IPv6 (SRv6 encapsulation routes, locator leaks): sudo ip -c=never -6 route show vrf tenant-b
+::1 dev tenant-b proto kernel metric 256 pref medium
+fd00:c:1::/48 nhid 69 proto static metric 20 pref medium
+	nexthop via fe80::5054:ff:fec6:504 dev eth1 weight 1 
+	nexthop via fe80::5054:ff:fec6:604 dev eth2 weight 1 
+fd00:c:3::/48 nhid 64 via fe80::5054:ff:fec6:604 dev eth2 proto static metric 20 pref medium
+fd00:c:4::/48 nhid 64 via fe80::5054:ff:fec6:604 dev eth2 proto static metric 20 pref medium
+fd00:c:11::/48 nhid 63 via fe80::5054:ff:fec6:504 dev eth1 proto static metric 20 pref medium
+fd00:c:12::/48 nhid 64 via fe80::5054:ff:fec6:604 dev eth2 proto static metric 20 pref medium
+fd00:c:13::/48 nhid 69 proto static metric 20 pref medium
+	nexthop via fe80::5054:ff:fec6:504 dev eth1 weight 1 
+	nexthop via fe80::5054:ff:fec6:604 dev eth2 weight 1 
+fd00:c::/32 nhid 69 proto static metric 20 pref medium
+	nexthop via fe80::5054:ff:fec6:504 dev eth1 weight 1 
+	nexthop via fe80::5054:ff:fec6:604 dev eth2 weight 1 
+fd00:18:1::/64 nhid 1567 proto bgp metric 20 pref medium
+	nexthop  encap seg6 mode encap segs 1 [ fd00:c:1:e003:: ] via fe80::5054:ff:fec6:504 dev eth1 weight 1 
+	nexthop  encap seg6 mode encap segs 1 [ fd00:c:1:e003:: ] via fe80::5054:ff:fec6:604 dev eth2 weight 1 
+anycast fd00:18:2:: dev eth4 proto kernel metric 0 pref medium
+fd00:18:2::/64 dev eth4 proto kernel metric 256 pref medium
+fd00:18:3::/64 nhid 1181 proto bgp metric 20 pref medium
+	nexthop  encap seg6 mode encap segs 1 [ fd00:c:3:e003:: ] via fe80::5054:ff:fec6:604 dev eth2 weight 1 
+fd00:18:4::/64 nhid 1203 proto bgp metric 20 pref medium
+	nexthop  encap seg6 mode encap segs 1 [ fd00:c:4:e003:: ] via fe80::5054:ff:fec6:604 dev eth2 weight 1 
+fd00:21:1::/64 nhid 1567 proto bgp metric 20 pref medium
+	nexthop  encap seg6 mode encap segs 1 [ fd00:c:1:e003:: ] via fe80::5054:ff:fec6:504 dev eth1 weight 1 
+	nexthop  encap seg6 mode encap segs 1 [ fd00:c:1:e003:: ] via fe80::5054:ff:fec6:604 dev eth2 weight 1 
+fd00:21:2::/64 nhid 657 via fe80::5054:ff:fec6:903 dev eth4 proto bgp metric 20 pref medium
+fd00:21:3::/64 nhid 1181 proto bgp metric 20 pref medium
+	nexthop  encap seg6 mode encap segs 1 [ fd00:c:3:e003:: ] via fe80::5054:ff:fec6:604 dev eth2 weight 1 
+fd00:21:4::/64 nhid 1203 proto bgp metric 20 pref medium
+	nexthop  encap seg6 mode encap segs 1 [ fd00:c:4:e003:: ] via fe80::5054:ff:fec6:604 dev eth2 weight 1 
+anycast fe80:: dev eth4 proto kernel metric 0 pref medium
+fe80::/64 dev eth4 proto kernel metric 256 pref medium
+multicast ff00::/8 dev eth4 proto kernel metric 256 pref medium
+
+==== BFD sessions: show bfd peers brief
+Session count: 2
+SessionId  LocalAddress                             PeerAddress                             Status          Profile             
+=========  ============                             ===========                             ======          =======             
+2355183144 fe80::5054:ff:fec6:202                   fe80::5054:ff:fec6:604                  up              -                   
+1716421580 fe80::5054:ff:fec6:201                   fe80::5054:ff:fec6:504                  up              -
+
+==== IS-IS adjacencies: show isis neighbor
+Area VyOS:
+ System Id           Interface   L  State         Holdtime SNPA
+ p1                  eth1        2  Up            28       2020.2020.2020
+ p2                  eth2        2  Up            29       2020.2020.2020
