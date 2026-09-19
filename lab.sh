@@ -477,7 +477,7 @@ cmd_ci() {         # CI plumbing: setup (Gitea mirror + Actions), sync (mirror n
 }
 
 cmd_push() {       # push to GitHub, then have the local Gitea mirror it and run the CI workflow on the new commit
-  git -C "$LAB_DIR" push origin HEAD && cmd_ci sync
+  git -C "$LAB_DIR" pull -q --rebase origin main && git -C "$LAB_DIR" push origin HEAD && cmd_ci sync   # CI's results commits land on main: rebase on them first
 }
 
 cmd_webapp() {     # the tenant provisioning portal (FastAPI/uvicorn) on http://<host>:8091
