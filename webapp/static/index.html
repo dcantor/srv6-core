@@ -105,7 +105,18 @@ function render() {
     ${I.circuits.map(c => { const l = c.live || {}; const d = l.default_route || {}; return `<tr><td><b>${c.tenant}</b></td><td>${c.pe} ${c.pe_port}</td><td class="mono">${c.attachment_circuit}</td><td>${I.fw} ${c.fw_port} <span class="pill ${I.fw_reachable ? 'ok' : (ST.live_done ? 'bad' : '')}">${I.fw_reachable ? 'up' : (ST.live_done ? 'down' : '…')}</span><div class="hint mono">oob ${I.fw_mgmt}</div></td>
       <td><span class="pill ${l.bgp === 'Established' ? 'ok' : (l.bgp ? 'bad' : '')}">${l.bgp || '…'}</span>${l.prefixes_from_fw != null ? ` <span class="hint">${l.prefixes_from_fw} pfx</span>` : ''}</td>
       <td>${ST.pes.map(pe => `<span class="pill ${pe in d ? (d[pe] ? 'ok' : 'bad') : ''}">${pe} ${pe in d ? (d[pe] ? '0/0' : 'none') : '…'}</span>`).join(' ')}</td></tr>`; }).join('')}</tbody></table></div>`;
-  fetch('/api/topology.svg' + (ST.live_done ? '' : '?live=0')).then(r => r.text()).then(svg => $('topo').innerHTML = svg);
+  loadTopology();
+}
+// the model diagram is instant; the live one (hosts coloured by reachability) waits for the collector, so draw the first
+// right away and swap in the second when it arrives — and say so instead of leaving the card empty when a fetch fails
+let topoSeq = 0;
+async function loadTopology() {
+  const seq = ++topoSeq; const box = $('topo');
+  const get = async (q) => { const r = await fetch('/api/topology.svg' + q); if (!r.ok) throw new Error(`topology: HTTP ${r.status}`); return r.text(); };
+  try {
+    if (!box.querySelector('svg')) { box.innerHTML = '<div class="hint">drawing the topology…</div>'; const svg = await get('?live=0'); if (seq === topoSeq) box.innerHTML = svg; }
+    if (ST.live_done) { const svg = await get(''); if (seq === topoSeq) box.innerHTML = svg; }
+  } catch (e) { if (!box.querySelector('svg')) box.innerHTML = `<div class="msg">${esc(String(e))} — <a href="/api/topology.svg?live=0" target="_blank">open the diagram directly</a></div>`; }
 }
 
 // ---- wizard --------------------------------------------------------------------------------------------------

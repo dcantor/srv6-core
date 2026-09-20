@@ -76,6 +76,11 @@ class State:
             return {"reachable": False, "detail": e.__class__.__name__}
 
     def get(self, refresh=False, live=True):
+        if not live:   # model-only: never wait for a live collection in progress (the page's first paint, the model diagram)
+            if self._cache and not refresh: return self._cache
+            st = self.model(); st["steering"] = []
+            if self._cache is None: self._cache = st   # a first snapshot for the next caller; a live collection replaces it
+            return self._cache if not refresh else st
         with self._lock:
             if self._cache and not refresh and (not live or (time.time() - self._cache["generated"] < self.ttl and self._cache.get("live_done"))): return self._cache
             st = self.model(); tnames = [t["name"] for t in st["tenants"]]
