@@ -68,13 +68,17 @@ jobs:
       - name: commit the results back to GitHub
         if: steps.lab.outputs.skip == '0'
         env:
+          GIT_AUTHOR_NAME: lab-ci
+          GIT_AUTHOR_EMAIL: lab-ci@lab.local
+          GIT_COMMITTER_NAME: lab-ci
+          GIT_COMMITTER_EMAIL: lab-ci@lab.local
           TS: ${{ steps.robot.outputs.ts }}
           PASSED: ${{ steps.robot.outputs.passed }}
           FAILED: ${{ steps.robot.outputs.failed }}
           SKIPPED: ${{ steps.robot.outputs.skipped }}
         run: |
           git add "results/$TS"
-          git -c user.name=lab-ci -c user.email=lab-ci@lab.local commit -q -m "CI: test results for ${GITHUB_SHA:0:8} — $PASSED passed, $FAILED failed, $SKIPPED skipped (results/$TS) [skip ci]"
+          git commit -q -m "CI: test results for ${GITHUB_SHA:0:8} — $PASSED passed, $FAILED failed, $SKIPPED skipped (results/$TS) [skip ci]"
           git fetch -q "$GITHUB_REPO" main && git rebase -q FETCH_HEAD
           git push -q "$GITHUB_REPO" HEAD:main && echo "results/$TS pushed to GitHub ($PASSED passed, $FAILED failed)"
       - name: verdict
