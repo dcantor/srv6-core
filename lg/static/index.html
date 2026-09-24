@@ -1,0 +1,406 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>BGP Looking Glass — SRv6 core</title>
+<script>try { const t = localStorage.getItem('lg-theme'); document.documentElement.dataset.theme = t ? t : (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'); } catch (e) { }</script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root { --ink:#0f172a; --muted:#64748b; --line:#e2e8f0; --bg:#f8fafc; --card:#fff; --accent:#0e7490; --ok:#15803d; --warn:#b45309; --bad:#b91c1c; --blue:#1d4ed8;
+          --input:#fff; --pill:#e2e8f0; --ok-bg:#dcfce7; --warn-bg:#fef3c7; --bad-bg:#fee2e2; --header:#0b1020; --header-ink:#e2e8f0; --header-muted:#94a3b8; --nav:#cbd5e1; --nav-on:#1e293b; --code-bg:#0b1020; --code-ink:#cbd5e1; --row:#f1f5f9 }
+  html[data-theme="dark"] { --ink:#e6edf7; --muted:#8fa3bf; --line:#263449; --bg:#0b1220; --card:#131c2e; --accent:#22d3ee; --ok:#3ddc84; --warn:#ffb454; --bad:#ff6b6b; --blue:#7fb2ff;
+          --input:#0f172a; --pill:#243656; --ok-bg:#12351f; --warn-bg:#3d2c0f; --bad-bg:#3d1a1a; --header:#070d1a; --header-ink:#e6edf7; --header-muted:#8fa3bf; --nav:#aebbd0; --nav-on:#243656; --code-bg:#070d1a; --code-ink:#d1e3ff; --row:#182338; color-scheme:dark }
+  * { box-sizing:border-box } body { margin:0; font:14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color:var(--ink); background:var(--bg) }
+  header { background:var(--header); color:var(--header-ink); padding:12px 24px; display:flex; align-items:center; gap:22px; flex-wrap:wrap }
+  header h1 { font-size:18px; margin:0 } header .sub { color:var(--header-muted); font-size:12px }
+  header nav a { color:var(--nav); text-decoration:none; padding:6px 12px; border-radius:6px } header nav a.on, header nav a:hover { background:var(--nav-on); color:var(--header-ink) }
+  header .right { margin-left:auto; color:var(--header-muted); font-size:12px } header .right a { color:#7dd3fc }
+  main { max-width:1600px; margin:0 auto; padding:16px 24px } .view { display:none } .view.on { display:block }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px 16px; margin-bottom:14px }
+  .card h2 { font-size:15px; margin:0 0 10px } .card h2 small { color:var(--muted); font-weight:400; margin-left:8px }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(380px, 1fr)); gap:14px }
+  table { border-collapse:collapse; width:100%; font-size:13px } th, td { text-align:left; padding:5px 8px; border-bottom:1px solid var(--line); vertical-align:top; white-space:nowrap }
+  td.wrap { white-space:normal }
+  th { color:var(--muted); font-weight:600; font-size:12px; position:sticky; top:0; background:var(--card) } tbody tr:hover { background:var(--row) }
+  code, .mono { font-family:ui-monospace, Menlo, Consolas, monospace; font-size:12px }
+  a.link { color:var(--blue); text-decoration:none; cursor:pointer } a.link:hover { text-decoration:underline }
+  .pill { display:inline-block; font-size:11px; padding:1px 7px; border-radius:999px; background:var(--pill); color:var(--ink) }
+  .pill.up, .pill.ok, .pill.Established, .pill.announce { background:var(--ok-bg); color:var(--ok) }
+  .pill.warn, .pill.change, .pill.Connect, .pill.Active { background:var(--warn-bg); color:var(--warn) }
+  .pill.bad, .pill.down, .pill.withdraw, .pill.Idle { background:var(--bad-bg); color:var(--bad) }
+  button { font:inherit; padding:6px 12px; border-radius:7px; border:1px solid var(--line); background:var(--input); color:var(--ink); cursor:pointer }
+  button.primary { background:var(--accent); color:#00202b; border-color:var(--accent); font-weight:600 } button:disabled { opacity:.5; cursor:default }
+  input, select { font:inherit; padding:5px 8px; border:1px solid var(--line); border-radius:6px; width:100%; background:var(--input); color:var(--ink) }
+  label { display:block; font-size:12px; color:var(--muted); margin-bottom:3px }
+  .row { display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end } .row > div { flex:1; min-width:120px }
+  .hint { color:var(--muted); font-size:12px } .msg { color:var(--bad); font-size:13px; white-space:pre-wrap }
+  .kpis { display:grid; grid-template-columns:repeat(auto-fit, minmax(140px,1fr)); gap:10px; margin-bottom:14px }
+  .kpi { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:9px 13px } .kpi .n { font-size:23px; font-weight:600 } .kpi .l { color:var(--muted); font-size:12px }
+  pre.out { background:var(--code-bg); color:var(--code-ink); padding:12px; border-radius:8px; font-size:12px; max-height:520px; overflow:auto; white-space:pre }
+  .attrs { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:6px 16px; font-size:12.5px }
+  .attrs div span { color:var(--muted); display:inline-block; min-width:96px }
+  .scroll { max-height:40vh; overflow:auto }
+  .tl { position:relative; margin:6px 0 2px } .tl .bar { height:26px; background:var(--row); border-radius:5px; position:relative; overflow:hidden }
+  .tl .ev { position:absolute; top:0; bottom:0; width:3px; border-radius:2px } .tl .ev.announce { background:var(--ok) } .tl .ev.change { background:var(--warn) } .tl .ev.withdraw { background:var(--bad) }
+  .chart { width:100%; height:120px } .chart text { font-size:10px; fill:var(--muted) } .chart path { fill:none; stroke-width:1.8 }
+  .legend span { margin-right:12px; font-size:12px; color:var(--muted) } .legend i { display:inline-block; width:9px; height:9px; border-radius:2px; margin-right:4px }
+  .split { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:14px } @media (max-width:1100px) { .split { grid-template-columns:1fr } }
+</style></head>
+<body>
+<header>
+  <div><h1>BGP Looking Glass</h1><div class="sub" id="sub">a passive route collector in the SRv6 core — every VPN prefix, its attributes, and how they changed</div></div>
+  <nav>
+    <a href="#overview" data-view="overview" class="on">Overview</a>
+    <a href="#prefixes" data-view="prefixes">Prefixes</a>
+    <a href="#history" data-view="history">History</a>
+    <a href="#peers" data-view="peers">Sessions</a>
+    <a href="#query" data-view="query">Live query</a>
+  </nav>
+  <div class="right"><span id="hdr-state"></span> · <a href="#" id="theme-toggle" title="dark / light (follows the OS setting until chosen)">☾ dark</a></div>
+</header>
+<main>
+
+<section id="v-overview" class="view on">
+  <div class="kpis" id="kpis"></div>
+  <div class="split">
+    <div class="card"><h2>Collector sessions <small>iBGP to every route reflector, one link each</small></h2>
+      <table><thead><tr><th>Reflector</th><th>State</th><th>AS</th><th>VPNv4</th><th>VPNv6</th><th>Up since</th></tr></thead><tbody id="ov-peers"></tbody></table>
+      <p class="hint" id="ov-peers-hint"></p></div>
+    <div class="card"><h2>Paths over time <small>what the collector held, per address family</small></h2>
+      <div id="ov-chart"></div><div class="legend" id="ov-legend"></div></div>
+  </div>
+  <div class="split">
+    <div class="card"><h2>What each view holds <small>the core's VPN table, then every router's own tenant view — click a row to list it</small></h2>
+      <div class="scroll"><table><thead><tr><th>View</th><th>Family</th><th>VRF</th><th>Prefixes</th><th>Paths</th><th>Collected</th></tr></thead><tbody id="ov-counts"></tbody></table></div></div>
+    <div class="card"><h2>Latest changes <small>announce / change / withdraw, as the collector saw them</small></h2>
+      <div class="scroll"><table><thead><tr><th>When</th><th></th><th>Prefix</th><th>VRF</th><th>From</th><th>What</th></tr></thead><tbody id="ov-events"></tbody></table></div></div>
+  </div>
+</section>
+
+<section id="v-prefixes" class="view">
+  <div class="card"><h2>Prefixes <small id="pf-count"></small></h2>
+    <div class="row">
+      <div><label>View</label><select id="f-source"></select></div>
+      <div><label>Address family</label><select id="f-afi"></select></div>
+      <div><label>VRF</label><select id="f-vrf"></select></div>
+      <div><label>Route distinguisher</label><select id="f-rd"></select></div>
+      <div><label>Origin AS</label><input id="f-as" placeholder="65001"></div>
+      <div style="flex:2"><label>Search (prefix, next hop, SID, RT, AS path)</label><input id="f-q" placeholder="172.20. / fd00:c:1:: / RT:65000:100"></div>
+      <div style="flex:0"><label>&nbsp;</label><button class="primary" onclick="loadPrefixes()">Search</button></div>
+      <div style="flex:0"><label>&nbsp;</label><button onclick="resetFilters()">Reset</button></div>
+    </div>
+    <p class="hint" id="pf-hint" style="margin:8px 0 0"></p>
+  </div>
+  <div class="card"><div class="scroll"><table><thead><tr>
+    <th>Prefix</th><th>VRF</th><th>RD</th><th>Next hop</th><th>From</th><th>AS path</th><th>Origin</th><th>Local pref</th><th>MED</th><th>SID</th><th>Route targets</th><th>Age</th><th>View</th>
+  </tr></thead><tbody id="pf-rows"></tbody></table></div>
+  <div class="row" style="margin-top:8px"><div style="flex:0"><button id="pf-more" onclick="morePrefixes()">Load more</button></div><div class="hint" id="pf-shown"></div></div></div>
+</section>
+
+<section id="v-prefix" class="view">
+  <div class="card"><h2 id="px-title">Prefix</h2>
+    <div class="row">
+      <div style="flex:0"><button onclick="location.hash='#prefixes'">&larr; back</button></div>
+      <div><label>State at (leave empty for now)</label><input id="px-at" placeholder="2026-09-24 14:05:00"></div>
+      <div style="flex:0"><label>&nbsp;</label><button onclick="timeTravel()">Show that moment</button></div>
+      <div style="flex:0"><label>&nbsp;</label><button onclick="renderPrefix(CURRENT_PREFIX)">Now</button></div>
+      <div class="hint" id="px-when" style="flex:2"></div>
+    </div>
+  </div>
+  <div class="card"><h2>History <small>every announce, attribute change and withdraw kept for this prefix</small></h2>
+    <div class="tl"><div class="bar" id="px-timeline"></div></div>
+    <div class="hint" id="px-range"></div>
+    <div class="scroll" style="margin-top:8px"><table><thead><tr><th>When</th><th></th><th>View</th><th>VRF / RD</th><th>From</th><th>What changed</th></tr></thead><tbody id="px-events"></tbody></table></div></div>
+  <div id="px-paths"></div>
+</section>
+
+<section id="v-history" class="view">
+  <div class="card"><h2>History <small>the whole table's changes, newest first</small></h2>
+    <div class="row">
+      <div><label>Prefix (optional)</label><input id="h-prefix" placeholder="172.20.3.0/24"></div>
+      <div><label>Kind</label><select id="h-kind"><option value="">any</option><option>announce</option><option>change</option><option>withdraw</option></select></div>
+      <div><label>Since</label><select id="h-since"><option value="3600">last hour</option><option value="86400" selected>last day</option><option value="604800">last week</option><option value="">everything kept</option></select></div>
+      <div style="flex:0"><label>&nbsp;</label><button class="primary" onclick="loadHistory()">Show</button></div>
+    </div></div>
+  <div class="card"><div class="scroll"><table><thead><tr><th>When</th><th></th><th>Prefix</th><th>VRF</th><th>View</th><th>From</th><th>What changed</th></tr></thead><tbody id="h-rows"></tbody></table></div></div>
+</section>
+
+<section id="v-peers" class="view">
+  <div class="card"><h2>BGP sessions <small>the collector is a reflector client: it receives everything and announces nothing</small></h2>
+    <table><thead><tr><th>Peer</th><th>Name</th><th>State</th><th>AS</th><th>Router-id</th><th>Accepted</th><th>Messages rx/tx</th><th>Established</th></tr></thead><tbody id="pe-rows"></tbody></table></div>
+  <div class="card"><h2>Collections <small>the collector's own table is read locally; the per-VRF views are polled over SSH</small></h2>
+    <table><thead><tr><th>View</th><th>Last</th><th>Result</th><th>Paths</th><th>Took</th><th>Error</th></tr></thead><tbody id="pe-polls"></tbody></table></div>
+</section>
+
+<section id="v-query" class="view">
+  <div class="card"><h2>Live query <small>a `show` command straight on a router, or a ping from it</small></h2>
+    <div class="row">
+      <div><label>Device</label><select id="q-device"></select></div>
+      <div style="flex:3"><label>Command</label><input id="q-command" value="show bgp vrf tenant-a ipv4 unicast"></div>
+      <div style="flex:0"><label>&nbsp;</label><button class="primary" id="q-run" onclick="runQuery()">Run</button></div>
+    </div>
+    <p class="hint">Suggestions: <span id="q-suggest"></span></p>
+    <p class="hint">Only <code>show …</code>, <code>ping &lt;address&gt; [vrf X] [count N]</code> and <code>traceroute &lt;address&gt;</code> are accepted, and only on the lab's own devices.</p>
+  </div>
+  <div class="card"><h2 id="q-title">Output</h2><pre class="out" id="q-out">—</pre></div>
+</section>
+
+</main>
+<script>
+const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
+let META = {}, STATUS = {}, CURRENT_PREFIX = null, PF_OFFSET = 0, PF_TOTAL = 0;
+const api = async (p, o) => { const r = await fetch(p, o); const j = await r.json(); if (!r.ok) throw new Error(j.error || r.statusText); return j; };
+const fmtTime = t => t ? new Date(t * 1000).toLocaleString() : '—';
+const fmtAgo = t => { if (!t) return '—'; const s = Date.now() / 1000 - t;
+  return s < 90 ? `${Math.round(s)} s` : s < 5400 ? `${Math.round(s / 60)} min` : s < 172800 ? `${Math.round(s / 3600)} h` : `${Math.round(s / 86400)} d`; };
+const esc = s => (s ?? '').toString().replace(/[<>&]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]));
+const node = name => name ? `<span class="pill">${esc(name)}</span>` : '';
+const prefixLink = p => `<a class="link mono" href="#prefix/${encodeURIComponent(p)}">${esc(p)}</a>`;
+
+/* ---- routing --------------------------------------------------------- */
+function route() {
+  const h = location.hash.replace(/^#/, '') || 'overview';
+  const [view, ...rest] = h.split('/');
+  const name = view === 'prefix' ? 'prefix' : view;
+  $$('.view').forEach(v => v.classList.toggle('on', v.id === 'v-' + name));
+  $$('header nav a').forEach(a => a.classList.toggle('on', a.dataset.view === name));
+  if (name === 'overview') loadOverview();
+  if (name === 'prefixes') { if (!$('#pf-rows').children.length) loadPrefixes(); }
+  if (name === 'prefix') renderPrefix(decodeURIComponent(rest.join('/')));
+  if (name === 'history') loadHistory();
+  if (name === 'peers') loadPeers();
+  if (name === 'query') loadQuery();
+}
+addEventListener('hashchange', route);
+
+/* ---- overview -------------------------------------------------------- */
+async function loadOverview() {
+  STATUS = await api('/api/status');
+  const s = STATUS, core = s.counts.filter(c => c.source === 'collector');
+  const paths = core.reduce((a, c) => a + c.n, 0), prefixes = core.reduce((a, c) => a + c.prefixes, 0);
+  const up = s.collector.peers.filter(p => p.state === 'Established').length;
+  const vrfs = new Set(core.map(c => c.vrf).filter(Boolean));
+  $('#kpis').innerHTML = [
+    ['Prefixes in the core', prefixes], ['Paths', paths], ['Tenant VRFs', vrfs.size],
+    ['Reflector sessions', `${up}/${s.collector.peers.length}`],
+    ['Changes (1 h)', Object.values(s.churn['1h']).reduce((a, b) => a + b, 0)],
+    ['History kept', `${s.db.events} events`],
+  ].map(([l, n]) => `<div class="kpi"><div class="n">${n}</div><div class="l">${l}</div></div>`).join('');
+  $('#hdr-state').textContent = `${up}/${s.collector.peers.length} sessions · ${prefixes} prefixes · AS ${s.collector.asn}`;
+  $('#ov-peers').innerHTML = s.collector.peers.map(p => {
+    const f = k => (p.families && p.families[k] && p.families[k].accepted != null) ? p.families[k].accepted : '—';
+    return `<tr><td>${node(p.name || p.ip)}<div class="hint mono">${esc(p.ip)}</div></td>
+      <td><span class="pill ${esc(p.state)}">${esc(p.state)}</span></td><td>${p.remote_as ?? ''}</td>
+      <td>${f('ipv4Vpn')}</td><td>${f('ipv6Vpn')}</td><td>${p.uptime ? fmtAgo(p.uptime) : '—'}</td></tr>`;
+  }).join('');
+  $('#ov-peers-hint').textContent = `router-id ${s.collector.router_id}, AS ${s.collector.asn}; the collector's own table is re-read every ${s.poll_intervals.local} s, the per-VRF views every ${s.poll_intervals.devices} s.`;
+  const rank = x => x === 'collector' ? 0 : (META.nodes[x] || {}).role === 'pe' ? 1 : (META.nodes[x] || {}).role === 'ce' ? 2 : 3;
+  $('#ov-counts').innerHTML = s.counts.sort((a, b) => rank(a.source) - rank(b.source) ||
+      a.source.localeCompare(b.source) || a.afi.localeCompare(b.afi) || (a.vrf || '').localeCompare(b.vrf || '')).map(c =>
+    `<tr style="cursor:pointer" onclick="jumpTo('${c.source}','${c.afi}','${c.safi}','${c.vrf || ''}')">
+       <td>${c.source === 'collector' ? '<span class="pill ok">core (collector)</span>' : node(c.source)}</td>
+       <td class="mono">${c.afi} ${c.safi}</td><td>${esc(c.vrf || '—')}</td>
+       <td>${c.prefixes}</td><td>${c.n}</td>
+       <td class="hint">${s.polls[c.source] ? fmtAgo(s.polls[c.source].ts) + ' ago' : '—'}</td></tr>`).join('');
+  const ev = await api('/api/history?limit=25');
+  $('#ov-events').innerHTML = ev.events.map(eventRow).join('') || '<tr><td colspan="6" class="hint">nothing has changed since the collector started</td></tr>';
+  drawSeries();
+}
+function jumpTo(source, afi, safi, vrf) {
+  location.hash = '#prefixes';
+  $('#f-source').value = source; $('#f-afi').value = afi + ' ' + safi; $('#f-vrf').value = vrf || '';
+  loadPrefixes();
+}
+const changeText = e => e.kind === 'withdraw' ? 'withdrawn' : (e.changes ? Object.entries(e.changes).map(([k, [a, b]]) =>
+  `${k}: ${esc(JSON.stringify(a) ?? '—')} → ${esc(JSON.stringify(b))}`).join('; ') : (e.kind === 'announce' ? 'first seen' : ''));
+const eventRow = e => `<tr><td class="hint">${fmtAgo(e.ts)} ago</td><td><span class="pill ${e.kind}">${e.kind}</span></td>
+  <td>${prefixLink(e.prefix)}</td><td>${esc(e.vrf || '—')}</td><td>${node(e.origin_node || e.peer_name || e.source)}</td>
+  <td class="mono">${changeText(e)}</td></tr>`;
+
+async function drawSeries() {
+  const d = await api('/api/series?metric=paths&since=' + Math.round(Date.now() / 1000 - 6 * 3600) + '&step=30');
+  const series = d.series.filter(s => s.source === 'collector');
+  if (!series.length) { $('#ov-chart').innerHTML = '<p class="hint">no samples yet — the first ones arrive with the next collection</p>'; return; }
+  const all = series.flatMap(s => s.points);
+  const t0 = Math.min(...all.map(p => p[0])), t1 = Math.max(...all.map(p => p[0])), max = Math.max(1, ...all.map(p => p[1]));
+  const W = 620, H = 120, pad = 26, colors = ['#0ea5e9', '#f97316', '#22c55e', '#a855f7', '#eab308', '#ef4444'];
+  const x = t => pad + (W - pad - 6) * (t1 === t0 ? 1 : (t - t0) / (t1 - t0)), y = v => H - 18 - (H - 34) * (v / max);
+  const paths = series.map((s, i) => `<path d="${s.points.map((p, j) => (j ? 'L' : 'M') + x(p[0]).toFixed(1) + ' ' + y(p[1]).toFixed(1)).join(' ')}" stroke="${colors[i % colors.length]}"/>`);
+  $('#ov-chart').innerHTML = `<svg class="chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+    <line x1="${pad}" y1="${H - 18}" x2="${W - 6}" y2="${H - 18}" stroke="var(--line)"/>
+    <line x1="${pad}" y1="6" x2="${pad}" y2="${H - 18}" stroke="var(--line)"/>
+    <text x="2" y="12">${max}</text><text x="2" y="${H - 20}">0</text>
+    <text x="${pad}" y="${H - 5}">${new Date(t0 * 1000).toLocaleTimeString()}</text>
+    <text x="${W - 70}" y="${H - 5}">${new Date(t1 * 1000).toLocaleTimeString()}</text>
+    ${paths.join('')}</svg>`;
+  $('#ov-legend').innerHTML = series.map((s, i) => `<span><i style="background:${colors[i % colors.length]}"></i>${esc(s.labels.afi)} ${esc(s.labels.safi)} ${esc(s.labels.vrf || '')}</span>`).join('');
+}
+
+/* ---- prefixes -------------------------------------------------------- */
+function filterQuery(offset) {
+  const fam = $('#f-afi').value.split(' ');
+  const p = new URLSearchParams();
+  if ($('#f-source').value) p.set('source', $('#f-source').value);
+  if (fam[0]) { p.set('afi', fam[0]); if (fam[1]) p.set('safi', fam[1]); }
+  if ($('#f-vrf').value) p.set('vrf', $('#f-vrf').value);
+  if ($('#f-rd').value) p.set('rd', $('#f-rd').value);
+  if ($('#f-as').value) p.set('origin_as', $('#f-as').value);
+  if ($('#f-q').value) p.set('q', $('#f-q').value);
+  p.set('limit', 200); p.set('offset', offset);
+  return p;
+}
+async function loadPrefixes(append) {
+  PF_OFFSET = append ? PF_OFFSET + 200 : 0;
+  const d = await api('/api/prefixes?' + filterQuery(PF_OFFSET));
+  PF_TOTAL = d.total;
+  const rows = d.paths.map(pathRow).join('');
+  $('#pf-rows').innerHTML = append ? $('#pf-rows').innerHTML + rows : rows;
+  $('#pf-count').textContent = `${d.total} path${d.total === 1 ? '' : 's'} match`;
+  $('#pf-shown').textContent = `showing ${$('#pf-rows').children.length} of ${d.total}`;
+  $('#pf-more').disabled = $('#pf-rows').children.length >= d.total;
+  $('#pf-hint').textContent = $('#f-source').value === 'collector' || !$('#f-source').value
+    ? 'The collector’s view is the core’s VPN table: one row per path a reflector handed over, with the attributes the PE originated.'
+    : 'A device view is that router’s own table after import — what the tenant actually has on that PE or CE.';
+}
+const morePrefixes = () => loadPrefixes(true);
+function resetFilters() { ['f-source', 'f-afi', 'f-vrf', 'f-rd'].forEach(i => $('#' + i).selectedIndex = 0); $('#f-as').value = ''; $('#f-q').value = ''; loadPrefixes(); }
+function pathRow(p) {
+  const a = p.attrs || {};
+  return `<tr>
+    <td>${prefixLink(p.prefix)}${p.best ? ' <span class="pill ok">best</span>' : ''}</td>
+    <td>${esc(p.vrf || '—')}</td><td class="mono">${esc(p.rd || '—')}</td>
+    <td class="mono">${esc(p.nexthop || '—')}${p.origin_node ? ' ' + node(p.origin_node) : ''}</td>
+    <td>${esc(p.peer_name || p.peer || 'local')}</td>
+    <td class="mono">${esc(a.as_path || 'i')}</td><td>${p.origin_as ?? '—'}</td>
+    <td>${a.local_pref ?? '—'}</td><td>${a.med ?? '—'}</td>
+    <td class="mono">${esc(a.sid || '—')}</td><td class="mono">${esc(a.ext_communities || '—')}</td>
+    <td class="hint">${fmtAgo(p.first_seen)}</td>
+    <td>${p.source === 'collector' ? '<span class="pill ok">core</span>' : node(p.source)}</td></tr>`;
+}
+
+/* ---- one prefix ------------------------------------------------------ */
+async function renderPrefix(prefix, at) {
+  CURRENT_PREFIX = prefix;
+  $('#px-title').innerHTML = `Prefix <span class="mono">${esc(prefix)}</span>`;
+  const d = await api('/api/prefix?prefix=' + encodeURIComponent(prefix));
+  let paths = d.paths;
+  if (at) {
+    const st = await api(`/api/state?at=${at}&prefix=${encodeURIComponent(prefix)}`);
+    paths = st.paths;
+    $('#px-when').innerHTML = `showing the table as it stood at <b>${fmtTime(at)}</b> — ${paths.length} path(s)`;
+  } else {
+    $('#px-when').textContent = `first seen ${fmtTime(d.first_seen)}, last change ${fmtTime(d.last_change)}`;
+  }
+  const events = d.events;
+  const t0 = events.length ? Math.min(...events.map(e => e.ts)) : Date.now() / 1000 - 3600, t1 = Date.now() / 1000;
+  $('#px-timeline').innerHTML = events.map(e =>
+    `<div class="ev ${e.kind}" style="left:${(100 * (e.ts - t0) / Math.max(1, t1 - t0)).toFixed(2)}%" title="${esc(e.kind)} ${fmtTime(e.ts)}"></div>`).join('');
+  $('#px-range').textContent = events.length ? `${events.length} event(s) between ${fmtTime(t0)} and now` : 'no change since the collector started';
+  $('#px-events').innerHTML = events.map(e => `<tr><td class="hint">${fmtTime(e.ts)}</td><td><span class="pill ${e.kind}">${e.kind}</span></td>
+    <td>${e.source === 'collector' ? '<span class="pill ok">core</span>' : node(e.source)}</td><td>${esc(e.vrf || '—')}<div class="hint mono">${esc(e.rd || '')}</div></td>
+    <td>${node(e.origin_node || e.peer_name || '')}</td><td class="mono">${changeText(e)}</td>
+    <td style="width:1%"><button onclick="showAt(${e.ts})">this moment</button></td></tr>`).join('');
+  const groups = {}, rank = s => s === 'collector' ? 0 : (META.nodes[s] || {}).role === 'pe' ? 1 : (META.nodes[s] || {}).role === 'ce' ? 2 : 3;
+  paths.sort((a, b) => rank(a.source) - rank(b.source) || a.source.localeCompare(b.source) || (b.best - a.best));
+  paths.forEach(p => { (groups[p.source] = groups[p.source] || []).push(p); });
+  $('#px-paths').innerHTML = Object.entries(groups).map(([source, ps]) => `<div class="card">
+    <h2>${source === 'collector' ? 'The core’s VPN table' : 'On ' + esc(source)}
+      <small>${source === 'collector' ? 'as the reflectors handed it over' : 'after import, in the tenant’s VRF'}</small></h2>
+    ${ps.map(pathCard).join('')}</div>`).join('');
+}
+function pathCard(p) {
+  const a = p.attrs || {};
+  const rows = [
+    ['VRF', p.vrf], ['Route distinguisher', p.rd], ['Next hop', p.nexthop], ['Advertised by', p.peer_name || p.peer || 'local'],
+    ['Originating node', p.origin_node], ['AS path', a.as_path || 'i (local)'], ['Origin', a.origin], ['Local pref', a.local_pref],
+    ['MED', a.med], ['Weight', a.weight], ['Route targets', a.ext_communities], ['Communities', a.communities],
+    ['Originator-id', a.originator_id], ['Cluster list', (a.cluster_list || []).join(' ')], ['SRv6 SID', a.sid],
+    ['Transposed SID', a.transposed_sid], ['Label', a.label], ['Imported from', a.imported_from],
+    ['Selection', a.best ? 'best path' + (a.selection_reason ? ` (${a.selection_reason})` : '') : (a.multipath ? 'multipath' : '')],
+    ['First seen', fmtTime(p.first_seen)], ['Last change', fmtTime(p.last_change)],
+    ['State', p.alive === false ? 'withdrawn' : 'in the table'],
+  ].filter(([, v]) => v !== undefined && v !== null && v !== '');
+  return `<div style="border-left:3px solid ${p.best ? 'var(--ok)' : 'var(--line)'}; padding-left:10px; margin-bottom:12px">
+    <div class="attrs">${rows.map(([k, v]) => `<div><span>${k}</span> <b class="mono">${esc(v)}</b></div>`).join('')}</div></div>`;
+}
+const showAt = ts => { $('#px-at').value = new Date(ts * 1000).toLocaleString(); renderPrefix(CURRENT_PREFIX, ts + 0.001); };
+function timeTravel() {
+  const v = $('#px-at').value.trim();
+  if (!v) return renderPrefix(CURRENT_PREFIX);
+  const t = Date.parse(v.replace(' ', 'T'));
+  if (isNaN(t)) { alert('Give a moment like 2026-09-24 14:05:00'); return; }
+  renderPrefix(CURRENT_PREFIX, t / 1000);
+}
+
+/* ---- history --------------------------------------------------------- */
+async function loadHistory() {
+  const p = new URLSearchParams({ limit: 500 });
+  if ($('#h-prefix').value.trim()) p.set('prefix', $('#h-prefix').value.trim());
+  if ($('#h-kind').value) p.set('kind', $('#h-kind').value);
+  if ($('#h-since').value) p.set('since', Math.round(Date.now() / 1000 - Number($('#h-since').value)));
+  const d = await api('/api/history?' + p);
+  $('#h-rows').innerHTML = d.events.map(e => `<tr><td class="hint">${fmtTime(e.ts)}</td><td><span class="pill ${e.kind}">${e.kind}</span></td>
+    <td>${prefixLink(e.prefix)}</td><td>${esc(e.vrf || '—')}</td><td>${e.source === 'collector' ? '<span class="pill ok">core</span>' : node(e.source)}</td>
+    <td>${node(e.origin_node || e.peer_name || '')}</td><td class="mono">${changeText(e)}</td></tr>`).join('')
+    || '<tr><td colspan="7" class="hint">no events in that window</td></tr>';
+}
+
+/* ---- sessions -------------------------------------------------------- */
+async function loadPeers() {
+  const d = await api('/api/peers');
+  $('#pe-rows').innerHTML = d.peers.map(p => `<tr><td class="mono">${esc(p.ip)}</td><td>${node(p.name || '')}</td>
+    <td><span class="pill ${esc(p.state)}">${esc(p.state)}</span></td><td>${p.remote_as ?? ''}</td><td class="mono">${esc(p.router_id || '')}</td>
+    <td>${Object.entries(p.families || {}).map(([af, x]) => `${af}: ${x.accepted ?? '—'}`).join('<br>')}</td>
+    <td>${p.messages.rx ?? '—'} / ${p.messages.tx ?? '—'}</td><td>${p.uptime ? fmtAgo(p.uptime) + ' ago' : '—'} <span class="hint">(${p.established_count ?? 0}×)</span></td></tr>`).join('');
+  $('#pe-polls').innerHTML = Object.values(d.polls).map(p => `<tr><td>${p.source === 'collector' ? '<span class="pill ok">core (local)</span>' : node(p.source)}</td>
+    <td>${fmtAgo(p.ts)} ago</td><td><span class="pill ${p.ok ? 'ok' : 'bad'}">${p.ok ? 'ok' : 'failed'}</span></td>
+    <td>${p.paths}</td><td>${(p.duration || 0).toFixed(1)} s</td><td class="mono">${esc(p.error || '')}</td></tr>`).join('');
+}
+
+/* ---- live query ------------------------------------------------------ */
+function loadQuery() {
+  if ($('#q-device').children.length) return;
+  $('#q-device').innerHTML = (META.devices || []).concat([META.node]).map(d => `<option>${esc(d)}</option>`).join('');
+  const t = Object.keys(META.tenants || {})[0] || 'tenant-a';
+  const sug = [`show bgp vrf ${t} ipv4 unicast`, `show bgp vrf ${t} ipv6 unicast`, 'show bgp ipv4 vpn', 'show bgp summary',
+    'show bgp ipv4 vpn detail', 'show ip route vrf ' + t, 'show isis neighbor', 'show bgp neighbors'];
+  $('#q-suggest').innerHTML = sug.map(s => `<a class="link" onclick="$('#q-command').value='${s}'">${s}</a>`).join(' · ');
+}
+async function runQuery() {
+  const body = { device: $('#q-device').value, command: $('#q-command').value };
+  $('#q-run').disabled = true; $('#q-out').textContent = 'running…';
+  try {
+    const d = await api('/api/query', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    $('#q-title').textContent = `${d.device}: ${d.command} (${d.seconds} s)`;
+    $('#q-out').textContent = d.output || '(no output)';
+  } catch (e) { $('#q-title').textContent = 'Failed'; $('#q-out').textContent = e.message; }
+  $('#q-run').disabled = false;
+}
+
+/* ---- boot ------------------------------------------------------------ */
+async function boot() {
+  META = await api('/api/meta');
+  document.title = `BGP Looking Glass — ${META.lab}`;
+  $('#sub').textContent = `a passive route collector in the ${META.lab} core (AS ${META.core_as}, reflectors ${META.rrs.join(' + ')}) — every VPN prefix, its attributes, and how they changed`;
+  $('#f-source').innerHTML = '<option value="">every view</option>' + META.sources.map(s => `<option value="${s}">${s === 'collector' ? 'the core (collector)' : s}</option>`).join('');
+  $('#f-afi').innerHTML = '<option value="">every family</option>' + ['ipv4 vpn', 'ipv6 vpn', 'ipv4 unicast', 'ipv6 unicast'].map(f => `<option>${f}</option>`).join('');
+  $('#f-vrf').innerHTML = '<option value="">every VRF</option>' + META.vrfs.map(v => `<option>${v}</option>`).join('');
+  $('#f-rd').innerHTML = '<option value="">every RD</option>' + Object.entries(META.rds).sort().map(([rd, v]) => `<option value="${rd}">${rd} — ${v.vrf} on ${v.pe}</option>`).join('');
+  try {                                      // the header line belongs to every page, not only the overview
+    const s = await api('/api/status'), up = s.collector.peers.filter(p => p.state === 'Established').length;
+    const prefixes = s.counts.filter(c => c.source === 'collector').reduce((a, c) => a + c.prefixes, 0);
+    $('#hdr-state').textContent = `${up}/${s.collector.peers.length} sessions · ${prefixes} prefixes · AS ${s.collector.asn}`;
+  } catch (e) { $('#hdr-state').textContent = 'the collector is not answering'; }
+  route();
+  setInterval(() => { if (location.hash.replace('#', '').startsWith('overview') || !location.hash) loadOverview(); }, 20000);
+}
+$('#theme-toggle').onclick = e => {
+  e.preventDefault();
+  const dark = document.documentElement.dataset.theme !== 'dark';
+  document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+  try { localStorage.setItem('lg-theme', dark ? 'dark' : 'light'); } catch (x) { }
+  $('#theme-toggle').textContent = dark ? '☀ light' : '☾ dark';
+};
+$('#theme-toggle').textContent = document.documentElement.dataset.theme === 'dark' ? '☀ light' : '☾ dark';
+$('#f-q').addEventListener('keydown', e => { if (e.key === 'Enter') loadPrefixes(); });
+$('#q-command').addEventListener('keydown', e => { if (e.key === 'Enter') runQuery(); });
+boot();
+</script>
+</body></html>

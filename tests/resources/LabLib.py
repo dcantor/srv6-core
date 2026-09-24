@@ -203,6 +203,13 @@ class LabLib:
         return r.text
 
     @keyword
+    def http_post(self, url, timeout=60, **body):
+        """POST a JSON body; returns {status, json} so a suite can assert on a rejection as well as on the answer."""
+        r = requests.post(url, json=body, timeout=timeout)
+        try: return {"status": r.status_code, "json": r.json()}
+        except ValueError: return {"status": r.status_code, "json": {"text": r.text}}
+
+    @keyword
     def logsql_rows(self, base, query, timeout=30):
         """VictoriaLogs LogsQL query -> list of dicts (the answer is newline-delimited JSON, one row per line)."""
         r = requests.get(f"{base}/select/logsql/query", params={"query": query}, timeout=timeout); r.raise_for_status()

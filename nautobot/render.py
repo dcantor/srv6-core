@@ -4,7 +4,8 @@
 Reads the saved GraphQL query `srv6-core-model`, rebuilds the inventory dict (devices, interfaces, cables, addresses,
 VRFs / RDs, BGP instances and peerings, config context) and hands it to tools/render.py.
    render.py                 print a summary and the rendered config of every node to stdout (--node NAME for one)
-   render.py --write         write nodes/<n>/vyos_config.txt (what bootstrap / configure push)
+   render.py --write         write nodes/<n>/vyos_config.txt (what bootstrap / configure push) and, for a looking glass,
+                             nodes/<n>/frr.conf + lgd.json (what lab.sh lg deploy copies onto the VM)
    render.py --check         exit 1 if Nautobot's rendering differs from nodes/<n>/vyos_config.txt (lab.conf's rendering)
    render.py --live          exit 1 if a node's running configuration lacks any rendered `set` line (netmiko, vyos/vyos)
    render.py --inventory     dump the rebuilt inventory as JSON"""
@@ -13,7 +14,7 @@ from pathlib import Path
 import requests
 
 LAB = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(LAB / "tools")); from render import render_all   # noqa: E402
+sys.path.insert(0, str(LAB / "tools")); from render import render_all, render_lg, lg_app_config, lg_nodes   # noqa: E402
 p = argparse.ArgumentParser()
 p.add_argument("--url", default=os.environ.get("NAUTOBOT_URL", "http://10.0.0.10:8080"))
 p.add_argument("--token", default=os.environ.get("NAUTOBOT_TOKEN"))
@@ -34,7 +35,7 @@ def inventory_from_nautobot():
     q = requests.get(f"{a.url}/api/extras/graphql-queries/", params={"name": "srv6-core-model"}, headers=H, timeout=30).json()["results"]
     if not q: sys.exit("saved GraphQL query srv6-core-model not found — run nautobot/seed.py")
     d = gql(q[0]["query"]); ctx = d["config_contexts"][0]["data"]
-    ROLE = {"srv6-pe": "pe", "srv6-p": "p", "srv6-ce": "ce", "srv6-fw": "fw", "host": "host"}; inet = ctx.get("internet")
+    ROLE = {"srv6-pe": "pe", "srv6-p": "p", "srv6-ce": "ce", "srv6-fw": "fw", "srv6-lg": "lg", "host": "host"}; inet = ctx.get("internet")
     devs = {x["name"]: x for x in d["devices"]}
     # tenant of an address: the VRF its parent prefix belongs to (prefix roles attachment-circuit / site-lan carry a tenant)
     lab_vrfs = [v for v in d["vrfs"] if v["tenant"] and v["tenant"]["tenant_group"] and v["tenant"]["tenant_group"]["name"] == "srv6-core"]
@@ -91,16 +92,22 @@ def inventory_from_nautobot():
 inv = inventory_from_nautobot()
 if a.inventory: print(json.dumps(inv, indent=1)); sys.exit()
 rendered = render_all(inv)
-if a.node: rendered = {a.node: rendered[a.node]}
+extra = {}                       # the collector is not a VyOS node: FRR syntax plus the model its service reads
+for n in lg_nodes(inv):
+    extra[f"{n['name']}/frr.conf"] = render_lg(inv, n["name"])
+    extra[f"{n['name']}/lgd.json"] = json.dumps(lg_app_config(inv, n["name"]), indent=1, sort_keys=True) + "\n"
+if a.node:
+    rendered = {a.node: rendered[a.node]} if a.node in rendered else {}
+    extra = {k: v for k, v in extra.items() if k.split("/")[0] == a.node}
 rc = 0
 if a.write:
-    for name, text in rendered.items():
-        path = LAB / "nodes" / name / "vyos_config.txt"
+    for name, text in list(rendered.items()) + [(k, v) for k, v in extra.items()]:
+        path = LAB / "nodes" / (f"{name}/vyos_config.txt" if "/" not in name else name)
         if not path.exists() or path.read_text() != text: path.write_text(text); print(f"wrote {path.relative_to(LAB)}")
         else: print(f"{name}: unchanged")
 elif a.check:
-    for name, text in rendered.items():
-        path = LAB / "nodes" / name / "vyos_config.txt"; have = path.read_text() if path.exists() else ""
+    for name, text in list(rendered.items()) + [(k, v) for k, v in extra.items()]:
+        path = LAB / "nodes" / (f"{name}/vyos_config.txt" if "/" not in name else name); have = path.read_text() if path.exists() else ""
         if have == text: print(f"{name}: Nautobot == lab.conf ({text.count(chr(10))} lines)")
         else:
             import difflib; rc = 1; print(f"{name}: DIFFERS"); print("".join(difflib.unified_diff(have.splitlines(True), text.splitlines(True), "lab.conf", "nautobot", n=1)))
@@ -116,5 +123,5 @@ elif a.live:
         else: print(f"{name}: in sync ({len(want)} set lines present)")
 else:
     print(f"# {len(inv['nodes'])} devices, {len(inv['links'])} links, tenants {list(inv['service']['tenants'])}, reflectors {inv['service']['rrs']} — from Nautobot")
-    for name, text in rendered.items(): print(f"\n##### {name}\n{text}")
+    for name, text in list(rendered.items()) + [(k, v) for k, v in extra.items()]: print(f"\n##### {name}\n{text}")
 sys.exit(rc)

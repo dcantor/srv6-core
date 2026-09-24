@@ -1,0 +1,101 @@
+# p2 (10.3.0.22) show configuration commands captured 2026-09-24 16:34:34
+set interfaces dummy dum0 address 'fd00:c:12::1/128'
+set interfaces dummy dum0 description 'SRv6 locator fd00:c:12::/48 (local SIDs)'
+set interfaces ethernet eth0 address '10.3.0.22/24'
+set interfaces ethernet eth0 description 'OOB management'
+set interfaces ethernet eth0 hw-id '52:54:00:c6:06:00'
+set interfaces ethernet eth1 address 'fd00:b:0:12::2/64'
+set interfaces ethernet eth1 description 'core: p1 eth1'
+set interfaces ethernet eth1 hw-id '52:54:00:c6:06:01'
+set interfaces ethernet eth1 mtu '9000'
+set interfaces ethernet eth2 address 'fd00:b:0:23::1/64'
+set interfaces ethernet eth2 description 'core: p3 eth2'
+set interfaces ethernet eth2 hw-id '52:54:00:c6:06:02'
+set interfaces ethernet eth2 mtu '9000'
+set interfaces ethernet eth3 address 'fd00:b:0:201::1/64'
+set interfaces ethernet eth3 description 'core: pe1 eth2'
+set interfaces ethernet eth3 hw-id '52:54:00:c6:06:03'
+set interfaces ethernet eth3 mtu '9000'
+set interfaces ethernet eth4 address 'fd00:b:0:202::1/64'
+set interfaces ethernet eth4 description 'core: pe2 eth2'
+set interfaces ethernet eth4 hw-id '52:54:00:c6:06:04'
+set interfaces ethernet eth4 mtu '9000'
+set interfaces ethernet eth5 address 'fd00:b:0:203::1/64'
+set interfaces ethernet eth5 description 'core: pe3 eth1'
+set interfaces ethernet eth5 hw-id '52:54:00:c6:06:05'
+set interfaces ethernet eth5 mtu '9000'
+set interfaces ethernet eth6 address 'fd00:b:0:204::1/64'
+set interfaces ethernet eth6 description 'core: pe4 eth1'
+set interfaces ethernet eth6 hw-id '52:54:00:c6:06:06'
+set interfaces ethernet eth6 mtu '9000'
+set interfaces loopback lo address 'fd00:a::12/128'
+set protocols isis interface dum0 passive
+set protocols isis interface eth1 bfd
+set protocols isis interface eth1 network point-to-point
+set protocols isis interface eth2 bfd
+set protocols isis interface eth2 network point-to-point
+set protocols isis interface eth3 bfd
+set protocols isis interface eth3 network point-to-point
+set protocols isis interface eth4 bfd
+set protocols isis interface eth4 network point-to-point
+set protocols isis interface eth5 bfd
+set protocols isis interface eth5 network point-to-point
+set protocols isis interface eth6 bfd
+set protocols isis interface eth6 network point-to-point
+set protocols isis interface lo passive
+set protocols isis level 'level-2'
+set protocols isis log-adjacency-changes
+set protocols isis metric-style 'wide'
+set protocols isis net '49.0001.0000.0000.0012.00'
+set protocols isis segment-routing srv6 interface 'dum0'
+set protocols isis segment-routing srv6 locator 'main'
+set protocols segment-routing interface eth1 srv6
+set protocols segment-routing interface eth2 srv6
+set protocols segment-routing interface eth3 srv6
+set protocols segment-routing interface eth4 srv6
+set protocols segment-routing interface eth5 srv6
+set protocols segment-routing interface eth6 srv6
+set protocols segment-routing srv6 encapsulation source-address 'fd00:a::12'
+set protocols segment-routing srv6 locator main behavior-usid
+set protocols segment-routing srv6 locator main block-len '32'
+set protocols segment-routing srv6 locator main format 'usid-f3216'
+set protocols segment-routing srv6 locator main func-bits '16'
+set protocols segment-routing srv6 locator main node-len '16'
+set protocols segment-routing srv6 locator main prefix 'fd00:c:12::/48'
+set protocols static route 10.0.0.0/8 next-hop 10.3.0.1
+set service lldp interface all
+set service monitoring prometheus frr-exporter listen-address '10.3.0.22'
+set service monitoring prometheus node-exporter listen-address '10.3.0.22'
+set service monitoring telegraf global-tag dc value 'core'
+set service monitoring telegraf global-tag lab value 'srv6-core'
+set service monitoring telegraf global-tag role value 'p'
+set service monitoring telegraf influxdb authentication organization 'lab'
+set service monitoring telegraf influxdb authentication token 'srv6core-lab-telegraf_________________________________________________________________=='
+set service monitoring telegraf influxdb bucket 'srv6-core'
+set service monitoring telegraf influxdb port '8428'
+set service monitoring telegraf influxdb url 'http://10.3.0.10'
+set service ssh port '22'
+set system config-management commit-revisions '100'
+set system console device ttyS0 kernel
+set system console device ttyS0 speed '115200'
+set system domain-name 'lab.local'
+set system host-name 'p2'
+set system login operator-group default command-policy allow '*'
+set system login user vyos authentication encrypted-password '$6$rounds=656000$V6KNiM.otQv1hTbW$Kkwtr/zm1sYWgxl17XwrJ1Qr.KoTyfzGkHDwvH1r7aZvC2.j7OOpfTFObiKeuoB0EEPBbyHvtn1o6ibfBpNnq.'
+set system option reboot-on-upgrade-failure '5'
+set system sflow agent-address '10.3.0.22'
+set system sflow interface 'eth1'
+set system sflow interface 'eth2'
+set system sflow interface 'eth3'
+set system sflow interface 'eth4'
+set system sflow interface 'eth5'
+set system sflow interface 'eth6'
+set system sflow polling '20'
+set system sflow sampling-rate '16'
+set system sflow server 10.3.0.10 port '6343'
+set system sysctl parameter net.ipv6.conf.all.seg6_enabled value '1'
+set system syslog local facility all level 'info'
+set system syslog local facility local7 level 'debug'
+set system syslog remote 10.3.0.10 facility all level 'info'
+set system syslog remote 10.3.0.10 port '5514'
+set system syslog remote 10.3.0.10 protocol 'udp'

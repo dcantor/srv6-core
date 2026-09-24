@@ -1,0 +1,433 @@
+{
+ "collector": {
+  "asn": 65000,
+  "families": [
+   [
+    "ipv4",
+    "vpn"
+   ],
+   [
+    "ipv6",
+    "vpn"
+   ]
+  ],
+  "peers": [
+   {
+    "interface": "eth1",
+    "ip": "fd00:b:0:121::1",
+    "local": "fd00:b:0:121::2",
+    "mgmt_ip": "10.3.0.21",
+    "name": "p1",
+    "rr": true
+   },
+   {
+    "interface": "eth2",
+    "ip": "fd00:b:0:321::1",
+    "local": "fd00:b:0:321::2",
+    "mgmt_ip": "10.3.0.23",
+    "name": "p3",
+    "rr": true
+   }
+  ],
+  "router_id": "10.255.0.21"
+ },
+ "db": "/var/lib/lgd/lg.db",
+ "devices": [
+  {
+   "dc": "dc1",
+   "families": [
+    [
+     "ipv4",
+     "unicast"
+    ],
+    [
+     "ipv6",
+     "unicast"
+    ]
+   ],
+   "mgmt_ip": "10.3.0.31",
+   "name": "ce1",
+   "role": "ce",
+   "vrfs": [
+    "tenant-a",
+    "tenant-b"
+   ]
+  },
+  {
+   "dc": "dc2",
+   "families": [
+    [
+     "ipv4",
+     "unicast"
+    ],
+    [
+     "ipv6",
+     "unicast"
+    ]
+   ],
+   "mgmt_ip": "10.3.0.32",
+   "name": "ce2",
+   "role": "ce",
+   "vrfs": [
+    "tenant-a",
+    "tenant-b"
+   ]
+  },
+  {
+   "dc": "dc3",
+   "families": [
+    [
+     "ipv4",
+     "unicast"
+    ],
+    [
+     "ipv6",
+     "unicast"
+    ]
+   ],
+   "mgmt_ip": "10.3.0.33",
+   "name": "ce3",
+   "role": "ce",
+   "vrfs": [
+    "tenant-a",
+    "tenant-b"
+   ]
+  },
+  {
+   "dc": "dc4",
+   "families": [
+    [
+     "ipv4",
+     "unicast"
+    ],
+    [
+     "ipv6",
+     "unicast"
+    ]
+   ],
+   "mgmt_ip": "10.3.0.34",
+   "name": "ce4",
+   "role": "ce",
+   "vrfs": [
+    "tenant-a",
+    "tenant-b"
+   ]
+  },
+  {
+   "dc": "dc4",
+   "families": [
+    [
+     "ipv4",
+     "unicast"
+    ]
+   ],
+   "mgmt_ip": "10.3.0.61",
+   "name": "fw-inet",
+   "role": "fw",
+   "vrfs": [
+    "tenant-a",
+    "tenant-b"
+   ]
+  },
+  {
+   "dc": "dc1",
+   "families": [
+    [
+     "ipv4",
+     "unicast"
+    ],
+    [
+     "ipv6",
+     "unicast"
+    ]
+   ],
+   "mgmt_ip": "10.3.0.11",
+   "name": "pe1",
+   "role": "pe",
+   "vrfs": [
+    "tenant-a",
+    "tenant-b"
+   ]
+  },
+  {
+   "dc": "dc2",
+   "families": [
+    [
+     "ipv4",
+     "unicast"
+    ],
+    [
+     "ipv6",
+     "unicast"
+    ]
+   ],
+   "mgmt_ip": "10.3.0.12",
+   "name": "pe2",
+   "role": "pe",
+   "vrfs": [
+    "tenant-a",
+    "tenant-b"
+   ]
+  },
+  {
+   "dc": "dc3",
+   "families": [
+    [
+     "ipv4",
+     "unicast"
+    ],
+    [
+     "ipv6",
+     "unicast"
+    ]
+   ],
+   "mgmt_ip": "10.3.0.13",
+   "name": "pe3",
+   "role": "pe",
+   "vrfs": [
+    "tenant-a",
+    "tenant-b"
+   ]
+  },
+  {
+   "dc": "dc4",
+   "families": [
+    [
+     "ipv4",
+     "unicast"
+    ],
+    [
+     "ipv6",
+     "unicast"
+    ]
+   ],
+   "mgmt_ip": "10.3.0.14",
+   "name": "pe4",
+   "role": "pe",
+   "vrfs": [
+    "tenant-a",
+    "tenant-b"
+   ]
+  }
+ ],
+ "history_days": 30,
+ "lab": "srv6-core",
+ "listen": {
+  "host": "0.0.0.0",
+  "port": 8080
+ },
+ "locators": {
+  "fd00:c:11::/48": "p1",
+  "fd00:c:12::/48": "p2",
+  "fd00:c:13::/48": "p3",
+  "fd00:c:1::/48": "pe1",
+  "fd00:c:2::/48": "pe2",
+  "fd00:c:3::/48": "pe3",
+  "fd00:c:4::/48": "pe4"
+ },
+ "loopbacks": {
+  "fd00:a::1": "pe1",
+  "fd00:a::11": "p1",
+  "fd00:a::12": "p2",
+  "fd00:a::13": "p3",
+  "fd00:a::2": "pe2",
+  "fd00:a::3": "pe3",
+  "fd00:a::4": "pe4"
+ },
+ "nms": "10.3.0.10",
+ "node": "lg",
+ "nodes": {
+  "ce1": {
+   "asn": 65001,
+   "dc": "dc1",
+   "locator": null,
+   "loopback6": null,
+   "mgmt_ip": "10.3.0.31",
+   "role": "ce",
+   "router_id": "172.20.1.1"
+  },
+  "ce2": {
+   "asn": 65002,
+   "dc": "dc2",
+   "locator": null,
+   "loopback6": null,
+   "mgmt_ip": "10.3.0.32",
+   "role": "ce",
+   "router_id": "172.20.2.1"
+  },
+  "ce3": {
+   "asn": 65003,
+   "dc": "dc3",
+   "locator": null,
+   "loopback6": null,
+   "mgmt_ip": "10.3.0.33",
+   "role": "ce",
+   "router_id": "172.20.3.1"
+  },
+  "ce4": {
+   "asn": 65004,
+   "dc": "dc4",
+   "locator": null,
+   "loopback6": null,
+   "mgmt_ip": "10.3.0.34",
+   "role": "ce",
+   "router_id": "172.20.4.1"
+  },
+  "fw-inet": {
+   "asn": 65010,
+   "dc": "dc4",
+   "locator": null,
+   "loopback6": null,
+   "mgmt_ip": "10.3.0.61",
+   "role": "fw",
+   "router_id": "10.3.0.61"
+  },
+  "lg": {
+   "asn": 65000,
+   "dc": "core",
+   "locator": null,
+   "loopback6": null,
+   "mgmt_ip": "10.3.0.70",
+   "role": "lg",
+   "router_id": "10.255.0.21"
+  },
+  "p1": {
+   "asn": 65000,
+   "dc": "core",
+   "locator": "fd00:c:11::/48",
+   "loopback6": "fd00:a::11",
+   "mgmt_ip": "10.3.0.21",
+   "role": "p",
+   "router_id": "10.255.0.11"
+  },
+  "p2": {
+   "asn": null,
+   "dc": "core",
+   "locator": "fd00:c:12::/48",
+   "loopback6": "fd00:a::12",
+   "mgmt_ip": "10.3.0.22",
+   "role": "p",
+   "router_id": null
+  },
+  "p3": {
+   "asn": 65000,
+   "dc": "core",
+   "locator": "fd00:c:13::/48",
+   "loopback6": "fd00:a::13",
+   "mgmt_ip": "10.3.0.23",
+   "role": "p",
+   "router_id": "10.255.0.13"
+  },
+  "pe1": {
+   "asn": 65000,
+   "dc": "dc1",
+   "locator": "fd00:c:1::/48",
+   "loopback6": "fd00:a::1",
+   "mgmt_ip": "10.3.0.11",
+   "role": "pe",
+   "router_id": "10.255.0.1"
+  },
+  "pe2": {
+   "asn": 65000,
+   "dc": "dc2",
+   "locator": "fd00:c:2::/48",
+   "loopback6": "fd00:a::2",
+   "mgmt_ip": "10.3.0.12",
+   "role": "pe",
+   "router_id": "10.255.0.2"
+  },
+  "pe3": {
+   "asn": 65000,
+   "dc": "dc3",
+   "locator": "fd00:c:3::/48",
+   "loopback6": "fd00:a::3",
+   "mgmt_ip": "10.3.0.13",
+   "role": "pe",
+   "router_id": "10.255.0.3"
+  },
+  "pe4": {
+   "asn": 65000,
+   "dc": "dc4",
+   "locator": "fd00:c:4::/48",
+   "loopback6": "fd00:a::4",
+   "mgmt_ip": "10.3.0.14",
+   "role": "pe",
+   "router_id": "10.255.0.4"
+  }
+ },
+ "poll": {
+  "devices": 120,
+  "local": 20
+ },
+ "rd_map": {
+  "65000:101": {
+   "dc": "dc1",
+   "pe": "pe1",
+   "vrf": "tenant-a"
+  },
+  "65000:102": {
+   "dc": "dc2",
+   "pe": "pe2",
+   "vrf": "tenant-a"
+  },
+  "65000:103": {
+   "dc": "dc3",
+   "pe": "pe3",
+   "vrf": "tenant-a"
+  },
+  "65000:104": {
+   "dc": "dc4",
+   "pe": "pe4",
+   "vrf": "tenant-a"
+  },
+  "65000:201": {
+   "dc": "dc1",
+   "pe": "pe1",
+   "vrf": "tenant-b"
+  },
+  "65000:202": {
+   "dc": "dc2",
+   "pe": "pe2",
+   "vrf": "tenant-b"
+  },
+  "65000:203": {
+   "dc": "dc3",
+   "pe": "pe3",
+   "vrf": "tenant-b"
+  },
+  "65000:204": {
+   "dc": "dc4",
+   "pe": "pe4",
+   "vrf": "tenant-b"
+  }
+ },
+ "service": {
+  "core_as": 65000,
+  "isis_area": "49.0001",
+  "rrs": [
+   "p1",
+   "p3"
+  ],
+  "srv6": {
+   "block": "fd00:c::/32",
+   "block_len": 32,
+   "format": "usid-f3216",
+   "func_bits": 16,
+   "node_len": 16
+  },
+  "tenants": {
+   "tenant-a": {
+    "rt": "65000:100",
+    "table": 100
+   },
+   "tenant-b": {
+    "rt": "65000:200",
+    "table": 200
+   }
+  }
+ },
+ "ssh": {
+  "password": "vyos",
+  "username": "vyos"
+ }
+}

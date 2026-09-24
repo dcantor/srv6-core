@@ -96,3 +96,14 @@ set protocols bgp neighbor fd00:a::3 peer-group RR-CLIENTS
 set protocols bgp neighbor fd00:a::3 description 'pe3'
 set protocols bgp neighbor fd00:a::4 peer-group RR-CLIENTS
 set protocols bgp neighbor fd00:a::4 description 'pe4'
+# eth5: the BGP looking glass (lg) hangs off this reflector on its own link — no IS-IS, no SRv6, no traffic
+set interfaces ethernet eth5 address fd00:b:0:121::1/64
+set interfaces ethernet eth5 description 'looking glass: lg eth1'
+# ...and takes the whole VPN table as a reflector client. `capability extended-nexthop` is what keeps the PE's
+# loopback as the next hop: without it FRR rewrites the IPv6 next hop of a VPNv4 route to its own address and the
+# looking glass would show every prefix as coming from the reflector. The collector announces nothing back.
+set protocols bgp neighbor fd00:b:0:121::2 remote-as 65000
+set protocols bgp neighbor fd00:b:0:121::2 description 'lg (BGP looking glass: route collector)'
+set protocols bgp neighbor fd00:b:0:121::2 capability extended-nexthop
+set protocols bgp neighbor fd00:b:0:121::2 address-family ipv4-vpn route-reflector-client
+set protocols bgp neighbor fd00:b:0:121::2 address-family ipv6-vpn route-reflector-client

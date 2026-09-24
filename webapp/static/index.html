@@ -33,7 +33,7 @@
 </style></head>
 <body>
 <header><div><h1>SRv6 Tenant Provisioning Portal</h1><div class="sub">VyOS SRv6 core · IS-IS + BGP L3VPN (End.DT4) · Nautobot source of truth · Robot Framework validation</div></div>
-  <nav><a href="#tenants" class="on" data-view="tenants">Tenants</a><a href="#steering" data-view="steering">Steering</a><a href="#runs" data-view="runs">Runs</a><a href="/docs" target="_blank">API</a></nav>
+  <nav><a href="#tenants" class="on" data-view="tenants">Tenants</a><a href="#steering" data-view="steering">Steering</a><a href="#runs" data-view="runs">Runs</a><a href="/docs" target="_blank">API</a><a id="lg-link" href="#" target="_blank" title="the BGP looking glass: every VPN prefix in the core, its attributes and its history">Looking glass</a></nav>
   <div class="right" id="hdr">Nautobot: <a id="nb-link" href="#" target="_blank">open</a> · <a href="#" id="theme-toggle" title="dark / light (follows the OS setting until chosen)">☾ dark</a></div></header>
 <main>
 <section id="v-tenants" class="view on">
@@ -90,7 +90,10 @@ async function refresh(live) {
   if (!live && !ST.live_done) refresh(true);
 }
 function render() {
-  $('nb-link').href = ST.nautobot_url; const hosts = ST.nodes.filter(n => n.role === 'host'); const hl = ST.hosts_live || {};
+  $('nb-link').href = ST.nautobot_url;
+  // the looking glass runs on its own VM, reached from the LAN through the host's relay (see the lab README)
+  const lg = ST.nodes.find(n => n.role === 'lg');
+  if (lg) { $('lg-link').href = `${location.protocol}//${location.hostname}:${ST.looking_glass_port || 8092}/`; } else { $('lg-link').style.display = 'none'; } const hosts = ST.nodes.filter(n => n.role === 'host'); const hl = ST.hosts_live || {};
   const up = Object.values(hl).filter(h => h.reachable).length;
   $('kpis').innerHTML = [['Tenants', ST.tenants.length, ''], ['Sites', ST.tenants.reduce((a, t) => a + t.sites.length, 0), ''], ['Hosts reachable', ST.live_done ? `${up} / ${hosts.length}` : '…', ST.live_done ? (up === hosts.length ? 'ok' : 'bad') : ''],
     ['PEs', ST.pes.length, ''], ['Route reflectors', ST.service.rrs.join(', '), ''], ['Steering policies', (ST.steering || []).length, '']]

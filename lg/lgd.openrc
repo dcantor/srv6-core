@@ -1,0 +1,20 @@
+#!/sbin/openrc-run
+# The BGP looking glass (installed as /etc/init.d/lgd by tools/lg_deploy.py)
+name="lgd"
+description="BGP looking glass: route collector, history and web UI"
+command="/usr/bin/python3"
+command_args="/opt/lgd/lgd.py /etc/lgd/lgd.json"
+command_background=true
+pidfile="/run/lgd.pid"
+output_log="/var/log/lgd.log"
+error_log="/var/log/lgd.log"
+
+depend() {
+	need net
+	after frr
+}
+
+start_pre() {
+	checkpath -d -m 0755 /var/lib/lgd
+	checkpath -f -m 0644 /var/log/lgd.log
+}

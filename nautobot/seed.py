@@ -4,8 +4,9 @@
 What is modelled
   locations      site "srv6-core" (type Site) with a "Data Center" location per DC (dc1..dc4); the P routers live at the site
   tenancy        tenant group "srv6-core", tenants tenant-a / tenant-b
-  devices        VyOS PEs / Ps / CEs (roles srv6-pe / srv6-p / srv6-ce, platform vyos) and Alpine hosts (role host, platform
-                 linux); eth0 = OOB (primary IPv4), ethN with the lab MACs, lo and dum0 as virtual interfaces; cables from LINKS
+  devices        VyOS PEs / Ps / CEs (roles srv6-pe / srv6-p / srv6-ce, platform vyos), Alpine hosts (role host, platform
+                 linux) and the BGP looking glass (role srv6-lg: an Alpine route collector); eth0 = OOB (primary IPv4),
+                 ethN with the lab MACs, lo and dum0 as virtual interfaces; cables from LINKS
   custom fields  device: isis_net, srv6_locator (grouping SRv6); interface: none — link roles are prefix roles
   IPAM           prefixes with roles oob-management / loopback / wan-p2p / srv6-locator / attachment-circuit / site-lan / router-id,
                  tenant prefixes in VRFs tenant-a / tenant-b (route targets 65000:100 / 65000:200), VRF device assignments with
@@ -135,18 +136,20 @@ drole = {"pe": get_or_create(nb.extras.roles, {"name": "srv6-pe"}, color="b71c1c
          "p": get_or_create(nb.extras.roles, {"name": "srv6-p"}, color="e65100", content_types=["dcim.device"]),
          "ce": get_or_create(nb.extras.roles, {"name": "srv6-ce"}, color="1565c0", content_types=["dcim.device"]),
          "fw": get_or_create(nb.extras.roles, {"name": "srv6-fw"}, color="6a1b9a", content_types=["dcim.device"]),
+         "lg": get_or_create(nb.extras.roles, {"name": "srv6-lg"}, color="00838f", content_types=["dcim.device"]),
          "host": get_or_create(nb.extras.roles, {"name": "host"}, color="4caf50", content_types=["dcim.device"])}
 prole = {n: get_or_create(nb.extras.roles, {"name": n}, color=c, content_types=["ipam.prefix"])
          for n, c in (("oob-management", "9e9e9e"), ("loopback", "795548"), ("wan-p2p", "607d8b"), ("srv6-locator", "e65100"), ("attachment-circuit", "3f51b5"), ("site-lan", "4caf50"), ("router-id", "9c27b0"))}
 for r in prole.values():
     if "ipam.prefix" not in r.content_types: r.update({"content_types": list(r.content_types) + ["ipam.prefix"]})
-brole = {n: get_or_create(nb.extras.roles, {"name": n}, color=c, content_types=["nautobot_bgp_models.peerendpoint"]) for n, c in (("rr", "e65100"), ("rr-client", "b71c1c"), ("pe", "b71c1c"), ("ce", "1565c0"), ("fw", "6a1b9a"))}
+brole = {n: get_or_create(nb.extras.roles, {"name": n}, color=c, content_types=["nautobot_bgp_models.peerendpoint"]) for n, c in (("rr", "e65100"), ("rr-client", "b71c1c"), ("pe", "b71c1c"), ("ce", "1565c0"), ("fw", "6a1b9a"), ("collector", "00838f"))}
 for r in brole.values():
     if "nautobot_bgp_models.peerendpoint" not in r.content_types: r.update({"content_types": list(r.content_types) + ["nautobot_bgp_models.peerendpoint"]})
 plat = {"vyos": nb.dcim.platforms.get(name="vyos"), "linux": nb.dcim.platforms.get(name="linux")}
 mf_vyos = get_or_create(nb.dcim.manufacturers, {"name": "VyOS"}); mf_alpine = get_or_create(nb.dcim.manufacturers, {"name": "Alpine Linux"})
 dt = {"vyos": get_or_create(nb.dcim.device_types, {"model": "VyOS"}, manufacturer=mf_vyos.id, u_height=0),
-      "alpine": get_or_create(nb.dcim.device_types, {"model": "Alpine host"}, manufacturer=mf_alpine.id, u_height=0, comments="Alpine Linux tenant host with iperf3 / tcpdump / mtr (cloud-init NoCloud), 256 MiB")}
+      "alpine": get_or_create(nb.dcim.device_types, {"model": "Alpine host"}, manufacturer=mf_alpine.id, u_height=0, comments="Alpine Linux tenant host with iperf3 / tcpdump / mtr (cloud-init NoCloud), 256 MiB"),
+      "lg": get_or_create(nb.dcim.device_types, {"model": "BGP looking glass"}, manufacturer=mf_alpine.id, u_height=0, comments="Alpine Linux with FRR (passive route collector) and the lgd service: BGP history in SQLite, web UI and API")}
 cf = {c.key: c for c in nb.extras.custom_fields.all()}
 for key, label, desc in (("isis_net", "IS-IS NET", "network entity title of the IS-IS level-2 instance"), ("srv6_locator", "SRv6 locator", "the node's locator prefix (block 40 / node 24 / function 16 bits)")):
     if key not in cf: cf[key] = nb.extras.custom_fields.create(key=key, label=label, type="text", content_types=["dcim.device"], grouping="SRv6", description=desc); created.append(f"custom-field:{key}")
@@ -197,7 +200,8 @@ link_prefix = {}
 for l in inv["links"]:
     net = ipaddress.ip_network(l["prefix"]); a_n, b_n = N[l["a"]], N[l["b"]]
     if net.version == 6:
-        pf = ensure_prefix(l["prefix"], "wan-p2p", f"core link {l['a']} {l['a_port']} <-> {l['b']} {l['b_port']}", location=site.id)
+        kind = "looking-glass collector link" if "lg" in (a_n["role"], b_n["role"]) else "core link"
+        pf = ensure_prefix(l["prefix"], "wan-p2p", f"{kind} {l['a']} {l['a_port']} <-> {l['b']} {l['b_port']}", location=site.id)
     elif b_n["role"] == "host":
         pf = ensure_prefix(l["prefix"], "site-lan", f"{l['tenant']} LAN of {a_n['dc']}: {l['a']} {l['a_port']} (gateway) -> {l['b']}", location=loc_of(a_n).id, tenant=tenants[l["tenant"]].id)
     else:
@@ -245,9 +249,11 @@ for n in inv["nodes"]:
         continue
     loc = loc_of(n)
     d = nb.dcim.devices.get(name=n["name"])
-    fields = dict(role=drole[role].id, device_type=dt["alpine" if role == "host" else "vyos"].id, location=loc.id, platform=plat["linux" if role == "host" else "vyos"].id, status=active.id,
+    fields = dict(role=drole[role].id, device_type=dt["lg" if role == "lg" else ("alpine" if role == "host" else "vyos")].id, location=loc.id,
+                  platform=plat["linux" if role in ("host", "lg") else "vyos"].id, status=active.id,
                   comments={"pe": "PE: IS-IS L2 + SRv6 locator, VPNv4 to both reflectors, one VRF per tenant (End.DT4)", "p": "P: IPv6 forwarding only" + (" + VPNv4 route reflector" if n["name"] in SVC["rrs"] else ""),
                             "ce": "CE: one VRF per tenant, eBGP to the PE per VRF", "host": f"Alpine tenant host with iperf3 ({[p for p in n['ports'] if p['peer']][0]['tenant']})",
+                            "lg": "BGP looking glass: a passive route collector (FRR) peering with every route reflector over its own link; keeps the VPN table's history and serves the looking-glass UI / API",
                             "fw": f"Internet breakout firewall (VRF-lite): a CE of every tenant on {n['pe']}, announcing only a default route; stateful policy tenant -> internet, source NAT on the host's libvirt network"}[role])
     if role != "host" and n.get("tenant") is None:
         pass
@@ -283,6 +289,8 @@ for n in inv["nodes"]:
             cur = requests.get(f"{a.url}/api/dcim/interfaces/{i.id}/", params={"depth": 1}, headers=H, timeout=30).json()
             if cur.get("cable"): requests.delete(f"{a.url}/api/dcim/cables/{cur['cable']['id']}/", headers=H, timeout=30); created.append(f"cable removed from unwired {n['name']} {port['name']}")
             for x in nb.ipam.ip_address_to_interface.filter(interface=i.id): x.delete(); created.append(f"address unassigned from unwired {n['name']} {port['name']}")
+    if role == "lg":
+        ensure_ip(f"{n['router_id']}/32", f"{n['name']} BGP router-id (the collector has no loopback: it peers over its links)", None)
     if role in ("pe", "p"):
         lo = ensure_if("lo", "virtual", "loopback: IS-IS passive, BGP source, SRv6 encapsulation source")
         ensure_ip(f"{n['loopback6']}/128", f"{n['name']} loopback", lo)
@@ -335,10 +343,11 @@ for n in inv["nodes"]:
         ri[n["name"]] = bgp.routing_instances.get(device=devs[n["name"]].id)
         if ri[n["name"]] is None: sys.exit(f"{n['name']} has no BGP routing instance in Nautobot — seed the {n['lab']} lab first")
         continue
-    rid_addr = f"{n['router_id']}/32" if n["role"] in ("pe", "p") else (f"{n['mgmt_ip']}/24" if n["role"] == "fw" else next(pt["ip"] for pt in n["ports"] if pt["peer"] and N[pt["peer"]]["role"] == "host" and pt["tenant"] == "tenant-a"))
+    rid_addr = f"{n['router_id']}/32" if n["role"] in ("pe", "p", "lg") else (f"{n['mgmt_ip']}/24" if n["role"] == "fw" else next(pt["ip"] for pt in n["ports"] if pt["peer"] and N[pt["peer"]]["role"] == "host" and pt["tenant"] == "tenant-a"))
     rid = nb.ipam.ip_addresses.get(address=rid_addr, namespace=ns.id)
     inst = bgp.routing_instances.get(device=devs[n["name"]].id)
-    desc = {"pe": "PE: VPNv4 to the reflectors (SRv6 SIDs), eBGP to the CE in each tenant VRF", "p": "VPNv4 route reflector", "ce": "CE: eBGP to the PE in each tenant VRF (router-id = tenant-a LAN address)",
+    desc = {"pe": "PE: VPNv4 to the reflectors (SRv6 SIDs), eBGP to the CE in each tenant VRF", "p": "VPNv4 route reflector",
+            "lg": "Looking glass: a reflector client that receives the whole VPN table and announces nothing", "ce": "CE: eBGP to the PE in each tenant VRF (router-id = tenant-a LAN address)",
             "fw": "Internet firewall: eBGP to the PE in each tenant VRF announcing a default route only; the default VRF leaks DHCP's default out and the tenants' routes in"}[n["role"]]
     if inst is None:
         inst = bgp.routing_instances.create(device=devs[n["name"]].id, autonomous_system=asn[n["asn"]].id, router_id=rid.id, status=active.id, description=desc,
@@ -346,7 +355,7 @@ for n in inv["nodes"]:
     else: ensure(inst, autonomous_system=asn[n["asn"]].id, router_id=rid.id, description=desc)
     ri[n["name"]] = inst
     afs = []
-    if n["role"] in ("pe", "p"): afs += [("vpnv4_unicast", None, {}), ("vpnv6_unicast", None, {})]
+    if n["role"] in ("pe", "p", "lg"): afs += [("vpnv4_unicast", None, {}), ("vpnv6_unicast", None, {})]
     if n["role"] in ("pe", "ce"):
         for t in tenants:
             lan = next(pt for pt in n["ports"] if pt["peer"] and pt["tenant"] == t and N[pt["peer"]]["role"] == "host") if n["role"] == "ce" else None
@@ -383,6 +392,13 @@ def ensure_peering_af(a_name, a_desc, afi):
         if bgp.peer_endpoint_address_families.get(peer_endpoint=ep.id, afi_safi=afi) is None:
             bgp.peer_endpoint_address_families.create(peer_endpoint=ep.id, afi_safi=afi, extra_attributes={"capability_extended_nexthop": True}); created.append(f"bgp-endpoint-af:{a_name} {afi}")
 
+
+for lg in [n for n in inv["nodes"] if n["role"] == "lg"]:
+    for port in [pt for pt in lg["ports"] if pt["peer"] and N[pt["peer"]]["role"] == "p"]:
+        r = port["peer"]; rr_ip = next(x["ip"] for x in N[r]["ports"] if x["peer"] == lg["name"])
+        ensure_peering(lg["name"], port["ip"], "collector", f"looking glass -> {r} (route collector)", r, rr_ip, "rr",
+                       f"looking glass {lg['name']} (route collector, announces nothing)", "vpnv4_unicast", f"{lg['name']}<->{r} vpnv4")
+        ensure_peering_af(lg["name"], f"looking glass -> {r} (route collector)", "vpnv6_unicast")
 
 for pe in [n for n in inv["nodes"] if n["role"] == "pe"]:
     for r in SVC["rrs"]:

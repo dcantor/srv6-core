@@ -56,6 +56,17 @@ class _Renderer:
     def core_ports(self, n):
         return [p for p in n["ports"] if p["peer"] and self.NODES[p["peer"]]["role"] in ("pe", "p")]
 
+    def collector_ports(self, n):
+        """Ports facing a BGP looking glass. Not core ports: the collector runs no IGP and carries no traffic, so the link
+        stays out of IS-IS / SRv6 and only exists to carry the iBGP session that feeds the looking glass."""
+        return [p for p in n["ports"] if p["peer"] and self.NODES[p["peer"]]["role"] == "lg"]
+
+    @staticmethod
+    def far_end(port):
+        """The address at the other end of a point-to-point link (the ends are the first two hosts of the prefix)."""
+        me = ipaddress.ip_interface(port["ip"]); net = me.network.network_address
+        return str(net + 2 if me.ip == net + 1 else net + 1)
+
 
     def underlay(self, n):
         """Loopback, core links (jumbo), the SRv6 locator on dum0, IS-IS level-2 with SRv6, seg6 enabled on the core links."""
@@ -166,6 +177,19 @@ class _Renderer:
                     "set protocols bgp peer-group RR-CLIENTS address-family ipv6-vpn route-reflector-client"]
             for x in self.PES:
                 out += [f"set protocols bgp neighbor {x['loopback6']} peer-group RR-CLIENTS", f"set protocols bgp neighbor {x['loopback6']} description '{x['name']}'"]
+        for c in self.collector_ports(n):
+            lg = self.NODES[c["peer"]]; lg_ip = self.far_end(c)
+            out += [f"# {c['name']}: the BGP looking glass ({lg['name']}) hangs off this reflector on its own link — no IS-IS, no SRv6, no traffic",
+                    f"set interfaces ethernet {c['name']} address {c['ip']}", f"set interfaces ethernet {c['name']} description 'looking glass: {lg['name']} {c['peer_port']}'"]
+            if n["name"] not in self.SVC["rrs"]: continue   # only a reflector has the whole table to hand over
+            out += [f"# ...and takes the whole VPN table as a reflector client. `capability extended-nexthop` is what keeps the PE's",
+                    f"# loopback as the next hop: without it FRR rewrites the IPv6 next hop of a VPNv4 route to its own address and the",
+                    f"# looking glass would show every prefix as coming from the reflector. The collector announces nothing back.",
+                    f"set protocols bgp neighbor {lg_ip} remote-as {self.SVC['core_as']}",
+                    f"set protocols bgp neighbor {lg_ip} description '{lg['name']} (BGP looking glass: route collector)'",
+                    f"set protocols bgp neighbor {lg_ip} capability extended-nexthop"]
+            for af in ("ipv4-vpn", "ipv6-vpn"):
+                out += [f"set protocols bgp neighbor {lg_ip} address-family {af} route-reflector-client"]
         return out
 
 
@@ -244,3 +268,87 @@ class _Renderer:
                     f"set {v}protocols bgp neighbor {pe_ip6} remote-as {self.SVC['core_as']}", f"set {v}protocols bgp neighbor {pe_ip6} description '{pe_port['peer']} ({vrf}, IPv6)'",
                     f"set {v}protocols bgp neighbor {pe_ip6} address-family ipv6-unicast", f"set {v}protocols bgp address-family ipv6-unicast network {lan_net6}"] if pe_ip6 else [])
         return out
+
+
+# ---- the BGP looking glass ----------------------------------------------------------------------------------------
+# The collector is not a VyOS node: it runs FRR directly, so its configuration is FRR's own syntax rather than `set`
+# lines. It is rendered from the same inventory as everything else, by the same two producers (lab.conf and Nautobot),
+# so the looking glass stays a modelled part of the lab and not a hand-kept VM.
+
+def lg_nodes(inv):
+    return [n for n in inv["nodes"] if n["role"] == "lg"]
+
+
+def render_lg(inv, name=None):
+    """frr.conf of a looking-glass collector: one iBGP session per reflector, VPNv4 + VPNv6, announcing nothing."""
+    N = {n["name"]: n for n in inv["nodes"]}; svc = inv["service"]
+    n = N[name] if name else lg_nodes(inv)[0]
+    peers = []
+    for p in n["ports"]:
+        if not p["peer"] or N[p["peer"]]["role"] != "p": continue
+        me = ipaddress.ip_interface(p["ip"]); net = me.network.network_address
+        peers.append((N[p["peer"]], str(net + 2 if me.ip == net + 1 else net + 1), p["name"]))
+    out = [f"! {n['name']}: the lab's BGP looking glass — a passive route collector, rendered by tools/render.py",
+           "! It peers with every route reflector over its own point-to-point link and receives the whole VPN table with the",
+           "! attributes the PEs originated (RD, route targets, SRv6 SID and label, originator, cluster list). It runs no IGP,",
+           "! installs nothing in the kernel and announces nothing: COLLECTOR-NO-EXPORT denies everything outbound.",
+           "frr defaults traditional", f"hostname {n['name']}", "log file /var/log/frr/frr.log informational",
+           "log syslog informational", "service integrated-vtysh-config", "!",
+           f"router bgp {svc['core_as']}", f" bgp router-id {n['router_id']}", " bgp log-neighbor-changes",
+           " no bgp default ipv4-unicast", " no bgp network import-check", " bgp graceful-restart"]
+    for peer, ip, port in peers:
+        rr = " (route reflector)" if peer["name"] in svc["rrs"] else ""
+        out += [f" neighbor {ip} remote-as {svc['core_as']}", f" neighbor {ip} description {peer['name']}{rr} via {port}",
+                f" neighbor {ip} capability extended-nexthop", f" neighbor {ip} timers 10 30"]
+    for af in ("ipv4 vpn", "ipv6 vpn"):
+        out.append(f" address-family {af}")
+        for _, ip, _ in peers:
+            # soft-reconfiguration keeps the Adj-RIB-In, so the looking glass can show what each reflector *sent* as well
+            # as what won the best-path — without asking for a route refresh every time somebody opens the page
+            out += [f"  neighbor {ip} activate", f"  neighbor {ip} soft-reconfiguration inbound",
+                    f"  neighbor {ip} route-map COLLECTOR-NO-EXPORT out"]
+        out.append(" exit-address-family")
+    out += ["exit", "!", "route-map COLLECTOR-NO-EXPORT deny 10", "exit", "!"]
+    return "\n".join(out) + "\n"
+
+
+def lg_app_config(inv, name=None, port=8080, poll_local=20, poll_devices=120, history_days=30,
+                  ssh=("vyos", "vyos"), nms=NMS_IP):
+    """What the looking-glass service needs to make sense of what it collects: the reflectors it peers with, which RD and
+    which locator belong to which PE and tenant, and the devices whose per-VRF tables it polls over SSH (the VPN table in
+    the core cannot show a tenant's view *after* import — that only exists on the PE and the CE)."""
+    N = {n["name"]: n for n in inv["nodes"]}; svc = inv["service"]
+    n = N[name] if name else lg_nodes(inv)[0]
+    peers = []
+    for p in n["ports"]:
+        if not p["peer"] or N[p["peer"]]["role"] != "p": continue
+        me = ipaddress.ip_interface(p["ip"]); net = me.network.network_address
+        peer = N[p["peer"]]
+        peers.append({"name": peer["name"], "ip": str(net + 2 if me.ip == net + 1 else net + 1), "local": str(me.ip),
+                      "interface": p["name"], "mgmt_ip": peer["mgmt_ip"], "rr": peer["name"] in svc["rrs"]})
+    rd_map = {rd: {"vrf": t, "pe": x["name"], "dc": x["dc"]} for x in inv["nodes"] if x["role"] == "pe" for t, rd in (x.get("rd") or {}).items()}
+    # router-id only for the nodes that actually run BGP: it is what resolves an originator-id to a name, and a node
+    # without a BGP instance (p2) has none in Nautobot — carrying lab.conf's would make the two producers disagree
+    nodes = {x["name"]: {"role": x["role"], "dc": x["dc"], "mgmt_ip": x["mgmt_ip"], "asn": x.get("asn"),
+                         "loopback6": x.get("loopback6"), "locator": x.get("locator"),
+                         "router_id": x.get("router_id") if x.get("asn") else None}
+             for x in inv["nodes"] if x["role"] != "host"}
+    devices = []
+    for x in inv["nodes"]:
+        if x["role"] not in ("pe", "ce", "fw"): continue
+        vrfs = sorted({p["tenant"] for p in x["ports"] if p.get("tenant")})
+        families = [("ipv4", "unicast")] + ([("ipv6", "unicast")] if any(p.get("ip6") for p in x["ports"]) else [])
+        devices.append({"name": x["name"], "role": x["role"], "dc": x["dc"], "mgmt_ip": x["mgmt_ip"], "vrfs": vrfs,
+                        "families": [list(f) for f in families]})
+    devices.sort(key=lambda d: d["name"])      # two producers feed this (lab.conf and Nautobot): the order must not depend on them
+    return {"lab": inv["lab"], "node": n["name"], "listen": {"host": "0.0.0.0", "port": port},
+            "db": "/var/lib/lgd/lg.db", "history_days": history_days,
+            "collector": {"asn": svc["core_as"], "router_id": n["router_id"], "peers": peers,
+                          "families": [["ipv4", "vpn"], ["ipv6", "vpn"]]},
+            "service": {"core_as": svc["core_as"], "rrs": svc["rrs"], "srv6": svc["srv6"],
+                        "tenants": svc["tenants"], "isis_area": svc.get("isis_area")},
+            "rd_map": rd_map, "nodes": nodes, "devices": devices,
+            "loopbacks": {x["loopback6"]: x["name"] for x in inv["nodes"] if x.get("loopback6")},
+            "locators": {x["locator"]: x["name"] for x in inv["nodes"] if x.get("locator")},
+            "poll": {"local": poll_local, "devices": poll_devices},
+            "ssh": {"username": ssh[0], "password": ssh[1]}, "nms": nms}

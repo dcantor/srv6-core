@@ -7,8 +7,8 @@ CE and over its own attachment circuit into its own VRF on the PE, and an **Alpi
 per tenant per site. The core is IPv6-only with IS-IS level-2 carrying the SRv6 locators; each tenant's IPv4 prefixes travel
 as BGP VPNv4 routes whose next hop is that tenant's **SRv6 End.DT46 SID** on the remote PE, so every h1 reaches every
 other h1, every h2 every other h2, and the two never meet — not even at the same site. A small **VyOS firewall** (`fw-inet`)
-is a CE of both tenants on pe4 and gives every site a NATed way out to the internet through the host's own uplink. Twenty VMs
-(plus one CirrOS host per site per extra tenant), about 14 GiB of RAM, all VyOS nodes 1 vCPU / 1 GiB.
+is a CE of both tenants on pe4 and gives every site a NATed way out to the internet through the host's own uplink. A **BGP looking glass** (`lg`) — a passive route collector with a history — watches the whole VPN table from inside the core. Twenty-one VMs
+(plus one CirrOS host per site per extra tenant), about 15 GiB of RAM, all VyOS nodes 1 vCPU / 1 GiB.
 
 ```
  hosts (Alpine)   dc1-h1 172.20.1.2  dc1-h2 172.21.1.2   … the same in dc2, dc3, dc4 (172.20.n / 172.21.n)
@@ -32,9 +32,10 @@ names. Generated from `lab.conf` by `docs/topology.py`; the same drawing with th
 
 ## Quick start
 ```bash
-./lab.sh up            # define the OOB network, build the overlay disks / cloud-init seeds, start 15 VMs
+./lab.sh up            # define the OOB network, build the overlay disks / cloud-init seeds, start 21 VMs
 ./lab.sh bootstrap     # first boot only: push nodes/<n>/vyos_config.txt over the serial consoles (all in parallel, ~4 min)
 ./lab.sh wait          # SSH on every node
+./lab.sh lg deploy     # the looking glass VM: render its FRR config, copy the service over, start it
 ./lab.sh verify        # IS-IS adjacencies, SRv6 nodes and SIDs, VPNv4 at the RR, VRF routes, CE routes, host ping matrix
 ./lab.sh test          # Robot Framework, results/<timestamp>/report.html
 ./lab.sh down          # ACPI shutdown; configs are saved, the next `up` converges without bootstrap
@@ -224,6 +225,68 @@ Under the hood: `webapp/labconf.py` (structured edits of `lab.conf`), `webapp/te
 `webapp/state.py` (live state collector), `webapp/app.py` (FastAPI, runs), `webapp/static/index.html`, `tools/topology_svg.py`
 (the drawing, shared with the PDF), `nautobot/remove_tenant.py`.
 
+## The BGP looking glass (`lg`): a route collector with a memory
+A twenty-first VM — Alpine, 512 MiB — sits in the core as a **passive route collector**. FRR on it holds an iBGP session
+to *each* route reflector over its own point-to-point link, as a reflector client, so it receives the whole VPNv4 /
+VPNv6 table with the attributes the PEs originated and announces nothing back (an outbound `deny` route-map says so
+explicitly). On top of that RIB, `lgd` keeps a **history** and serves a web page and an API:
+**http://192.168.50.231:8092** (the lab-side address is `http://10.3.0.70:8080`; the LAN port is a socat relay like
+Grafana's — `monitoring/lab-relay-lookingglass.service.example` in the lab-portal repo).
+
+```
+                       ┌─ eth1 fd00:b:0:121::2 ── p1 eth5 (route reflector) ─┐
+   lg  (Alpine+FRR) ───┤                                                      ├── the whole VPNv4 / VPNv6 table,
+   AS 65000, rid .21   └─ eth2 fd00:b:0:321::2 ── p3 eth5 (route reflector) ─┘    one copy per reflector
+        │
+        ├─ SQLite: every announce / attribute change / withdraw, per path        (the time series)
+        ├─ SSH poll of each PE, CE and the firewall: their per-VRF tables        (the tenant view after import)
+        └─ Flask: /api/… + the page + /metrics
+```
+
+**Why a session and not screen-scraping.** The collector sees the same update the reflector sent: route distinguisher,
+route targets, **SRv6 SID** and VPN label, originator-id and cluster list, AS path, local preference — and the
+originating **PE's loopback still as the next hop**. That last one is the subtle part: the session negotiates
+`capability extended-nexthop`, without which FRR rewrites the IPv6 next hop of a VPNv4 route to its own address and
+every prefix would look as if it came from the reflector. The P router's side of both links is rendered by
+`tools/render.py` like everything else, and because the P router is the *first* end of the link its UDP ports do not
+change — p1 and p3 only needed `lab.sh configure`, never a rebuild.
+
+**Two views, because the core's table is not the tenant's.** The VPN table shows what travels between PEs; what a
+tenant actually has is the VRF table *after* import, which only exists on a PE or a CE. So `lgd` also polls all nine
+routers over SSH (one session each, ~2 s, every two minutes) for `show bgp vrf <tenant> ipv4|ipv6 unicast`. Both views
+land in the same store and the page shows them side by side for a prefix.
+
+**The history is the point.** Every collection is reconciled against what is stored: a path that is new raises an
+*announce*, one whose attributes differ raises a *change* carrying the fields that changed (`local_pref: 100 → 200`),
+one that has gone raises a *withdraw*. So the page can answer "what did `172.20.3.0/24` look like at 14:05, and what
+has happened to it since" — `GET /api/state?at=<epoch>&prefix=…` replays the log to that moment. Numeric series
+(paths per VRF and family, churn, session state, collection health) go to `sample` and to `/metrics`, where Prometheus
+scrapes them for the dashboard's **BGP looking glass** row and three alerts.
+
+| Page | What |
+|---|---|
+| Overview | prefixes and paths in the core, the reflector sessions, changes in the last hour, the per-family path count over time, the newest announces / changes / withdraws |
+| Prefixes | the table with filters (view, family, VRF, RD, origin AS, free text over prefix / next hop / SID / route target / AS path) — next hop, originating PE, AS path, local pref, MED, SID, RTs, age |
+| Prefix | every path for one prefix in every view (the core's, then each PE, each CE, the firewall) with its full attribute set, its timeline, and a **state-at-a-moment** control |
+| History | every change, newest first, with the diff |
+| Sessions | the collector's BGP sessions and the health of every collection |
+| Live query | a `show` command straight on a router (or a ping from it) — the classic looking-glass button; only `show …`, `ping` and `traceroute`, only on the lab's devices |
+
+```bash
+./lab.sh lg image      # build images/lg.qcow2 (Alpine + FRR + Flask; once)
+./lab.sh up lg         # start the VM (cloud-init gives it the OOB and both collector links)
+./lab.sh lg deploy     # render frr.conf + lgd.json from the model, copy lg/ onto the VM, (re)start lgd
+./lab.sh lg status     # sessions, what each view holds, the size of the history
+./lab.sh lg frr 'show bgp ipv4 vpn'      # the collector's own table
+curl -s http://10.3.0.70:8080/api/prefixes?vrf=tenant-a\&source=collector | jq '.paths[0]'
+```
+The history lives on the VM (`/var/lib/lgd/lg.db`, WAL, 30 days by default, pruned hourly) and survives a restart of
+`lgd` or of the VM — but not `lab.sh clean lg`, which deletes the disk. The VM is modelled in Nautobot like every other device (role `srv6-lg`, both cables, a BGP routing instance with the two
+reflector peerings), and `nautobot render --check` compares **its** two files as well: Nautobot and `lab.conf` must
+render the same `frr.conf` and the same `lgd.json`.
+
+![The looking glass: a prefix with its core and per-PE views](docs/screenshots/lg-prefix.png)
+
 ## Monitoring: Prometheus + VictoriaMetrics + Grafana
 Every device exports metrics on its OOB address and the NMS keeps them:
 
@@ -405,7 +468,7 @@ rendered line is on the routers — suite 09 asserts both plus the model itself.
 invisible to REST reads (verify through GraphQL), VRF prefixes go through `vrf-prefix-assignments`, GraphQL returns
 choice fields upper-cased, and new custom fields need a Nautobot restart before GraphQL sees them.
 
-## Tests (`./lab.sh test`, 81 cases)
+## Tests (`./lab.sh test`, 93 cases)
 | Suite | Checks |
 |---|---|
 | 01 management | every node on the OOB network with SSH, host names, host LAN addresses, MTU 9000 on all core links, config saved |
@@ -417,6 +480,7 @@ choice fields upper-cased, and new custom fields need a Nautobot restart before 
 | 08 failover | BFD up on all 24 adjacencies; silent cut of p2–pe3 with a live 0.2 s ping: pe3 moves every tenant route to p3 within seconds, BFD reports Down, ≤ 10 packets lost across cut and repair (measured: 4); all BFD sessions and adjacencies back afterwards |
 | 09 nautobot | every device/link/address/VRF/RD/peering in Nautobot matches the inventory; Nautobot's rendering == lab.conf's; every rendered line present on the routers |
 | 10 throughput | iperf3 dc1 → dc3: TCP above the floor, UDP at 20 Mbit/s with no loss; **the core carries 100 Mbit/s host to host** — UDP at a 100 Mbit/s offered rate for 10 s with < 5 % loss and < 5 ms jitter and TCP ≥ 90 Mbit/s, dc1→dc3 in tenant-a and dc4→dc2 in tenant-b (measured 0.1–2.4 % loss, 98–127 Mbit/s TCP); steered (uSID and uncompressed) within half of the shortest path |
+| 15 looking glass | the collector's sessions Established at both reflectors with **nothing announced back**; it holds exactly the prefixes the reflectors hold, once per reflector; every tenant LAN carries its RD, route target, the originating PE's loopback as next hop and a SID out of that PE's locator; no prefix appears in two VRFs; every per-VRF view matches the router it was polled from and none is stale; the filters (VRF, RD, origin AS, free text) hold; a live query reaches the router and a configuration command is refused; **a LAN withdrawn at the CE is recorded as a withdraw and the moment before it still shows the path** (restored in the teardown); `/metrics` and the portal's `/api/sd`; the VM's `frr.conf` and `lgd.json` are what the model renders |
 | 11 monitoring | node-exporter + frr-exporter on every VyOS node (every PE BGP session Established per the exporter), node-exporter on every host, the portal's `/api/sd` lists every exporter and `/metrics` reports every tenant up / core fully adjacent; Prometheus scrapes all 31 lab targets, the alert rules are loaded and none fires, VictoriaMetrics holds the remote-written series **and the Telegraf series every node pushes** (tags, freshness, no FRR daemon down), every node's syslog is in VictoriaLogs, the log-derived alert rules are healthy and a live BGP reset raises one, sFlow samples from every P router show the encapsulated flow of a ping burst, Grafana serves the provisioned dashboards with the annotation layers |
 | 12 interconnect | the IPsec headends as tenant-a CEs: PE↔headend eBGP with the right AS, headend + branch LANs on every PE with a SID from the attaching PE's locator and under its RD at the reflectors, absent from tenant-b, dc host ↔ branch pings both ways, the path dc → PE → core → headend → IPsec tunnel → branch, SRv6 encapsulation on p2 (skipped without `EXT_NODES`) |
 | 13 dual-stack | per VRF an Established IPv6 eBGP session with the CE announcing its IPv6 LAN; every IPv6 LAN at both reflectors under the right RD and on every PE once per reflector; **one End.DT46 per VRF** with the same SID and label on the IPv4 and the IPv6 route; SRv6 encap routes for every remote IPv6 LAN in the right VRF only; the 8×7 IPv6 host matrix (in-tenant ok, cross-tenant none); IPv6-in-IPv6 on p2 towards the same SID |
@@ -458,7 +522,7 @@ a terminal page; run it with the cat8000v-ipsec `webapp/.venv` python).
 | Path | Purpose |
 |---|---|
 | `lab.conf` | the topology: nodes, roles, addresses, `LINKS`, service parameters (AS, VRF, RT, RR); `INTERNET_*` / `NET_PORT` = the breakout firewall and its libvirt uplink; `EXT_NODES` = the IPsec headends attached as external CEs |
-| `lab.sh` | libvirt controller: `up down bootstrap configure steer nautobot wait status inventory verify test console ssh log rebuild clean` |
+| `lab.sh` | libvirt controller: `up down bootstrap configure steer nautobot lg webapp wait status inventory verify test console ssh log rebuild clean` |
 | `nautobot/seed.py`, `nautobot/render.py`, `nautobot/srv6-core-model.graphql` | model the lab in Nautobot; render the configs from it; the saved query |
 | `tools/render.py` | the one config renderer (inventory → VyOS `set` lines), used by `gen_configs.py` and `nautobot/render.py` |
 | `tools/build_host_image.sh`, `tools/iperf.py` | the Alpine host base image (iperf3 etc.); throughput between hosts (`lab.sh iperf`) |
@@ -466,6 +530,7 @@ a terminal page; run it with the cat8000v-ipsec `webapp/.venv` python).
 | `tools/frr_logging.py` | FRR logs routing state changes to syslog (VyOS boot-hook flag + live vtysh; run by `configure`) |
 | `tools/ci.py`, `.gitea/workflows/lab-ci.yml` | the CI plumbing (Gitea mirror, sync, status) and the workflow the lab host's runner executes on every push |
 | `tools/backup_configs.py` | `lab.sh backup`: running + intended configs and routing tables → the local Gitea (`lab/srv6-core-configs`); also the last step of every portal run |
+| `lg/`, `tools/lg_deploy.py`, `tools/build_lg_image.sh` | the BGP looking glass: the collector / store / API / page that run on the `lg` VM, the deploy (renders `nodes/lg/frr.conf` + `lgd.json`, copies, restarts), the base image |
 | `webapp/` | the tenant provisioning portal (FastAPI + single page; `restart.sh`, `srv6-webapp.service`); `metrics.py` = `/metrics` and `/api/sd` for Prometheus |
 | `tools/chaos.py`, `.mcp.json`, `docs/ai-ops.md` | fault injection for drills; the MCP server registration; the AI-operator setup and a worked diagnosis |
 | `docs/session/`, `tools/demo_live.py` | the teaching / interview kit: guide, questions, exercises, slides; the presenter-mode demo |
@@ -512,4 +577,6 @@ a terminal page; run it with the cat8000v-ipsec `webapp/.venv` python).
 ## Next
 TI-LFA / a full P-router failure, steering policies with fallback modelled in Nautobot, Golden Config compliance for VyOS,
 Alertmanager notifications, blackbox / synthetic probes; IPv6 for the internet breakout (NAT66 or a routed prefix) once the
-host uplink has it.
+host uplink has it. For the looking glass: BMP instead of a BGP session once VyOS exposes it for the VPN address families
+(FRR has the module, the CLI only offers ipv4/ipv6 unicast), per-peer Adj-RIB-In views on the page (the sessions already
+keep them, `soft-reconfiguration inbound`), and a diff view between two moments.

@@ -7,7 +7,7 @@ Resource          ../resources/common.resource
 Suite Teardown    Suite Teardown Close Connections
 
 *** Variables ***
-${NB_ROLE_MAP}    {"pe": "srv6-pe", "p": "srv6-p", "ce": "srv6-ce", "fw": "srv6-fw", "host": "host"}
+${NB_ROLE_MAP}    {"pe": "srv6-pe", "p": "srv6-p", "ce": "srv6-ce", "fw": "srv6-fw", "lg": "srv6-lg", "host": "host"}
 
 *** Test Cases ***
 Every device is in Nautobot with its role, location, platform and primary address
@@ -21,7 +21,7 @@ Every device is in Nautobot with its role, location, platform and primary addres
         ${want_loc}=    Set Variable If    '${NODES}[${n}][dc]' == 'core'    srv6-core    ${NODES}[${n}][dc]
         Should Be Equal    ${dev}[location][name]    ${want_loc}
         Should Be Equal    ${dev}[primary_ip4][address]    ${MGMT}[${n}]/24
-        ${plat}=    Set Variable If    '${NODES}[${n}][role]' == 'host'    linux    vyos
+        ${plat}=    Set Variable If    '${NODES}[${n}][role]' in ('host', 'lg')    linux    vyos
         Should Be Equal    ${dev}[platform][name]    ${plat}
     END
 
@@ -100,7 +100,8 @@ The configuration rendered from Nautobot is identical to the one rendered from l
     ${rc}    ${out}=    Nautobot Render    --check
     Should Be Equal As Integers    ${rc}    0    msg=${out}
     ${n}=    Get Count    ${out}    Nautobot == lab.conf
-    ${expected}=    Get Length    ${VYOS}
+    # every VyOS node's `set` lines, plus the looking glass's two files (frr.conf and the model its service reads)
+    ${expected}=    Evaluate    len($VYOS) + 2 * len($LGS)
     Should Be Equal As Integers    ${n}    ${expected}
 
 Every rendered configuration line is present on the running routers

@@ -1,0 +1,22 @@
+#cloud-config
+# lg: eth0 = OOB management (10.3.0.70), eth1 fd00:b:0:121::2/64 -> p1 5, eth2 fd00:b:0:321::2/64 -> p3 5 — an iBGP session to each reflector (the collector announces nothing)
+hostname: lg
+users:
+  - name: lab
+    plain_text_passwd: lab
+    lock_passwd: false
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    shell: /bin/sh
+ssh_pwauth: true
+write_files:
+  # Alpine ships doas, not sudo: let the lab user use it (this is how lab.sh lg deploy installs the service)
+  - path: /etc/doas.d/lab.conf
+    permissions: '0400'
+    content: "permit nopass lab\n"
+  - path: /etc/motd
+    content: "lg — BGP looking glass: FRR collects VPNv4 / VPNv6 from the reflectors, lgd keeps the history and serves http://10.3.0.70:8080. Deploy with lab.sh lg deploy.\n"
+runcmd:
+  - rc-update add sshd default
+  - rc-service sshd restart
+  - rc-update add node-exporter default
+  - rc-service node-exporter restart

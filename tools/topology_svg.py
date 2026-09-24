@@ -5,7 +5,7 @@ import html
 
 TENANT_COLORS = ["#475569", "#7c3aed", "#0891b2", "#b45309", "#be185d", "#15803d", "#4338ca", "#a16207"]
 DC_COLORS = ["#eff6ff", "#fdf4ff", "#f0fdf4", "#fefce8", "#fff1f2", "#f0f9ff"]
-FILL = {"p": ("#fde7d6", "#c2410c"), "pe": ("#fee2e2", "#b91c1c"), "ce": ("#dbeafe", "#1d4ed8"), "host": ("#dcfce7", "#15803d"), "ext-ce": ("#f1f5f9", "#475569"), "fw": ("#f3e8ff", "#6b21a8")}
+FILL = {"p": ("#fde7d6", "#c2410c"), "pe": ("#fee2e2", "#b91c1c"), "ce": ("#dbeafe", "#1d4ed8"), "host": ("#dcfce7", "#15803d"), "ext-ce": ("#f1f5f9", "#475569"), "fw": ("#f3e8ff", "#6b21a8"), "lg": ("#ccfbf1", "#0f766e")}
 
 
 def draw(inv, live=None):
@@ -18,11 +18,14 @@ def draw(inv, live=None):
     HW, HGAP = 172, 10; lane_w = {dc: max(380 + (340 if ext_of[dc] else 0), len(hosts_of[dc]) * (HW + HGAP) + 40) for dc in dcs}
     GAP = 24; x = 30; DCX = {}
     for dc in dcs: DCX[dc] = x + lane_w[dc] / 2; x += lane_w[dc] + GAP
-    W = max(x + 6, 1200); ROWS = {"p": 175, "pe": 380, "ce": 560, "host": 720, "ext-ce": 560, "fw": 560}; H = 790
-    BOX = {"p": (240, 74), "pe": (270, 62 + 14 * len(tenants)), "ce": (min(340, min(lane_w.values()) - 30), 48 + 14 * len(tenants)), "host": (HW, 56), "ext-ce": (300, 62), "fw": (310, 48 + 14 * (len(tenants) + 1))}
+    has_lg = any(n["role"] == "lg" for n in inv["nodes"])
+    W = max(x + 6, 1200) + (90 if has_lg else 0); ROWS = {"p": 175, "pe": 380, "ce": 560, "host": 720, "ext-ce": 560, "fw": 560, "lg": 278}; H = 790
+    BOX = {"p": (240, 74), "pe": (270, 62 + 14 * len(tenants)), "ce": (min(340, min(lane_w.values()) - 30), 48 + 14 * len(tenants)), "host": (HW, 56), "ext-ce": (300, 62), "fw": (310, 48 + 14 * (len(tenants) + 1)), "lg": (340, 62)}
     ps = sorted(n["name"] for n in inv["nodes"] if n["role"] == "p")
     core_left, core_right = 150, W - 150; PX = {p: core_left + (core_right - core_left) * (i + 0.5) / len(ps) for i, p in enumerate(ps)}
     COLS = {**{n["name"]: DCX[n["dc"]] for n in inv["nodes"] if n["role"] in ("pe", "ce")}, **PX}
+    for n in inv["nodes"]:      # the looking glass: under the core lane on the right, a link to each reflector
+        if n["role"] == "lg": COLS[n["name"]] = W - 190
     for dc in dcs:   # with an external CE the lane's own CE moves left and the external one sits to its right, both under the PE
         for e in ext_of[dc]: COLS[e["name"]] = DCX[dc] + 180
         if ext_of[dc]:
@@ -55,6 +58,13 @@ def draw(inv, live=None):
             else:
                 out.append(f'<line x1="{ax + 120}" y1="{ay}" x2="{bx - 120}" y2="{by}" class="core"/><text x="{(ax + bx) / 2}" y="{ay - 8}" text-anchor="middle" class="lbl core">{l["prefix"]}</text>'
                            f'<text x="{(ax + bx) / 2}" y="{ay + 16}" text-anchor="middle" class="port">{l["a_port"]} · {l["b_port"]}</text>')
+            continue
+        if "lg" in (ra, rb):   # the looking glass's collector sessions: control plane only, no traffic
+            lg, pr = (a, b) if ra == "lg" else (b, a)
+            (lx, ly), (px, py) = center(lg), center(pr)
+            lx, ly = edge(lg, py, -40 if px < lx else 40); px, py = edge(pr, ly, 60 if px < lx else -60)
+            out.append(f'<line x1="{px:.0f}" y1="{py:.0f}" x2="{lx:.0f}" y2="{ly:.0f}" stroke="#0f766e" stroke-width="1.4" stroke-dasharray="5 4"/>'
+                       f'<text x="{px + (lx - px) * 0.72:.0f}" y="{py + (ly - py) * 0.72 - 4:.0f}" class="lbl" style="fill:#0f766e">{l["prefix"]}</text>')
             continue
         if rb == "pe":   # P -> PE
             (ax, ay), (bx, by) = center(a), center(b); ax, ay = edge(a, by); bx, by = edge(b, ay)
@@ -97,6 +107,10 @@ def draw(inv, live=None):
             lans6 = {p["tenant"]: p.get("prefix6") for p in n["ports"] if p["peer"] and N[p["peer"]]["role"] == "host"}
             lines = [f'AS {n["asn"]} · eBGP v4 + v6 → {n["pe"]} per tenant'] + [f'VRF {t}: {lans[t]}' + (f' · {lans6[t]}' if lans6.get(t) else '') for t in tenants if t in lans]
         elif n["role"] == "ext-ce": lines = [f'AS {n["asn"]} · IPsec headend ({n.get("lab", "external")})', f'eBGP → {n["pe"]} in {next(p["tenant"] for p in n["ports"] if p["peer"])}', "announces its site + branch LANs"]
+        elif n["role"] == "lg":
+            lines = [f'AS {n["asn"]} · rid {n["router_id"]} · route collector',
+                     f'iBGP VPNv4 + VPNv6 from {", ".join(S["rrs"])} · announces nothing',
+                     'history of every path · UI and API :8080']
         elif n["role"] == "fw":
             up = next((p for p in n["ports"] if p.get("network")), None)
             lines = [f'AS {n["asn"]} · CE of every tenant (VRF-lite), 0/0 only'] + [f'VRF {t}: {p["name"]} → {p["peer"]} {p["peer_port"]}' for t in tenants for p in n["ports"] if p.get("tenant") == t] + (
@@ -104,7 +118,8 @@ def draw(inv, live=None):
         else:
             t = next((p["tenant"] for p in n["ports"] if p["peer"]), None); lines = [f'{n["ports"][0]["ip"]} · gw .1', (n["ports"][0].get("ip6") or "") + (" · gw ::1" if n["ports"][0].get("ip6") else "") or (t or "unwired")]
             if live and n["name"] in live: fill = "#dcfce7" if live[n["name"]].get("reachable") else "#fee2e2"; stroke = "#15803d" if live[n["name"]].get("reachable") else "#b91c1c"
-        role = {"p": "P" + (" / RR" if n["name"] in S["rrs"] else ""), "pe": "PE", "ce": "CE", "host": "host", "ext-ce": "external CE", "fw": "internet firewall"}[n["role"]]
+        role = {"p": "P" + (" / RR" if n["name"] in S["rrs"] else ""), "pe": "PE", "ce": "CE", "host": "host", "ext-ce": "external CE", "fw": "internet firewall",
+                "lg": "BGP looking glass"}[n["role"]]
         out.append(f'<g><rect x="{x0 - w / 2:.0f}" y="{y0 - h / 2:.0f}" width="{w:.0f}" height="{h:.0f}" rx="9" fill="{fill}" stroke="{stroke}" stroke-width="1.6"/>'
                    f'<text x="{x0 - w / 2 + 10:.0f}" y="{y0 - h / 2 + 19:.0f}" class="name">{n["name"]}</text><text x="{x0 + w / 2 - 10:.0f}" y="{y0 - h / 2 + 19:.0f}" text-anchor="end" class="role">{role} · {n["mgmt_ip"]}</text>'
                    + "".join(f'<text x="{x0 - w / 2 + 10:.0f}" y="{y0 - h / 2 + 19 + 14 * (i + 1):.0f}" class="sub">{html.escape(t)}</text>' for i, t in enumerate(lines)) + "</g>")

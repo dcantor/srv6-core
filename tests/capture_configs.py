@@ -3,14 +3,15 @@
 into <dir>/<node>.config.txt — diffed pre vs post by run.sh) and the routing tables (<dir>/routes/<node>.routes.txt:
 IPv4/IPv6 RIB of the default VRF, every tenant VRF, the kernel's SRv6 routes (seg6 / seg6local), BGP VPNv4 and
 IS-IS SRv6 state — kept for the record, not diffed, as they carry timers). The CirrOS hosts get <dir>/routes/<host>.routes.txt
-too (addresses and routing table).      capture_configs.py <dir>"""
+too (addresses and routing table), and the looking glass its rendered FRR configuration and the VPN table it has
+collected.      capture_configs.py <dir>"""
 import sys
 from datetime import datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent / "resources"))
 from LabLib import LabLib                                   # noqa: E402
-from lab_vars import VYOS, HOSTS, MGMT, NODES, TENANTS, RRS  # noqa: E402
+from lab_vars import VYOS, HOSTS, LGS, MGMT, NODES, TENANTS, RRS  # noqa: E402
 
 out = Path(sys.argv[1]); routes = out / "routes"; routes.mkdir(parents=True, exist_ok=True)
 lib = LabLib(); stamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -63,6 +64,20 @@ try:
             blocks.append(f"==== {title}: {cmd}\n{txt.rstrip()}\n")
         rpath = routes / f"{name}.routes.txt"
         rpath.write_text(f"# {name} ({MGMT[name]}) CirrOS host captured {stamp}\n\n" + "\n".join(blocks))
+        print(f"[{name}] {rpath} ({rpath.stat().st_size} bytes)")
+    for name in LGS:      # the looking glass: its own FRR configuration and what its collector session holds
+        blocks = []
+        for cmd, title in (("doas cat /etc/frr/frr.conf", "FRR configuration (rendered by tools/render.py)"),
+                           ("doas vtysh -c 'show bgp summary'", "collector sessions"),
+                           ("doas vtysh -c 'show bgp ipv4 vpn'", "BGP VPNv4 table (collected)"),
+                           ("doas vtysh -c 'show bgp ipv6 vpn'", "BGP VPNv6 table (collected)")):
+            try:
+                txt = lib.host_command(MGMT[name], cmd, timeout=60)
+            except Exception as e:  # noqa: BLE001
+                txt = f"{e.__class__.__name__}: {e}"
+            blocks.append(f"==== {title}: {cmd}\n{txt.rstrip()}\n")
+        rpath = routes / f"{name}.routes.txt"
+        rpath.write_text(f"# {name} ({MGMT[name]}) BGP looking glass captured {stamp}\n\n" + "\n".join(blocks))
         print(f"[{name}] {rpath} ({rpath.stat().st_size} bytes)")
 finally:
     lib.close_all_connections()

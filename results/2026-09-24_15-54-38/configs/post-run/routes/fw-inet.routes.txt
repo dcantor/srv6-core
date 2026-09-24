@@ -1,0 +1,48 @@
+# fw-inet (10.3.0.61) routing tables captured 2026-09-24 16:34:34
+
+==== IPv4 RIB, default VRF: show ip route
+Codes: K - kernel route, C - connected, L - local, S - static,
+       R - RIP, O - OSPF, I - IS-IS, B - BGP, E - EIGRP, N - NHRP,
+       T - Table, v - VNC, V - VNC-Direct, A - Babel, F - PBR,
+       f - OpenFabric, t - Table-Direct,
+       > - selected route, * - FIB route, q - queued, r - rejected, b - backup
+       t - trapped, o - offload failure
+
+IPv4 unicast VRF default:
+S>* 0.0.0.0/0 [210/0] via 192.168.122.1, eth3, weight 1, 03:28:29
+S>* 10.0.0.0/8 [1/0] via 10.3.0.1, eth0, weight 1, 03:28:20
+C>* 10.3.0.0/24 is directly connected, eth0, weight 1, 03:28:35
+L>* 10.3.0.61/32 is directly connected, eth0, weight 1, 03:28:35
+B>* 172.16.1.0/30 [20/0] via 172.16.5.1, eth1 (vrf tenant-a), weight 1, 00:13:57
+B>* 172.16.2.0/30 [20/0] via 172.16.5.1, eth1 (vrf tenant-a), weight 1, 03:27:58
+B>* 172.16.3.0/30 [20/0] via 172.16.5.1, eth1 (vrf tenant-a), weight 1, 03:27:58
+B>* 172.16.4.0/30 [20/0] via 172.16.5.1, eth1 (vrf tenant-a), weight 1, 03:28:14
+B>* 172.16.5.0/30 [20/0] via 172.16.5.1, eth1 (vrf tenant-a), weight 1, 03:28:14
+B>* 172.18.1.0/30 [20/0] via 172.18.5.1, eth2 (vrf tenant-b), weight 1, 00:13:57
+B>* 172.18.2.0/30 [20/0] via 172.18.5.1, eth2 (vrf tenant-b), weight 1, 03:27:58
+B>* 172.18.3.0/30 [20/0] via 172.18.5.1, eth2 (vrf tenant-b), weight 1, 03:27:58
+B>* 172.18.4.0/30 [20/0] via 172.18.5.1, eth2 (vrf tenant-b), weight 1, 03:28:14
+B>* 172.18.5.0/30 [20/0] via 172.18.5.1, eth2 (vrf tenant-b), weight 1, 03:28:14
+B>* 172.20.1.0/24 [20/0] via 172.16.5.1, eth1 (vrf tenant-a), weight 1, 00:13:57
+B>* 172.20.2.0/24 [20/0] via 172.16.5.1, eth1 (vrf tenant-a), weight 1, 03:27:58
+B>* 172.20.3.0/24 [20/0] via 172.16.5.1, eth1 (vrf tenant-a), weight 1, 03:27:58
+B>* 172.20.4.0/24 [20/0] via 172.16.5.1, eth1 (vrf tenant-a), weight 1, 03:28:14
+B>* 172.21.1.0/24 [20/0] via 172.18.5.1, eth2 (vrf tenant-b), weight 1, 00:13:57
+B>* 172.21.2.0/24 [20/0] via 172.18.5.1, eth2 (vrf tenant-b), weight 1, 03:27:58
+B>* 172.21.3.0/24 [20/0] via 172.18.5.1, eth2 (vrf tenant-b), weight 1, 00:03:54
+B>* 172.21.4.0/24 [20/0] via 172.18.5.1, eth2 (vrf tenant-b), weight 1, 00:13:03
+C>* 192.168.122.0/24 is directly connected, eth3, weight 1, 03:28:29
+L>* 192.168.122.116/32 is directly connected, eth3, weight 1, 03:28:29
+
+==== IPv6 RIB, default VRF: show ipv6 route
+Codes: K - kernel route, C - connected, L - local, S - static,
+       R - RIPng, O - OSPFv3, I - IS-IS, B - BGP, N - NHRP,
+       T - Table, v - VNC, V - VNC-Direct, A - Babel, F - PBR,
+       f - OpenFabric, t - Table-Direct,
+       > - selected route, * - FIB route, q - queued, r - rejected, b - backup
+       t - trapped, o - offload failure
+
+IPv6 unicast VRF default:
+C * fe80::/64 is directly connected, eth3, weight 1, 03:28:34
+C * fe80::/64 is directly connected, eth0, weight 1, 03:28:35
+C>* fe80::/64 is directly connected, lo, weight 1, 03:28:36

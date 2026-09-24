@@ -1,11 +1,13 @@
 """Prometheus for the portal: /metrics (what exporters cannot know: tenant health per site, host reachability, IS-IS / BFD
 adjacency counts, steering policies, run outcomes) and /api/sd (HTTP service discovery: every node-exporter,
-frr-exporter and host exporter of the lab, plus the portal itself, labelled with node / role / dc / tenant)."""
+frr-exporter and host exporter of the lab, the BGP looking glass, plus the portal itself, labelled with node / role /
+dc / tenant)."""
 import os, subprocess, threading, time
 from labportal import metric_line as line, run_metrics, exposition
 
 LAB_HOST = os.environ.get("LAB_HOST_IP", "10.3.0.1")   # the lab host as the NMS sees it (OOB bridge address)
 PORTAL_PORT = int(os.environ.get("WEBAPP_PORT", "8091"))
+LG_PORT = int(os.environ.get("LG_PORT", "8080"))       # the BGP looking glass on the lg VM exposes /metrics there
 
 
 def render(st, runs):
@@ -68,6 +70,9 @@ def targets(st):
         base = {"lab": "srv6-core", "node": n["name"], "role": n["role"], "dc": n["dc"]}
         if n["role"] == "host":
             t = next((p["tenant"] for p in n["ports"] if p["peer"]), None); groups.append({"targets": [f"{n['mgmt_ip']}:9100"], "labels": {**base, "job": "node", "tenant": t or ""}})
+        elif n["role"] == "lg":   # the looking glass: node-exporter and the collector's own numbers (prefixes, sessions, churn)
+            groups.append({"targets": [f"{n['mgmt_ip']}:9100"], "labels": {**base, "job": "node"}})
+            groups.append({"targets": [f"{n['mgmt_ip']}:{LG_PORT}"], "labels": {**base, "job": "lookingglass"}})
         else:
             groups.append({"targets": [f"{n['mgmt_ip']}:9100"], "labels": {**base, "job": "node"}})
             groups.append({"targets": [f"{n['mgmt_ip']}:9342"], "labels": {**base, "job": "frr"}})

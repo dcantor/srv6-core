@@ -20,7 +20,8 @@ ours() {   # libvirt domain names are host-global: refuse to touch a same-named 
 running() { [[ "$(V domstate "$1" 2>/dev/null)" == "running" ]]; }
 nodes_or_all() { [[ $# -gt 0 ]] && echo "$*" || echo "${ALL_NODES[*]}"; }
 is_host() { [[ "${ROLE[$1]}" == "host" ]]; }
-is_vyos() { ! is_host "$1"; }
+is_lg()   { [[ "${ROLE[$1]}" == "lg" ]]; }                 # the looking-glass collector: Alpine + FRR, cloud-init like a host
+is_vyos() { ! is_host "$1" && ! is_lg "$1"; }
 vyos_nodes_or_all() { local n out=(); for n in $(nodes_or_all "$@"); do is_vyos "$n" && out+=("$n"); done; echo "${out[*]:-}"; }
 PY="$LAB_DIR/tests/.venv/bin/python"; [[ -x "$PY" ]] || PY=python3
 
@@ -40,7 +41,7 @@ ensure_networks() {
 # external nodes (EXT_NODES, the IPsec headends) keep their own lab's numbering, so a PE mirrors the headend's fixed port pair
 port_local() { echo $(( ${EXT_UDP_BASE[$1]:-$UDP_BASE} + ${EXT_IDX[$1]:-${NODE_IDX[$1]:-0}}*100 + $2 )); }           # UDP port a node's NIC listens on when it anchors a link
 port_far()   { echo $(( ${EXT_UDP_BASE[$1]:-$UDP_BASE} + 10000 + ${EXT_IDX[$1]:-${NODE_IDX[$1]:-0}}*100 + $2 )); }   # ...and the port it sends to (the other end listens there)
-node_ports() { case "${ROLE[$1]}" in pe) seq 1 "$PE_PORTS";; p) seq 1 "$P_PORTS";; ce) seq 1 "$CE_PORTS";; host) seq 1 "$HOST_PORTS";; ext-ce) seq 1 "$EXT_PORTS";; fw) seq 1 "$FW_PORTS";; esac; }
+node_ports() { case "${ROLE[$1]}" in pe) seq 1 "$PE_PORTS";; p) seq 1 "$P_PORTS";; ce) seq 1 "$CE_PORTS";; host) seq 1 "$HOST_PORTS";; ext-ce) seq 1 "$EXT_PORTS";; fw) seq 1 "$FW_PORTS";; lg) seq 1 "$LG_PORTS";; esac; }
 port_name()  { [[ "${ROLE[$1]}" == "ext-ce" ]] && echo "GigabitEthernet$2" || echo "eth$2"; }
 mac()        { printf '%s:%02x:%02x' "$MAC_OUI" "${NODE_IDX[$1]}" "$2"; }
 link_peer() {   # node port -> "peer_node peer_port prefix end(1|2) tenant|-" or "" if unwired
@@ -189,6 +190,27 @@ X
 X
 }
 
+lg_xml() {         # looking glass: eth0 = OOB, eth1..ethN = UDP tunnels to the route reflectors (cloud-init seed on an IDE cdrom)
+  local n="$1" d p; d="$(node_dir "$n")"
+  domain_head_xml "$n" "BGP looking glass ($n)" "$LG_RAM_MIB" 1
+  cat <<X
+    <disk type='file' device='cdrom'>
+      <driver name='qemu' type='raw'/>
+      <source file='$d/seed.iso'/>
+      <target dev='hda' bus='ide'/>
+      <readonly/>
+    </disk>
+X
+  oob_nic_xml "$n"
+  for p in $(node_ports "$n"); do udp_nic_xml "$n" "$p"; done
+  serial_xml "$n"
+  cat <<X
+    <memballoon model='none'/>
+  </devices>
+</domain>
+X
+}
+
 # ---- build ----------------------------------------------------------------
 build_vyos() {
   local n="$1" d; d="$(node_dir "$n")"
@@ -262,7 +284,73 @@ U
   genisoimage -quiet -o "$d/seed.iso.tmp" -V cidata -J -r "$d/user-data" "$d/meta-data" "$d/network-config" && mv -f "$d/seed.iso.tmp" "$d/seed.iso"
 }
 
-build() { if is_host "$1"; then build_host "$1"; else build_vyos "$1"; fi; }
+build_lg() {
+  local n="$1" d; d="$(node_dir "$n")"
+  [[ -f "$LG_IMAGE" ]] || die "looking-glass base image not found: $LG_IMAGE (build it with tools/build_lg_image.sh)"
+  mkdir -p "$d"
+  if [[ ! -f "$d/disk.qcow2" ]]; then
+    echo "[$n] creating overlay disk on $(basename "$LG_IMAGE")"
+    qemu-img create -q -f qcow2 -b "$LG_IMAGE" -F qcow2 "$d/disk.qcow2"
+  fi
+  lg_seed "$n"
+  lg_xml "$n" > "$d/domain.xml"
+  V define "$d/domain.xml" >/dev/null
+}
+
+lg_seed() {     # cloud-init NoCloud seed for the looking glass: OOB + one IPv6 collector link per reflector, lab / lab, sshd
+  local n="$1" d p peer pn pp pfx end; d="$(node_dir "$n")"
+  echo "[$n] building cloud-init (NoCloud) seed ISO"
+  printf 'instance-id: %s-001\nlocal-hostname: %s\n' "$n" "$n" > "$d/meta-data"
+  { cat <<U
+version: 2
+ethernets:
+  oob:
+    match: { macaddress: "$(mac "$n" 0)" }
+    set-name: eth0
+    addresses: [${MGMT_IP[$n]}/24]
+    routes: [{ to: 10.0.0.0/8, via: $OOB_GATEWAY }]
+U
+    for p in $(node_ports "$n"); do
+      peer="$(link_peer "$n" "$p")"; [[ -n "$peer" ]] || continue
+      read -r pn pp pfx end _ <<<"$peer"
+      cat <<U
+  link$p:
+    match: { macaddress: "$(mac "$n" "$p")" }
+    set-name: eth$p
+    addresses: ["$(link_ip "$n" "$p")"]
+U
+    done
+  } > "$d/network-config"
+  local links=""; for p in $(node_ports "$n"); do peer="$(link_peer "$n" "$p")"; [[ -n "$peer" ]] || continue
+    read -r pn pp pfx end _ <<<"$peer"; links+="eth$p $(link_ip "$n" "$p") -> $pn $pp, "; done
+  cat > "$d/user-data" <<U
+#cloud-config
+# $n: eth0 = OOB management (${MGMT_IP[$n]}), ${links%, } — an iBGP session to each reflector (the collector announces nothing)
+hostname: $n
+users:
+  - name: $LG_USER
+    plain_text_passwd: $LG_PASS
+    lock_passwd: false
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    shell: /bin/sh
+ssh_pwauth: true
+write_files:
+  # Alpine ships doas, not sudo: let the lab user use it (this is how lab.sh lg deploy installs the service)
+  - path: /etc/doas.d/lab.conf
+    permissions: '0400'
+    content: "permit nopass $LG_USER\n"
+  - path: /etc/motd
+    content: "$n — BGP looking glass: FRR collects VPNv4 / VPNv6 from the reflectors, lgd keeps the history and serves http://${MGMT_IP[$n]}:$LG_PORT. Deploy with lab.sh lg deploy.\n"
+runcmd:
+  - rc-update add sshd default
+  - rc-service sshd restart
+  - rc-update add node-exporter default
+  - rc-service node-exporter restart
+U
+  genisoimage -quiet -o "$d/seed.iso.tmp" -V cidata -J -r "$d/user-data" "$d/meta-data" "$d/network-config" && mv -f "$d/seed.iso.tmp" "$d/seed.iso"
+}
+
+build() { if is_host "$1"; then build_host "$1"; elif is_lg "$1"; then build_lg "$1"; else build_vyos "$1"; fi; }
 
 # ---- readiness / day-0 ----------------------------------------------------
 ssh_ready() { timeout 8 bash -c "exec 3<>/dev/tcp/${MGMT_IP[$1]}/22" 2>/dev/null; }
@@ -294,7 +382,7 @@ cmd_up() {
 cmd_down() {       # VyOS: ACPI shutdown (config was saved by bootstrap / commit+save); hosts: power off
   for n in $(nodes_or_all "$@"); do
     running "$n" || { echo "[$n] not running"; continue; }
-    if is_vyos "$n"; then V shutdown "$n" >/dev/null; for _ in $(seq 30); do running "$n" || break; sleep 2; done; fi
+    if is_vyos "$n" || is_lg "$n"; then V shutdown "$n" >/dev/null; for _ in $(seq 30); do running "$n" || break; sleep 2; done; fi
     running "$n" && V destroy "$n" >/dev/null; echo "[$n] stopped"
   done
 }
@@ -322,6 +410,8 @@ cmd_configure() {  # (re)apply nodes/<n>/vyos_config.txt over SSH — idempotent
   [[ -x "$LAB_DIR/tests/.venv/bin/python" ]] || "$LAB_DIR/tests/setup.sh"
   local n; for n in $(vyos_nodes_or_all "$@"); do "$PY" "$LAB_DIR/tools/vyos_push.py" "${MGMT_IP[$n]}" "$(node_dir "$n")/vyos_config.txt" | sed "s/^/[$n] /"; done
   "$PY" "$LAB_DIR/tools/frr_logging.py" $(vyos_nodes_or_all "$@")   # FRR state changes to syslog (not expressible in the CLI, see the tool)
+  for n in $(nodes_or_all "$@"); do is_lg "$n" && cmd_lg deploy; done   # the collector: its FRR config and the lgd service
+  true
 }
 
 cmd_steer() {      # explicit-path SRv6 steering: add|del|show|sid (tools/steer.py)
@@ -434,7 +524,7 @@ cmd_console() {
 
 cmd_ssh() {
   local n="${1:?node}"; shift || true
-  if is_host "$n"; then echo "(host: user lab, password lab)" >&2; ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -o PubkeyAuthentication=no "lab@${MGMT_IP[$n]}" "$@"
+  if is_host "$n" || is_lg "$n"; then echo "(Alpine: user ${LG_USER:-lab}, password ${LG_PASS:-lab})" >&2; ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -o PubkeyAuthentication=no "lab@${MGMT_IP[$n]}" "$@"
   else ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR "vyos@${MGMT_IP[$n]}" "$@"; fi
 }
 
@@ -487,6 +577,21 @@ cmd_webapp() {     # the tenant provisioning portal (FastAPI/uvicorn) on http://
   cd "$LAB_DIR/webapp" && exec .venv/bin/uvicorn app:app --host "${WEBAPP_HOST:-0.0.0.0}" --port "${WEBAPP_PORT:-8091}"
 }
 
+cmd_lg() {         # the BGP looking glass: build the image, deploy / restart the collector, look at what it holds
+  [[ -x "$LAB_DIR/tests/.venv/bin/python" ]] || "$LAB_DIR/tests/setup.sh"
+  local sub="${1:-status}"; shift || true
+  case "$sub" in
+    image)   "$LAB_DIR/tools/build_lg_image.sh" "$@" ;;
+    deploy)  "$PY" "$LAB_DIR/tools/lg_deploy.py" "$@" ;;                       # render the config, copy lg/ over, (re)start lgd
+    restart) "$PY" "$LAB_DIR/tools/lg_deploy.py" --exec "doas rc-service lgd restart; sleep 1; doas rc-service lgd status" ;;
+    status)  "$PY" "$LAB_DIR/tools/lg_deploy.py" --status "$@" ;;
+    logs)    "$PY" "$LAB_DIR/tools/lg_deploy.py" --exec "doas tail -n ${1:-50} /var/log/lgd.log" ;;
+    frr)     "$PY" "$LAB_DIR/tools/lg_deploy.py" --exec "doas vtysh -c '"'"'${*:-show bgp summary}'"'"'" ;;
+    url)     echo "http://${MGMT_IP[lg]}:$LG_PORT/" ;;
+    *) die "usage: lab.sh lg image | deploy [--restart-frr] | status | restart | logs [n] | frr [command] | url" ;;
+  esac
+}
+
 cmd_test() {       # Robot Framework suite; results in results/<date>_<time>/
   [[ -x "$LAB_DIR/tests/.venv/bin/robot" ]] || "$LAB_DIR/tests/setup.sh"
   exec "$LAB_DIR/tests/run.sh" "$@"
@@ -503,6 +608,7 @@ usage: $(basename "$0") <command> [node...]
   nautobot seed      model the lab in the shared Nautobot (idempotent; source = lab.conf)
   nautobot render [--check|--live|--write]   render the VyOS configs from Nautobot; compare with lab.conf / the routers
   webapp             start the tenant provisioning portal on http://<host>:8091
+  lg <sub>           BGP looking glass on the lg VM: image | deploy | status | restart | logs [n] | frr [cmd] | url
   iperf <src> <dst> [-t s] [-u -b RATE] | iperf --scenarios   throughput between tenant hosts (iperf3 on the Alpine hosts)
   backup [-m msg]    commit running + intended configs and routing tables to the local Gitea (http://<nms>:3000/lab/srv6-core-configs)
   push               git push to GitHub, then sync the Gitea mirror and start the CI workflow (validate + test + results committed)
@@ -524,6 +630,6 @@ U
 
 cmd="${1:-}"; shift || true
 case "$cmd" in
-  up|down|bootstrap|configure|steer|nautobot|webapp|iperf|backup|push|ci|wait|status|inventory|verify|test|console|ssh|log|rebuild|clean) "cmd_$cmd" "$@" ;;
+  up|down|bootstrap|configure|steer|nautobot|webapp|lg|iperf|backup|push|ci|wait|status|inventory|verify|test|console|ssh|log|rebuild|clean) "cmd_$cmd" "$@" ;;
   *) usage; exit 1 ;;
 esac

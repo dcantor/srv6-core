@@ -50,6 +50,10 @@ The portal's service discovery lists every exporter of the lab
     FOR    ${h}    IN    @{HOSTS}
         Should Contain    ${targets}    ${MGMT}[${h}]:9100    msg=${h} node-exporter missing from /api/sd
     END
+    FOR    ${l}    IN    @{LGS}
+        Should Contain    ${targets}    ${MGMT}[${l}]:9100    msg=${l} node-exporter missing from /api/sd
+        Should Contain    ${targets}    ${MGMT}[${l}]:${LG_PORT}    msg=the looking glass on ${l} is missing from /api/sd
+    END
     ${portal}=    Evaluate    [g for g in $sd if g["labels"].get("job") == "portal"]
     Length Should Be    ${portal}    1    msg=the portal itself is not in /api/sd
 
@@ -59,7 +63,7 @@ The portal's metrics report every tenant healthy and the core fully adjacent
 Prometheus scrapes every target of the lab successfully
     ${targets}=    Http Get    ${PROMETHEUS}/api/v1/targets
     ${lab}=    Evaluate    [t for t in $targets["data"]["activeTargets"] if t["labels"].get("lab") == "srv6-core"]
-    ${expected}=    Evaluate    2 * len($VYOS) + len($HOSTS) + 1
+    ${expected}=    Evaluate    2 * len($VYOS) + len($HOSTS) + 2 * len($LGS) + 1
     Length Should Be    ${lab}    ${expected}    msg=Prometheus has ${{ len($lab) }} srv6-core targets, expected ${expected}
     ${down}=    Evaluate    [t["scrapeUrl"] + " " + t["lastError"] for t in $lab if t["health"] != "up"]
     Should Be Empty    ${down}    msg=targets not up: ${down}
@@ -74,7 +78,7 @@ Prometheus has the alert rules loaded and none of the lab's alerts firing
 
 VictoriaMetrics holds the series remote-written by Prometheus
     ${up}=    Prometheus Query    ${VICTORIAMETRICS}    count(up{lab="srv6-core"} == 1)
-    ${expected}=    Evaluate    2 * len($VYOS) + len($HOSTS) + 1
+    ${expected}=    Evaluate    2 * len($VYOS) + len($HOSTS) + 2 * len($LGS) + 1
     Should Be Equal As Numbers    ${up}[0][value]    ${expected}    msg=VictoriaMetrics sees ${up}[0][value] srv6-core targets up
     ${health}=    Prometheus Query    ${VICTORIAMETRICS}    lab_tenant_health{lab="srv6-core"}
     Length Should Be    ${health}    ${{ len($TENANTS) }}

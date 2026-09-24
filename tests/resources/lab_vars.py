@@ -83,3 +83,18 @@ if INTERNET:
     INTERNET_UPLINK = next(p["name"] for p in NODES[INTERNET["fw"]]["ports"] if p.get("network"))
 INTERNET_PROBE = "1.1.1.1"     # a public address every host must reach through the breakout (ICMP), and a URL over TCP
 INTERNET_URL = "http://example.com"
+
+# BGP looking glass (role lg): a passive route collector peering with every reflector over its own link, serving the
+# looking-glass API on LG_PORT. LG_PEERS: what the collector's sessions should be (the reflector, and both link ends).
+LGS = sorted(n for n, v in NODES.items() if v["role"] == "lg")
+LG = LGS[0] if LGS else None
+LG_PORT = int(subprocess.run(["bash", "-c", f"source {LAB_DIR}/lab.conf; echo ${{LG_PORT:-8080}}"], capture_output=True, text=True).stdout.strip() or 8080)
+LG_URL = f"http://{NODES[LG]['mgmt_ip']}:{LG_PORT}" if LG else None
+LG_PEERS = {}
+if LG:
+    for p in NODES[LG]["ports"]:
+        if not p["peer"]: continue
+        LG_PEERS[p["peer"]] = {"rr": p["peer"], "lg_ip": p["ip"].split("/")[0], "port": p["name"],
+                               "rr_ip": next(x["ip"] for x in NODES[p["peer"]]["ports"] if x["peer"] == LG).split("/")[0]}
+# RD -> (tenant, PE): what the collector must resolve a VPN route to
+RD_MAP = {f"{CORE_AS}:{VRF_TABLE[t] + NODES[pe]['idx']}": {"vrf": t, "pe": pe} for t in TENANTS for pe in PES}

@@ -9,6 +9,7 @@ import tenants as T
 LAB = Path(__file__).resolve().parents[1]
 VYOS = dict(username=os.environ.get("VYOS_USERNAME", "vyos"), password=os.environ.get("VYOS_PASSWORD", "vyos"))
 NAUTOBOT_PUBLIC_URL = os.environ.get("NAUTOBOT_PUBLIC_URL", "http://192.168.50.231:8080")
+LG_LAN_PORT = int(os.environ.get("LG_LAN_PORT", "8092"))   # the looking glass as the LAN reaches it (relay on the lab host)
 
 
 class State:
@@ -30,7 +31,8 @@ class State:
                 {"tenant": l["tenant"], "pe": l["a"], "pe_port": l["a_port"], "pe_ip": l["a_ip"].split("/")[0], "fw_port": l["b_port"], "fw_ip": l["b_ip"].split("/")[0], "attachment_circuit": l["prefix"]}
                 for l in inv["links"] if l["b"] == inet["fw"]]}
         return {"inv": inv, "tenants": tenants, "dcs": f["dcs"], "pes": sorted(n["name"] for n in inv["nodes"] if n["role"] == "pe"), "internet": internet,
-                "nautobot_url": NAUTOBOT_PUBLIC_URL, "generated": time.time()}
+                # the BGP looking glass runs on its own VM (10.3.0.70:8080); from the LAN it is the host's socat relay
+                "looking_glass_port": LG_LAN_PORT, "nautobot_url": NAUTOBOT_PUBLIC_URL, "generated": time.time()}
 
     def pe_state(self, pe, tenants_):
         """Live: per tenant the eBGP session to the CE (state / prefixes) and the VRF route count; the VPNv4 sessions."""
