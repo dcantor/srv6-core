@@ -323,6 +323,8 @@ render the same `frr.conf` and the same `lgd.json`.
 ![A prefix with its core, per-PE and RIB views](docs/screenshots/lg-prefix.png)
 ![The same prefix, dragged back in time](docs/screenshots/lg-timetravel.png)
 
+A 3½-minute walkthrough of all of it is `docs/demo/lg-demo.mp4` (see [Demo](#demo)).
+
 ## Monitoring: Prometheus + VictoriaMetrics + Grafana
 Every device exports metrics on its OOB address and the NMS keeps them:
 
@@ -592,6 +594,15 @@ Enter at a time, with the point to make after each output), a 40-question bank w
 14-slide deck. The five-minute version is acts 3 and 4.
 
 ## Demo
+`docs/demo/lg-demo.mp4` / `.gif` (3½ min): **the looking glass in detail** — how it is wired to both reflectors, the
+overview and its map, the sessions (and why `capability extended-nexthop` is the part that matters), what each view holds
+and the transport it came over, the prefix table filtered by VRF and then by *how it was read* (the same tenant seen
+through the session versus through the routers' own tables), the path router by router from two vantage points, one
+prefix in every view at once, the history and the time slider stepping between recorded changes, the global change log
+filtered to withdraws, a live `show` on pe1, and the API and `/metrics` underneath it all. Recorded against the running
+collector by `docs/demo/record_lg.py`, which only reads — every page is a GET and the one command it runs is a `show`
+(`--cards` draws just the title / wiring / API / closing cards, to check them without re-recording).
+
 `docs/demo/srv6-demo.mp4` / `.gif` (≈3.5 min): status, IS-IS + SRv6 nodes, the SIDs on a PE, VPNv4 at the reflector and
 the VRF routes, the 8×8 tenant ping matrix, explicit-path steering with the SRH seen on p1, the p1 reflector being shut
 and restored with nothing changing for the tenants, a silent core link cut with BFD detecting it, Nautobot's rendering
