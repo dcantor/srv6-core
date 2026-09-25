@@ -122,7 +122,15 @@ function render() {
 let topoSeq = 0;
 async function loadTopology() {
   const seq = ++topoSeq; const box = $('topo');
-  const get = async (q) => { const r = await fetch('/api/topology.svg' + q); if (!r.ok) throw new Error(`topology: HTTP ${r.status}`); return r.text(); };
+  const get = async (q) => {
+    const r = await fetch('/api/topology.svg' + q);
+    if (!r.ok) {   // show what the server said, not just the status: it names the reason
+      let why = `HTTP ${r.status}`;
+      try { const j = await r.json(); if (j.detail) why = j.detail; } catch (e) { }
+      throw new Error(`topology: ${why}`);
+    }
+    return r.text();
+  };
   try {
     if (!box.querySelector('svg')) { box.innerHTML = '<div class="hint">drawing the topology…</div>'; const svg = await get('?live=0'); if (seq === topoSeq) box.innerHTML = svg; }
     if (ST.live_done) { const svg = await get(''); if (seq === topoSeq) box.innerHTML = svg; }

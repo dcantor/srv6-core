@@ -172,7 +172,12 @@ def get_state(refresh: bool = Query(False), live: bool = Query(True)):
 
 @app.get("/api/topology.svg", tags=["state"], summary="The topology as SVG (live host colouring)", response_class=Response)
 def topology_svg(live: bool = Query(True)):
-    st = state.get(live=live); svg, _ = draw(st["inv"], live=st.get("hosts_live") if live else None)
+    st = state.get(live=live)
+    try:
+        svg, _ = draw(st["inv"], live=st.get("hosts_live") if live else None)
+    except Exception as e:   # noqa: BLE001 — a new node role the drawing does not know yet, most often; say which
+        raise HTTPException(500, f"the topology could not be drawn: {e.__class__.__name__}: {e}"
+                                 " — if tools/topology_svg.py changed, the portal has to be restarted (webapp/restart.sh)")
     return Response(svg, media_type="image/svg+xml")
 
 
