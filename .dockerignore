@@ -1,0 +1,16 @@
+# the image carries the toolchain, not the lab: the repository is mounted at /lab
+.git
+.gitea-backup
+results
+images
+nodes/*/disk.qcow2
+nodes/*/*.iso
+nodes/*/console.log
+nodes/*/bootstrap.log
+tests/.venv
+webapp/.venv
+webapp/runs
+docs/screenshots
+docs/walkthrough
+docs/demo
+**/__pycache__
