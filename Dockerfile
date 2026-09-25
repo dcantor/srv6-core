@@ -37,6 +37,17 @@ ENV SRV6_PYTHON=/usr/local/bin/python3 \
 COPY tools/docker-entrypoint.sh /usr/local/bin/srv6
 RUN chmod +x /usr/local/bin/srv6
 
+# Which checkout the image was built from — `srv6 version` prints it, so an image found on a host months later can be
+# held against the repository it came from (tools/docker.sh fills these in and tags the image with the same short SHA).
+ARG SRV6_REVISION=unknown
+ARG SRV6_BUILT=unknown
+ENV SRV6_REVISION=$SRV6_REVISION SRV6_BUILT=$SRV6_BUILT
+LABEL org.opencontainers.image.title="srv6-core tooling" \
+      org.opencontainers.image.description="Render, seed, verify and test the srv6-core lab; the VM lifecycle stays on the host" \
+      org.opencontainers.image.source="https://github.com/dcantor/srv6-core" \
+      org.opencontainers.image.revision=$SRV6_REVISION \
+      org.opencontainers.image.created=$SRV6_BUILT
+
 WORKDIR /lab
 ENTRYPOINT ["/usr/local/bin/srv6"]
 CMD ["help"]

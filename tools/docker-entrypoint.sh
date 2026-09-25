@@ -22,6 +22,7 @@ srv6 tooling container — the repository is mounted at /lab
   backup [-m msg]           configurations and routing tables to Gitea
   portal                    the tenant portal on :8091 (publish the port when you run the container)
   python|robot|bash ...     run something directly with the image's interpreter
+  version                   the checkout this image was built from, and the versions inside it
   help                      this
 
   VM lifecycle ($ON_HOST) needs libvirt and stays on the host: run ./lab.sh there.
@@ -31,6 +32,14 @@ U
 cmd="${1:-help}"; shift || true
 case "$cmd" in
   help|-h|--help) usage ;;
+  version|--version)
+    echo "srv6-core tooling image — built from ${SRV6_REVISION:-unknown} at ${SRV6_BUILT:-unknown}"
+    echo "  $("$PY" --version), $("${SRV6_ROBOT:-robot}" --version 2>&1 | head -1)"
+    "$PY" - <<'P'
+import importlib.metadata as m
+print("  " + ", ".join(f"{n} {m.version(n)}" for n in ("netmiko", "paramiko", "pynautobot", "requests", "fastapi", "uvicorn")))
+P
+    echo "  mounted checkout: $(git -C /lab describe --always --dirty 2>/dev/null || echo 'not a git checkout')" ;;
   inventory|verify|configure|steer|backup|nautobot|lg|status) exec ./lab.sh "$cmd" "$@" ;;
   render)   exec "$PY" tools/gen_configs.py "$@" ;;
   test)     exec ./lab.sh test "$@" ;;

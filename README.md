@@ -462,6 +462,7 @@ them.
 
 ```bash
 tools/docker.sh build                     # podman or docker, whichever is installed
+tools/docker.sh version                   # which checkout the image was built from, and what is in it
 tools/docker.sh inventory                 # the lab as JSON, straight from lab.conf
 tools/docker.sh render                    # nodes/<n>/vyos_config.txt + nodes/lg/{frr.conf,lgd.json}
 tools/docker.sh nautobot render --check   # Nautobot renders the same as lab.conf
@@ -473,7 +474,9 @@ The repository is **mounted** at `/lab` rather than copied in, so one build serv
 the container joins the host's network namespace because all of this talks to the lab over the OOB networks
 (`10.3.0.0/24` here, `10.0.0.10` for Nautobot / Gitea / Grafana); and `~/.ssh` is mounted read-only so the Nautobot
 token is fetched exactly as `lab.sh` does on the host (or set `NAUTOBOT_TOKEN` and keep the key to yourself). The
-image carries the same dependency lists the host installs (`tests/requirements.txt`, `webapp/requirements.txt`), and
+image carries the same dependency lists the host installs (`tests/requirements.txt`, `webapp/requirements.txt`) and
+records the checkout it was built from (`org.opencontainers.image.revision`, a `:<git-describe>` tag beside `:latest`,
+and `srv6 version` inside), and
 `SRV6_PYTHON` / `SRV6_ROBOT` tell `lab.sh` and `tests/run.sh` to use the image's own interpreter instead of the host's
 `tests/.venv` — which the container never touches.
 

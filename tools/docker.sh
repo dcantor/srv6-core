@@ -13,7 +13,14 @@ IMAGE="${SRV6_IMAGE:-srv6-tools}"
 ENGINE="${SRV6_CONTAINER_ENGINE:-$(command -v podman || command -v docker)}"
 [[ -n "$ENGINE" ]] || { echo "error: neither podman nor docker is installed" >&2; exit 1; }
 
-if [[ "${1:-}" == "build" ]]; then shift; exec "$ENGINE" build -t "$IMAGE" "$@" "$LAB"; fi
+if [[ "${1:-}" == "build" ]]; then
+  shift
+  rev="$(git -C "$LAB" describe --always --dirty 2>/dev/null || echo unknown)"
+  "$ENGINE" build -t "$IMAGE:latest" -t "$IMAGE:$rev" \
+    --build-arg "SRV6_REVISION=$rev" --build-arg "SRV6_BUILT=$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$@" "$LAB"
+  echo "built $IMAGE:latest and $IMAGE:$rev"
+  exit 0
+fi
 
 args=(--rm -i --network host -v "$LAB:/lab:z" -w /lab)
 [[ -t 0 && -t 1 ]] && args+=(-t)
