@@ -23,6 +23,13 @@ set system syslog remote 10.3.0.10 facility all level info
 set service monitoring telegraf global-tag lab value srv6-core
 set service monitoring telegraf global-tag role value p
 set service monitoring telegraf global-tag dc value core
+# the router's own HTTPS API (/show, /retrieve, /ping, /traceroute): what the BGP looking glass reads the
+# RIB, the per-VRF BGP tables and the IS-IS adjacencies through — a supported interface rather than a
+# scraped terminal, and every answer already JSON. Only the looking glass and the host may call it.
+set service https api rest
+set service https api keys id lg key srv6core-lab-looking-glass
+set service https allow-client address 10.3.0.70
+set service https allow-client address 10.3.0.1
 # sFlow from the core-facing ports to the NMS collector (goflow2 -> VictoriaLogs): the outer IPv6 flows = SRv6 paths in use
 set system sflow agent-address 10.3.0.23
 set system sflow server 10.3.0.10 port 6343

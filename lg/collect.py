@@ -7,9 +7,14 @@ Two sources, because one view cannot answer every question:
                             is the core's whole L3VPN table with the attributes the PEs originated — RD, route targets,
                             SRv6 SID and label, originator, cluster list. Read locally over vtysh, so it can be read
                             often (no SSH, no router CPU).
-  the devices' VRF tables   what a tenant's routes look like *after* import on a PE or a CE (`show bgp vrf tenant-a
-                            ipv4 unicast`): best-path selection per PE, the CE's own eBGP view, the routes a PE learnt
-                            from its CE before they ever became VPN routes. Polled over SSH, less often.
+  the routers themselves    what each router actually holds: its RIB per VRF (which protocol won, which next hop and
+                            interface, the SRv6 encapsulation), its per-VRF BGP tables (best-path selection on that PE,
+                            the CE's own eBGP view) and its IS-IS adjacencies. Read from the router's **own HTTPS API**
+                            (`service https api`, JSON out) where it can express the question, and over SSH / vtysh
+                            where it cannot — VyOS's op-mode has no `json` for `show bgp vrf <x> ipv4 unicast`.
+
+Every row carries **how it was obtained** — `rr-session`, `router-api` or `router-ssh` — because the same prefix seen
+two ways is two answers, and a looking glass that hides which one it is showing is a looking glass you cannot trust.
 
 Both are normalised into the same shape and handed to Store.reconcile(), which is what turns a sequence of snapshots
 into a history: announce / change (with the fields that changed) / withdraw.
@@ -149,6 +154,76 @@ def _paths(entry):
     return entry or []
 
 
+class RouterAPI:
+    """The router's own HTTPS API (VyOS `service https api`): POST /show with an op-mode path, JSON back.
+
+    Self-signed certificates on the OOB network, so verification is off — the API is reachable only from the looking
+    glass and the lab host (`allow-client`), and the key is a lab key like the vyos/vyos logins."""
+
+    def __init__(self, host, key, timeout=45):
+        self.host, self.key, self.timeout = host, key, timeout
+        self.url = f"https://{host}"
+
+    def show(self, path, parse=True):
+        import requests, urllib3
+        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+        r = requests.post(f"{self.url}/show", data={"key": self.key, "data": json.dumps({"op": "show", "path": list(path)})},
+                          verify=False, timeout=self.timeout)
+        r.raise_for_status()
+        body = r.json()
+        if not body.get("success"): raise RuntimeError(f"{self.host}: show {' '.join(path)}: {str(body.get('error')).strip()}")
+        data = body.get("data") or ""
+        return _json(data) if parse else data
+
+
+def rib_entries(doc, afi, vrf, node=None):
+    """FRR's `show ip route ... json` -> the looking glass's shape: one row per route, the winning paths marked."""
+    out = []
+    for prefix, routes in (doc or {}).items():
+        if not isinstance(routes, list): continue
+        seen = {}
+        for r in routes:
+            nhs = [n for n in (r.get("nexthops") or []) if n.get("active") or n.get("fib") or True]
+            nh = next((n.get("ip") or n.get("interfaceName") for n in nhs), None)
+            a = {"protocol": r.get("protocol"), "distance": r.get("distance"), "metric": r.get("metric"),
+                 "selected": bool(r.get("selected")), "installed": bool(r.get("installed")),
+                 "nexthops": [{"ip": n.get("ip"), "interface": n.get("interfaceName"), "vrf": n.get("vrf"),
+                               "active": bool(n.get("active")), "recursive": bool(n.get("recursive")),
+                               "seg6": n.get("seg6"), "seg6local": n.get("seg6local"), "labels": n.get("labels")}
+                              for n in nhs],
+                 "uptime": r.get("uptime"), "table": r.get("table"), "internal_status": r.get("internalStatus")}
+            segs = [s for n in a["nexthops"] for s in ([n["seg6"]] if isinstance(n.get("seg6"), str) else (n.get("seg6") or []))]
+            if segs: a["sid"] = segs[0]
+            disc = f"{r.get('protocol')}|{nh or '-'}"
+            seen[disc] = seen.get(disc, 0) + 1
+            if seen[disc] > 1: disc = f"{disc}#{seen[disc]}"
+            out.append({"afi": afi, "safi": "rib", "vrf": vrf, "rd": None, "prefix": prefix, "disc": disc, "peer": "",
+                        "peer_name": None, "origin_node": node, "origin_as": None, "nexthop": nh,
+                        "best": bool(r.get("selected")), "attrs": {k: v for k, v in a.items() if v not in (None, [], "")}})
+    return out
+
+
+def isis_adjacencies(doc):
+    """`show isis neighbor json` -> [{neighbor, interface, state, level}] — the core as the routers themselves see it.
+
+    FRR puts one entry per circuit and names the neighbour in `adj` as a plain string (the hostname it learnt), with
+    the circuits that have no adjacency present but empty."""
+    out = []
+    for area in (doc or {}).get("areas", []):
+        for circuit in area.get("circuits", []):
+            entries = circuit.get("adj")
+            entries = entries if isinstance(entries, list) else ([entries] if entries else [])
+            for adj in entries:
+                if isinstance(adj, str):
+                    out.append({"neighbor": adj, "interface": circuit.get("interface"), "state": circuit.get("state"),
+                                "level": circuit.get("level"), "expires": circuit.get("expires-in")})
+                elif isinstance(adj, dict):
+                    out.append({"neighbor": adj.get("adj") or adj.get("system-id"), "interface": adj.get("interface") or circuit.get("interface"),
+                                "state": adj.get("state") or adj.get("adj-state"), "level": adj.get("level"),
+                                "expires": adj.get("expires-in")})
+    return out
+
+
 class Collector:
     """Reads both views and reconciles them into the store; one thread per cadence."""
 
@@ -156,6 +231,7 @@ class Collector:
         self.cfg, self.store, self.log = cfg, store, log
         self.resolver = Resolver(cfg)
         self.peers = {}            # the collector's BGP sessions, as of the last read
+        self.adjacency = {}        # node -> IS-IS adjacencies, as the routers report them
         self.stop = threading.Event()
         self.last = {}
 
@@ -194,7 +270,8 @@ class Collector:
                     disc = n["nexthop"] or "-"
                     k = (n["peer"], disc); seen[k] = seen.get(k, 0) + 1
                     if seen[k] > 1: disc = f"{disc}#{seen[k]}"
-                    out.append({"afi": afi, "safi": "vpn", "vrf": vrf, "rd": rd, "prefix": prefix, "disc": disc, **n})
+                    out.append({"afi": afi, "safi": "vpn", "vrf": vrf, "rd": rd, "prefix": prefix, "disc": disc,
+                                "via": "rr-session", **n})
         return out
 
     def read_peers(self):
@@ -232,16 +309,55 @@ class Collector:
                 self.store.sample("collector", "session_up", 1 if p["state"] == "Established" else 0, peer=p["name"] or ip)
                 for af, d in p["families"].items():
                     if d.get("accepted") is not None: self.store.sample("collector", "accepted", d["accepted"], peer=p["name"] or ip, af=af)
-            self.store.note_poll("collector", True, time.time() - t0, total)
+            self.store.note_poll("collector", True, time.time() - t0, total, via="rr-session",
+                                 detail={"peers": [{"name": p["name"] or p["ip"], "state": p["state"]} for p in peers.values()]})
         except Exception as e:                                   # noqa: BLE001 — a failed read must not stop the loop
-            self.store.note_poll("collector", False, time.time() - t0, 0, f"{e.__class__.__name__}: {e}")
+            self.store.note_poll("collector", False, time.time() - t0, 0, f"{e.__class__.__name__}: {e}", via="rr-session")
             self.log(f"collector read failed: {e}")
             return None
         self.last["collector"] = time.time()
         return result
 
-    # ---- a device's per-VRF tables ---------------------------------------------------------------------------
-    def read_device(self, dev):
+    # ---- a device: its RIB (API), its per-VRF BGP tables (SSH) and its IS-IS adjacencies (API) -----------------
+    def api(self, dev):
+        key = (self.cfg.get("api") or {}).get("key")
+        return RouterAPI(dev["mgmt_ip"], key) if key else None
+
+    def read_device_rib(self, dev):
+        """The router's own routing table, per VRF and family, straight from its HTTPS API (JSON)."""
+        api = self.api(dev)
+        if not api: return 0, "no API key configured"
+        total = 0
+        vrfs = list(dev["vrfs"]) + ["default"]
+        for vrf in vrfs:
+            for afi, cmd in (("ipv4", "ip"), ("ipv6", "ipv6")):
+                path = [cmd, "route"] + ([] if vrf == "default" else ["vrf", vrf]) + ["json"]
+                try:
+                    doc = api.show(path)
+                except Exception as e:                           # noqa: BLE001 — a family a node does not carry
+                    self.log(f"{dev['name']}: {e}"); continue
+                rows = rib_entries(doc, afi, vrf, node=dev["name"])
+                for r in rows: r["via"] = "router-api"
+                self.store.reconcile(dev["name"], rows, scope={"vrf": [vrf], "afi": [afi], "safi": ["rib"]})
+                self.store.sample(dev["name"], "rib_routes", len(rows), afi=afi, vrf=vrf)
+                by_proto = {}
+                for r in rows: by_proto[r["attrs"].get("protocol") or "?"] = by_proto.get(r["attrs"].get("protocol") or "?", 0) + 1
+                for proto, n in by_proto.items(): self.store.sample(dev["name"], "rib_routes_by_protocol", n, afi=afi, vrf=vrf, protocol=proto)
+                total += len(rows)
+        return total, None
+
+    def read_device_isis(self, dev):
+        """IS-IS adjacencies, so the map can show the core as the routers see it rather than as the model describes it."""
+        api = self.api(dev)
+        if not api or (self.cfg["nodes"].get(dev["name"]) or {}).get("role") not in ("pe", "p"): return None
+        try: adj = isis_adjacencies(api.show(["isis", "neighbor", "json"]))
+        except Exception as e: self.log(f"{dev['name']}: isis: {e}"); return None      # noqa: BLE001
+        self.store.sample(dev["name"], "isis_adjacencies", len([a for a in adj if (a.get("state") or "").lower().startswith("up")]))
+        return adj
+
+    def read_device_bgp(self, dev):
+        """The per-VRF BGP tables. Over SSH: VyOS's op-mode API has no `json` for `show bgp vrf <x> ipv4 unicast`, and
+        the text form loses the attributes — so this one view is read with vtysh, and says so (`router-ssh`)."""
         import paramiko
         ssh = self.cfg["ssh"]
         c = paramiko.SSHClient(); c.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -265,13 +381,59 @@ class Collector:
                             disc = "|".join(x for x in (n["nexthop"], p.get("importedFrom")) if x) or "-"
                             k = (n["peer"], disc); seen[k] = seen.get(k, 0) + 1
                             if seen[k] > 1: disc = f"{disc}#{seen[k]}"
-                            paths.append({"afi": afi, "safi": safi, "vrf": vrf, "rd": None, "prefix": prefix, "disc": disc, **n})
+                            paths.append({"afi": afi, "safi": safi, "vrf": vrf, "rd": None, "prefix": prefix,
+                                          "disc": disc, "via": "router-ssh", **n})
                     self.store.reconcile(dev["name"], paths, scope={"vrf": [vrf], "afi": [afi], "safi": [safi]})
                     self.store.sample(dev["name"], "paths", len(paths), afi=afi, safi=safi, vrf=vrf)
                     total += len(paths)
             return total
         finally:
             c.close()
+
+    def read_device_vpn(self, dev):
+        """The router's *own* VPN table, through its API — the same routes the collector holds from the session, but
+        fetched from the box. Two answers to the same question is the point: the page can show them side by side.
+        The API only offers the table form (VyOS's op-mode has no `detail json`), so these rows carry the next hop and
+        the AS path but not the route targets or the SRv6 SID; the session's rows carry everything."""
+        api = self.api(dev)
+        if not api: return 0
+        total = 0
+        for afi in ("ipv4", "ipv6"):
+            try: doc = api.show(["bgp", afi, "vpn", "json"])
+            except Exception as e: self.log(f"{dev['name']}: vpn {afi}: {e}"); continue     # noqa: BLE001
+            rows = []
+            for rd, pfxs in _rd_tables(doc).items():
+                vrf = self.resolver.vrf_of_rd(rd)
+                for prefix, entry in _prefix_tables(pfxs).items():
+                    seen = {}
+                    for p in _paths(entry):
+                        n = normalise(p, rd=rd, resolver=self.resolver)
+                        disc = n["nexthop"] or "-"
+                        k = (n["peer"], disc); seen[k] = seen.get(k, 0) + 1
+                        if seen[k] > 1: disc = f"{disc}#{seen[k]}"
+                        rows.append({"afi": afi, "safi": "vpn", "vrf": vrf, "rd": rd, "prefix": prefix, "disc": disc,
+                                     "via": "router-api", **n})
+            self.store.reconcile(dev["name"], rows, scope={"afi": [afi], "safi": ["vpn"]})
+            self.store.sample(dev["name"], "paths", len(rows), afi=afi, safi="vpn", vrf="-")
+            total += len(rows)
+        return total
+
+    def read_device(self, dev):
+        """Everything one router has to say, and how each part of it was obtained."""
+        want = dev.get("collect") or {"rib": True, "isis": False, "vpn": False, "bgp_vrf": True}
+        got = {"bgp": 0, "rib": 0, "vpn": 0, "isis": None, "via": []}
+        if want.get("rib"):
+            got["rib"] = self.read_device_rib(dev)[0]
+        if want.get("vpn"):
+            got["vpn"] = self.read_device_vpn(dev)
+        if want.get("isis"):
+            adj = self.read_device_isis(dev)
+            if adj is not None: got["isis"] = adj; self.adjacency[dev["name"]] = adj
+        if got["rib"] or got["vpn"] or got["isis"] is not None: got["via"].append("router-api")
+        if want.get("bgp_vrf") and dev.get("vrfs"):
+            got["bgp"] = self.read_device_bgp(dev)
+            if got["bgp"]: got["via"].append("router-ssh")
+        return got
 
     def collect_devices(self, only=None):
         devs = [d for d in self.cfg["devices"] if not only or d["name"] in only]
@@ -280,7 +442,11 @@ class Collector:
         def one(d):
             t0 = time.time()
             try:
-                n = self.read_device(d); self.store.note_poll(d["name"], True, time.time() - t0, n); results[d["name"]] = n
+                got = self.read_device(d)
+                self.store.note_poll(d["name"], True, time.time() - t0, got["bgp"] + got["rib"] + got["vpn"],
+                                     via="+".join(got["via"]) or None,
+                                     detail={"bgp": got["bgp"], "rib": got["rib"], "vpn": got["vpn"], "isis": got["isis"]})
+                results[d["name"]] = got
             except Exception as e:                               # noqa: BLE001 — one unreachable router is not an outage
                 self.store.note_poll(d["name"], False, time.time() - t0, 0, f"{e.__class__.__name__}: {e}")
                 results[d["name"]] = None

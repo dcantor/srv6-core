@@ -6,8 +6,13 @@ Documentation     BGP looking glass: a small Alpine VM (lg) runs FRR as a **pass
 ...               extended next-hop encoding; without it FRR would rewrite it to the reflector's own address). On top of that RIB
 ...               the lgd service keeps a history in SQLite — every announce, every attribute change with the fields that changed,
 ...               every withdraw — polls each PE's and CE's per-VRF table over SSH for the tenant view after import, and serves
-...               both through an API and a web page. These tests check the collector against the reflectors it peers with, the
-...               API against the routers it describes, and the history against a change this suite makes and undoes.
+...               both through an API and a web page. It also reads **every router directly**: its RIB, its own VPN table and
+...               its IS-IS adjacencies through the router's HTTPS API (VyOS `service https api`, JSON), and its per-VRF BGP
+...               tables with vtysh over SSH — VyOS's op-mode has no `json` for those. Every row it stores says which of the
+...               three ways it came in (`rr-session`, `router-api`, `router-ssh`), so the same prefix can be held against
+...               itself. These tests check the collector against the reflectors it peers with, the API against the routers it
+...               describes, the paths it draws against the routers' own forwarding state, and the history against a change
+...               this suite makes and undoes.
 Resource          ../resources/common.resource
 Library           OperatingSystem
 Suite Setup       Require Looking Glass
@@ -48,6 +53,16 @@ Prefix Should Be Gone
     [Arguments]    ${prefix}    ${vrf}
     ${paths}=    Collector Paths For    ${prefix}    ${vrf}
     Should Be Empty    ${paths}    msg=${prefix} is still in the collector's table
+
+Path Should Be Steered
+    [Arguments]    ${prefix}    ${vrf}    ${from}
+    ${d}=    Lg    /api/path    prefix=${prefix}    vrf=${vrf}    from=${from}
+    Should Be True    ${d}[steered]    msg=the looking glass does not see the steering policy yet
+
+Path Should Not Be Steered
+    [Arguments]    ${prefix}    ${vrf}    ${from}
+    ${d}=    Lg    /api/path    prefix=${prefix}    vrf=${vrf}    from=${from}
+    Should Not Be True    ${d}[steered]    msg=the looking glass still shows the prefix as steered
 
 Prefix Should Be Back
     [Arguments]    ${prefix}    ${vrf}
@@ -192,6 +207,90 @@ A prefix that goes away is recorded as withdrawn, and the table can still be rea
     Wait Until Keyword Succeeds    120 s    10 s    Prefix Should Be Back    ${lan}    ${FLAP_TENANT}
     ${back}=    Lg    /api/history    prefix=${lan}    kind=announce    limit=20
     Should Be True    ${back}[events][0][ts] > ${ev}[events][0][ts]    msg=the prefix came back but no announce was recorded
+
+Every router is read, and each part of it through the transport that can express it
+    ${d}=    Lg    /api/routers
+    ${by}=    Evaluate    {r["name"]: r for r in $d["routers"]}
+    FOR    ${n}    IN    @{VYOS}
+        Dictionary Should Contain Key    ${by}    ${n}    msg=${n} is not among the routers the looking glass reads
+        ${r}=    Set Variable    ${by}[${n}]
+        Should Be Equal As Integers    ${r}[poll][ok]    1    msg=${n}: the last collection failed: ${r}[poll][error]
+        Should Contain    ${r}[poll][via]    router-api    msg=${n}: nothing was read through the router's own API
+        Should Be True    ${r}[poll][detail][rib] > 0    msg=${n}: no RIB entries were collected
+        IF    $r["role"] in ("pe", "ce", "fw")
+            Should Contain    ${r}[poll][via]    router-ssh    msg=${n}: the per-VRF BGP tables were not read
+            Should Be True    ${r}[poll][detail][bgp] > 0    msg=${n}: no BGP paths were collected
+        END
+        IF    $r["role"] in ("pe", "p")
+            ${up}=    Evaluate    [a for a in ($r["adjacencies"] or []) if (a.get("state") or "").lower() == "up"]
+            Should Be Equal As Integers    ${{len($up)}}    ${{len($ISIS_NEIGHBORS["${n}"])}}
+            ...    msg=${n}: the looking glass sees ${{len($up)}} IS-IS adjacencies, the topology has ${{len($ISIS_NEIGHBORS["${n}"])}}
+        END
+    END
+
+The routers' own tables agree with the routers, and the RIB carries the SRv6 encapsulation
+    ${pe}=    Set Variable    ${PES}[0]
+    ${t}=    Set Variable    ${TENANTS}[0]
+    ${dc}=    Evaluate    [d for d in $SITES["${t}"] if $SITES["${t}"][d]["pe"] != "${pe}"][0]
+    ${lan}=    Set Variable    ${SITES}[${t}][${dc}][lan]
+    # the RIB, read through the router's API: same route, and it shows the encapsulation the router installed
+    ${rib}=    Lg    /api/prefixes    source=${pe}    safi=rib    vrf=${t}    prefix=${lan}
+    Should Not Be Empty    ${rib}[paths]                                     msg=${pe}: ${lan} is not in the collected RIB
+    Should Be Equal    ${rib}[paths][0][via]    router-api
+    ${attrs}=    Set Variable    ${rib}[paths][0][attrs]
+    Should Be Equal    ${attrs}[protocol]    bgp
+    ${segs}=    Evaluate    [n.get("seg6", {}).get("segs") for n in $attrs["nexthops"] if n.get("seg6")]
+    Should Not Be Empty    ${segs}                                           msg=${pe}: the RIB entry carries no SRv6 segment
+    Should Be True    $segs[0].startswith("${{$LOCATOR[$SITES[$TENANTS[0]][$dc]['pe']].split('::')[0]}}")
+    ...    msg=${pe}: ${lan} is encapsulated to ${segs}[0], which is not out of ${SITES}[${t}][${dc}][pe]'s locator
+    ${live}=    Shell    ${pe}    sudo ip -c=never route show vrf ${t} ${lan}
+    Should Contain    ${live}    ${segs}[0]                                  msg=${pe}: the router does not install ${segs}[0] for ${lan}
+    # the reflector's own VPN table, also read through its API, holds what the session delivered
+    ${rr}=    Set Variable    ${RRS}[0]
+    ${own}=    Lg    /api/prefixes    source=${rr}    safi=vpn    prefix=${lan}
+    Should Not Be Empty    ${own}[paths]                                     msg=${rr}: ${lan} is missing from its own VPN table
+    Should Be Equal    ${own}[paths][0][via]    router-api
+    ${session}=    Lg    /api/prefixes    source=collector    safi=vpn    prefix=${lan}
+    Should Be Equal    ${session}[paths][0][via]    rr-session
+    Should Be Equal    ${own}[paths][0][rd]    ${session}[paths][0][rd]      msg=the two views disagree about the RD of ${lan}
+    Should Be Equal    ${own}[paths][0][nexthop]    ${session}[paths][0][nexthop]    msg=the two views disagree about the next hop of ${lan}
+
+The path it draws for a prefix is the one the routers actually take
+    ${t}=    Set Variable    ${TENANTS}[0]
+    ${dst}=    Evaluate    [d for d in $SITES["${t}"] if $SITES["${t}"][d]["pe"] != "${PES}[0]"][0]
+    ${site}=    Set Variable    ${SITES}[${t}][${dst}]
+    ${d}=    Lg    /api/path    prefix=${site}[lan]    vrf=${t}    from=${PES}[0]
+    ${nodes}=    Evaluate    [h["node"] for h in $d["hops"]]
+    Should Contain    ${nodes}    ${PES}[0]
+    Should Contain    ${nodes}    ${site}[pe]                                msg=the path never reaches ${site}[pe], which owns ${site}[lan]
+    Should Contain    ${nodes}    ${site}[ce]
+    Should Be Equal    ${d}[egress]    ${site}[pe]
+    Should Be Equal    ${d}[sources][control_plane]    rr-session            msg=the attributes should come from the collector's session
+    Should Be Equal    ${d}[sources][forwarding]    router-api               msg=the forwarding decision should come from the router's own API
+    # the P routers on the drawn path are the ones the ingress PE really forwards through
+    ${crossed}=    Evaluate    [h["node"] for h in $d["hops"] if h["role"] == "p"]
+    Should Not Be Empty    ${crossed}                                       msg=the path crosses no P router
+    ${dev}=    Set Variable    ${d}[live][dev]
+    ${peer}=    Evaluate    [l["b"] if l["a"] == "${PES}[0]" else l["a"] for l in $LINKS if ("${PES}[0]", "${dev}") in ((l["a"], l["a_port"]), (l["b"], l["b_port"]))]
+    Should Be Equal    ${crossed}[0]    ${peer}[0]                          msg=${PES}[0] forwards out of ${dev} (to ${peer}[0]) but the path starts with ${crossed}[0]
+    Should Be Equal As Integers    ${d}[steered]    ${0}
+
+A steered prefix is drawn along the segment list the policy installed
+    ${t}=    Set Variable    ${TENANTS}[0]
+    ${dst}=    Evaluate    [d for d in $SITES["${t}"] if $SITES["${t}"][d]["pe"] == "${PES}[2]"][0]
+    ${lan}=    Set Variable    ${SITES}[${t}][${dst}][lan]
+    Steer    add    ${PES}[0]    ${t}    ${lan}    ${PS}[0]    ${PS}[2]
+    TRY
+        Wait Until Keyword Succeeds    90 s    10 s    Path Should Be Steered    ${lan}    ${t}    ${PES}[0]
+        ${d}=    Lg    /api/path    prefix=${lan}    vrf=${t}    from=${PES}[0]
+        ${want}=    Create List    ${PS}[0]    ${PS}[2]
+        ${crossed}=    Evaluate    [h["node"] for h in $d["hops"] if h["role"] == "p"]
+        Should Be Equal    ${crossed}    ${want}    msg=the steered path crosses ${crossed}, not ${want}
+        Should Contain    ${d}[notes][0]    steering policy
+    FINALLY
+        Steer    del    ${PES}[0]    ${t}    ${lan}
+    END
+    Wait Until Keyword Succeeds    90 s    10 s    Path Should Not Be Steered    ${lan}    ${t}    ${PES}[0]
 
 The numbers are exported for Prometheus, and the portal points the scraper at them
     ${text}=    Http Get    ${LG_URL}/metrics

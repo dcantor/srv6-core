@@ -23,6 +23,13 @@ set system syslog remote 10.3.0.10 facility all level info
 set service monitoring telegraf global-tag lab value srv6-core
 set service monitoring telegraf global-tag role value ce
 set service monitoring telegraf global-tag dc value dc4
+# the router's own HTTPS API (/show, /retrieve, /ping, /traceroute): what the BGP looking glass reads the
+# RIB, the per-VRF BGP tables and the IS-IS adjacencies through — a supported interface rather than a
+# scraped terminal, and every answer already JSON. Only the looking glass and the host may call it.
+set service https api rest
+set service https api keys id lg key srv6core-lab-looking-glass
+set service https allow-client address 10.3.0.70
+set service https allow-client address 10.3.0.1
 # VyOS/FRR insist on a default-VRF BGP instance while VRF instances exist: an empty one (no neighbours, no networks)
 set protocols bgp system-as 65004
 # tenant-a: VRF tenant-a on the CE holds the attachment circuit to pe4 and the dc4 LAN (dual-stack: one eBGP session per family)

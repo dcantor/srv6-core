@@ -1,4 +1,8 @@
 {
+ "api": {
+  "key": "srv6core-lab-looking-glass",
+  "scheme": "https"
+ },
  "collector": {
   "asn": 65000,
   "families": [
@@ -34,6 +38,12 @@
  "db": "/var/lib/lgd/lg.db",
  "devices": [
   {
+   "collect": {
+    "bgp_vrf": true,
+    "isis": false,
+    "rib": true,
+    "vpn": false
+   },
    "dc": "dc1",
    "families": [
     [
@@ -54,6 +64,12 @@
    ]
   },
   {
+   "collect": {
+    "bgp_vrf": true,
+    "isis": false,
+    "rib": true,
+    "vpn": false
+   },
    "dc": "dc2",
    "families": [
     [
@@ -74,6 +90,12 @@
    ]
   },
   {
+   "collect": {
+    "bgp_vrf": true,
+    "isis": false,
+    "rib": true,
+    "vpn": false
+   },
    "dc": "dc3",
    "families": [
     [
@@ -94,6 +116,12 @@
    ]
   },
   {
+   "collect": {
+    "bgp_vrf": true,
+    "isis": false,
+    "rib": true,
+    "vpn": false
+   },
    "dc": "dc4",
    "families": [
     [
@@ -114,6 +142,12 @@
    ]
   },
   {
+   "collect": {
+    "bgp_vrf": true,
+    "isis": false,
+    "rib": true,
+    "vpn": false
+   },
    "dc": "dc4",
    "families": [
     [
@@ -130,6 +164,69 @@
    ]
   },
   {
+   "collect": {
+    "bgp_vrf": false,
+    "isis": true,
+    "rib": true,
+    "vpn": true
+   },
+   "dc": "core",
+   "families": [
+    [
+     "ipv4",
+     "unicast"
+    ]
+   ],
+   "mgmt_ip": "10.3.0.21",
+   "name": "p1",
+   "role": "p",
+   "vrfs": []
+  },
+  {
+   "collect": {
+    "bgp_vrf": false,
+    "isis": true,
+    "rib": true,
+    "vpn": false
+   },
+   "dc": "core",
+   "families": [
+    [
+     "ipv4",
+     "unicast"
+    ]
+   ],
+   "mgmt_ip": "10.3.0.22",
+   "name": "p2",
+   "role": "p",
+   "vrfs": []
+  },
+  {
+   "collect": {
+    "bgp_vrf": false,
+    "isis": true,
+    "rib": true,
+    "vpn": true
+   },
+   "dc": "core",
+   "families": [
+    [
+     "ipv4",
+     "unicast"
+    ]
+   ],
+   "mgmt_ip": "10.3.0.23",
+   "name": "p3",
+   "role": "p",
+   "vrfs": []
+  },
+  {
+   "collect": {
+    "bgp_vrf": true,
+    "isis": true,
+    "rib": true,
+    "vpn": true
+   },
    "dc": "dc1",
    "families": [
     [
@@ -150,6 +247,12 @@
    ]
   },
   {
+   "collect": {
+    "bgp_vrf": true,
+    "isis": true,
+    "rib": true,
+    "vpn": true
+   },
    "dc": "dc2",
    "families": [
     [
@@ -170,6 +273,12 @@
    ]
   },
   {
+   "collect": {
+    "bgp_vrf": true,
+    "isis": true,
+    "rib": true,
+    "vpn": true
+   },
    "dc": "dc3",
    "families": [
     [
@@ -190,6 +299,12 @@
    ]
   },
   {
+   "collect": {
+    "bgp_vrf": true,
+    "isis": true,
+    "rib": true,
+    "vpn": true
+   },
    "dc": "dc4",
    "families": [
     [
@@ -429,5 +544,385 @@
  "ssh": {
   "password": "vyos",
   "username": "vyos"
+ },
+ "topology": {
+  "hosts": {
+   "dc1-h1": {
+    "dc": "dc1",
+    "ip": "172.20.1.2",
+    "ip6": "fd00:20:1::2",
+    "mgmt_ip": "10.3.0.41",
+    "role": "host",
+    "tenant": "tenant-a"
+   },
+   "dc1-h2": {
+    "dc": "dc1",
+    "ip": "172.21.1.2",
+    "ip6": "fd00:21:1::2",
+    "mgmt_ip": "10.3.0.51",
+    "role": "host",
+    "tenant": "tenant-b"
+   },
+   "dc2-h1": {
+    "dc": "dc2",
+    "ip": "172.20.2.2",
+    "ip6": "fd00:20:2::2",
+    "mgmt_ip": "10.3.0.42",
+    "role": "host",
+    "tenant": "tenant-a"
+   },
+   "dc2-h2": {
+    "dc": "dc2",
+    "ip": "172.21.2.2",
+    "ip6": "fd00:21:2::2",
+    "mgmt_ip": "10.3.0.52",
+    "role": "host",
+    "tenant": "tenant-b"
+   },
+   "dc3-h1": {
+    "dc": "dc3",
+    "ip": "172.20.3.2",
+    "ip6": "fd00:20:3::2",
+    "mgmt_ip": "10.3.0.43",
+    "role": "host",
+    "tenant": "tenant-a"
+   },
+   "dc3-h2": {
+    "dc": "dc3",
+    "ip": "172.21.3.2",
+    "ip6": "fd00:21:3::2",
+    "mgmt_ip": "10.3.0.53",
+    "role": "host",
+    "tenant": "tenant-b"
+   },
+   "dc4-h1": {
+    "dc": "dc4",
+    "ip": "172.20.4.2",
+    "ip6": "fd00:20:4::2",
+    "mgmt_ip": "10.3.0.44",
+    "role": "host",
+    "tenant": "tenant-a"
+   },
+   "dc4-h2": {
+    "dc": "dc4",
+    "ip": "172.21.4.2",
+    "ip6": "fd00:21:4::2",
+    "mgmt_ip": "10.3.0.54",
+    "role": "host",
+    "tenant": "tenant-b"
+   }
+  },
+  "links": [
+   {
+    "a": "ce1",
+    "a_ip": "172.20.1.1/24",
+    "a_port": "eth2",
+    "b": "dc1-h1",
+    "b_ip": "172.20.1.2/24",
+    "b_port": "eth1",
+    "prefix": "172.20.1.0/24",
+    "tenant": "tenant-a"
+   },
+   {
+    "a": "ce1",
+    "a_ip": "172.21.1.1/24",
+    "a_port": "eth4",
+    "b": "dc1-h2",
+    "b_ip": "172.21.1.2/24",
+    "b_port": "eth1",
+    "prefix": "172.21.1.0/24",
+    "tenant": "tenant-b"
+   },
+   {
+    "a": "ce2",
+    "a_ip": "172.20.2.1/24",
+    "a_port": "eth2",
+    "b": "dc2-h1",
+    "b_ip": "172.20.2.2/24",
+    "b_port": "eth1",
+    "prefix": "172.20.2.0/24",
+    "tenant": "tenant-a"
+   },
+   {
+    "a": "ce2",
+    "a_ip": "172.21.2.1/24",
+    "a_port": "eth4",
+    "b": "dc2-h2",
+    "b_ip": "172.21.2.2/24",
+    "b_port": "eth1",
+    "prefix": "172.21.2.0/24",
+    "tenant": "tenant-b"
+   },
+   {
+    "a": "ce3",
+    "a_ip": "172.20.3.1/24",
+    "a_port": "eth2",
+    "b": "dc3-h1",
+    "b_ip": "172.20.3.2/24",
+    "b_port": "eth1",
+    "prefix": "172.20.3.0/24",
+    "tenant": "tenant-a"
+   },
+   {
+    "a": "ce3",
+    "a_ip": "172.21.3.1/24",
+    "a_port": "eth4",
+    "b": "dc3-h2",
+    "b_ip": "172.21.3.2/24",
+    "b_port": "eth1",
+    "prefix": "172.21.3.0/24",
+    "tenant": "tenant-b"
+   },
+   {
+    "a": "ce4",
+    "a_ip": "172.20.4.1/24",
+    "a_port": "eth2",
+    "b": "dc4-h1",
+    "b_ip": "172.20.4.2/24",
+    "b_port": "eth1",
+    "prefix": "172.20.4.0/24",
+    "tenant": "tenant-a"
+   },
+   {
+    "a": "ce4",
+    "a_ip": "172.21.4.1/24",
+    "a_port": "eth4",
+    "b": "dc4-h2",
+    "b_ip": "172.21.4.2/24",
+    "b_port": "eth1",
+    "prefix": "172.21.4.0/24",
+    "tenant": "tenant-b"
+   },
+   {
+    "a": "p1",
+    "a_ip": "fd00:b:0:12::1/64",
+    "a_port": "eth1",
+    "b": "p2",
+    "b_ip": "fd00:b:0:12::2/64",
+    "b_port": "eth1",
+    "prefix": "fd00:b:0:12::/64",
+    "tenant": null
+   },
+   {
+    "a": "p1",
+    "a_ip": "fd00:b:0:13::1/64",
+    "a_port": "eth2",
+    "b": "p3",
+    "b_ip": "fd00:b:0:13::2/64",
+    "b_port": "eth1",
+    "prefix": "fd00:b:0:13::/64",
+    "tenant": null
+   },
+   {
+    "a": "p1",
+    "a_ip": "fd00:b:0:101::1/64",
+    "a_port": "eth3",
+    "b": "pe1",
+    "b_ip": "fd00:b:0:101::2/64",
+    "b_port": "eth1",
+    "prefix": "fd00:b:0:101::/64",
+    "tenant": null
+   },
+   {
+    "a": "p1",
+    "a_ip": "fd00:b:0:102::1/64",
+    "a_port": "eth4",
+    "b": "pe2",
+    "b_ip": "fd00:b:0:102::2/64",
+    "b_port": "eth1",
+    "prefix": "fd00:b:0:102::/64",
+    "tenant": null
+   },
+   {
+    "a": "p1",
+    "a_ip": "fd00:b:0:121::1/64",
+    "a_port": "eth5",
+    "b": "lg",
+    "b_ip": "fd00:b:0:121::2/64",
+    "b_port": "eth1",
+    "prefix": "fd00:b:0:121::/64",
+    "tenant": null
+   },
+   {
+    "a": "p2",
+    "a_ip": "fd00:b:0:23::1/64",
+    "a_port": "eth2",
+    "b": "p3",
+    "b_ip": "fd00:b:0:23::2/64",
+    "b_port": "eth2",
+    "prefix": "fd00:b:0:23::/64",
+    "tenant": null
+   },
+   {
+    "a": "p2",
+    "a_ip": "fd00:b:0:201::1/64",
+    "a_port": "eth3",
+    "b": "pe1",
+    "b_ip": "fd00:b:0:201::2/64",
+    "b_port": "eth2",
+    "prefix": "fd00:b:0:201::/64",
+    "tenant": null
+   },
+   {
+    "a": "p2",
+    "a_ip": "fd00:b:0:202::1/64",
+    "a_port": "eth4",
+    "b": "pe2",
+    "b_ip": "fd00:b:0:202::2/64",
+    "b_port": "eth2",
+    "prefix": "fd00:b:0:202::/64",
+    "tenant": null
+   },
+   {
+    "a": "p2",
+    "a_ip": "fd00:b:0:203::1/64",
+    "a_port": "eth5",
+    "b": "pe3",
+    "b_ip": "fd00:b:0:203::2/64",
+    "b_port": "eth1",
+    "prefix": "fd00:b:0:203::/64",
+    "tenant": null
+   },
+   {
+    "a": "p2",
+    "a_ip": "fd00:b:0:204::1/64",
+    "a_port": "eth6",
+    "b": "pe4",
+    "b_ip": "fd00:b:0:204::2/64",
+    "b_port": "eth1",
+    "prefix": "fd00:b:0:204::/64",
+    "tenant": null
+   },
+   {
+    "a": "p3",
+    "a_ip": "fd00:b:0:303::1/64",
+    "a_port": "eth3",
+    "b": "pe3",
+    "b_ip": "fd00:b:0:303::2/64",
+    "b_port": "eth2",
+    "prefix": "fd00:b:0:303::/64",
+    "tenant": null
+   },
+   {
+    "a": "p3",
+    "a_ip": "fd00:b:0:304::1/64",
+    "a_port": "eth4",
+    "b": "pe4",
+    "b_ip": "fd00:b:0:304::2/64",
+    "b_port": "eth2",
+    "prefix": "fd00:b:0:304::/64",
+    "tenant": null
+   },
+   {
+    "a": "p3",
+    "a_ip": "fd00:b:0:321::1/64",
+    "a_port": "eth5",
+    "b": "lg",
+    "b_ip": "fd00:b:0:321::2/64",
+    "b_port": "eth2",
+    "prefix": "fd00:b:0:321::/64",
+    "tenant": null
+   },
+   {
+    "a": "pe1",
+    "a_ip": "172.16.1.1/30",
+    "a_port": "eth3",
+    "b": "ce1",
+    "b_ip": "172.16.1.2/30",
+    "b_port": "eth1",
+    "prefix": "172.16.1.0/30",
+    "tenant": "tenant-a"
+   },
+   {
+    "a": "pe1",
+    "a_ip": "172.18.1.1/30",
+    "a_port": "eth4",
+    "b": "ce1",
+    "b_ip": "172.18.1.2/30",
+    "b_port": "eth3",
+    "prefix": "172.18.1.0/30",
+    "tenant": "tenant-b"
+   },
+   {
+    "a": "pe2",
+    "a_ip": "172.16.2.1/30",
+    "a_port": "eth3",
+    "b": "ce2",
+    "b_ip": "172.16.2.2/30",
+    "b_port": "eth1",
+    "prefix": "172.16.2.0/30",
+    "tenant": "tenant-a"
+   },
+   {
+    "a": "pe2",
+    "a_ip": "172.18.2.1/30",
+    "a_port": "eth4",
+    "b": "ce2",
+    "b_ip": "172.18.2.2/30",
+    "b_port": "eth3",
+    "prefix": "172.18.2.0/30",
+    "tenant": "tenant-b"
+   },
+   {
+    "a": "pe3",
+    "a_ip": "172.16.3.1/30",
+    "a_port": "eth3",
+    "b": "ce3",
+    "b_ip": "172.16.3.2/30",
+    "b_port": "eth1",
+    "prefix": "172.16.3.0/30",
+    "tenant": "tenant-a"
+   },
+   {
+    "a": "pe3",
+    "a_ip": "172.18.3.1/30",
+    "a_port": "eth4",
+    "b": "ce3",
+    "b_ip": "172.18.3.2/30",
+    "b_port": "eth3",
+    "prefix": "172.18.3.0/30",
+    "tenant": "tenant-b"
+   },
+   {
+    "a": "pe4",
+    "a_ip": "172.16.4.1/30",
+    "a_port": "eth3",
+    "b": "ce4",
+    "b_ip": "172.16.4.2/30",
+    "b_port": "eth1",
+    "prefix": "172.16.4.0/30",
+    "tenant": "tenant-a"
+   },
+   {
+    "a": "pe4",
+    "a_ip": "172.18.4.1/30",
+    "a_port": "eth4",
+    "b": "ce4",
+    "b_ip": "172.18.4.2/30",
+    "b_port": "eth3",
+    "prefix": "172.18.4.0/30",
+    "tenant": "tenant-b"
+   },
+   {
+    "a": "pe4",
+    "a_ip": "172.16.5.1/30",
+    "a_port": "eth5",
+    "b": "fw-inet",
+    "b_ip": "172.16.5.2/30",
+    "b_port": "eth1",
+    "prefix": "172.16.5.0/30",
+    "tenant": "tenant-a"
+   },
+   {
+    "a": "pe4",
+    "a_ip": "172.18.5.1/30",
+    "a_port": "eth6",
+    "b": "fw-inet",
+    "b_ip": "172.18.5.2/30",
+    "b_port": "eth2",
+    "prefix": "172.18.5.0/30",
+    "tenant": "tenant-b"
+   }
+  ]
  }
 }

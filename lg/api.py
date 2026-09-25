@@ -5,18 +5,24 @@ Everything the UI shows comes from these endpoints, so anything the page can do 
 
   GET  /api/status                       collector, sessions, counts, poll health, database
   GET  /api/meta                         the model behind the filters: VRFs, RDs, sources, address families, nodes
-  GET  /api/prefixes?...                 the current table (source, afi, safi, vrf, rd, origin_as, q, best_only, ...)
+  GET  /api/prefixes?...                 the current table (source, via, afi, safi, vrf, rd, origin_as, q, best_only, …)
+                                         — `via` is how the row was obtained: rr-session, router-api or router-ssh
   GET  /api/prefix?prefix=1.2.3.0/24     every path for one prefix, in every view, with its history
   GET  /api/history?prefix=&since=       announce / change / withdraw events, newest first
   GET  /api/state?at=<epoch>&prefix=     the table as it stood at a moment (the event log replayed)
   GET  /api/series?metric=paths&...      the numeric series behind the charts
   GET  /api/peers                        the collector's BGP sessions and every device poll
+  GET  /api/routers                      every router: how it was read (its own API / SSH), what it holds, its IS-IS
+                                         adjacencies and the last error if a transport is failing
+  GET  /api/path?prefix=&vrf=&from=      the hops a packet to that prefix crosses, from a chosen vantage point
   POST /api/query {device, command}      a live `show` on a router — the classic looking-glass button
   GET  /metrics                          Prometheus exposition of the same numbers
 """
 import json, re, subprocess, time
 from pathlib import Path
 from flask import Flask, Response, jsonify, request, send_from_directory
+
+import paths as paths_mod
 
 STATIC = Path(__file__).resolve().parent / "static"
 SHOW_OK = re.compile(r"^show [a-zA-Z0-9 ._:/\[\]-]{0,200}$")      # a looking glass runs `show` commands and nothing else
@@ -36,7 +42,8 @@ def create_app(cfg, store, collector):
                 "sources": ["collector"] + list(devices), "srv6": cfg.get("service", {}).get("srv6", {}),
                 "core_as": cfg.get("service", {}).get("core_as"), "rrs": cfg.get("service", {}).get("rrs", []),
                 "peers": cfg["collector"]["peers"], "families": cfg["collector"]["families"],
-                "locators": cfg.get("locators", {}), "loopbacks": cfg.get("loopbacks", {})}
+                "locators": cfg.get("locators", {}), "loopbacks": cfg.get("loopbacks", {}),
+                "topology": cfg.get("topology", {"links": [], "hosts": {}})}
 
     @app.get("/api/meta")
     def api_meta(): return jsonify(meta())
@@ -61,6 +68,7 @@ def create_app(cfg, store, collector):
                                   afi=g.get("afi"), safi=g.get("safi"), vrf=g.getlist("vrf") or g.get("vrf"),
                                   rd=g.get("rd"), prefix=g.get("prefix"), peer_name=g.get("peer"),
                                   origin_node=g.get("origin_node"), origin_as=g.get("origin_as"),
+                                                  via=g.getlist("via") or g.get("via"),
                                   q=g.get("q"), best_only=g.get("best_only") == "1")
         return jsonify({"total": total, "count": len(rows), "offset": int(g.get("offset", 0)), "paths": rows})
 
@@ -93,9 +101,99 @@ def create_app(cfg, store, collector):
                         "series": store.series(g.get("metric", "paths"), since=g.get("since", time.time() - 3600),
                                                until=g.get("until"), source=g.get("source"), step=g.get("step"))})
 
+    @app.get("/api/routers")
+    def api_routers():
+        polls = {p["source"]: p for p in store.polls()}
+        counts = {}
+        for c in store.counts():
+            counts.setdefault(c["source"], []).append(c)
+        out = []
+        for d in cfg["devices"]:
+            n = cfg["nodes"].get(d["name"], {})
+            p = polls.get(d["name"], {})
+            out.append({**d, "role": n.get("role"), "loopback6": n.get("loopback6"), "locator": n.get("locator"),
+                        "router_id": n.get("router_id"), "asn": n.get("asn"),
+                        "poll": {k: p.get(k) for k in ("ts", "ok", "duration", "error", "via", "detail")},
+                        "adjacencies": collector.adjacency.get(d["name"]), "holds": counts.get(d["name"], [])})
+        return jsonify({"routers": out, "transports": {
+            "rr-session": "the collector's own iBGP session to the route reflectors",
+            "router-api": "the router's HTTPS API (VyOS `service https api`, JSON)",
+            "router-ssh": "vtysh over SSH, for the views the API cannot express"}})
+
     @app.get("/api/peers")
     def api_peers():
         return jsonify({"peers": list(collector.peers.values()), "polls": store.polls(), "devices": cfg["devices"]})
+
+    ROUTE_TTL, route_cache = 30, {}
+
+    RIB_FRESH = 45          # a collected RIB row older than this is re-read: a path view has to be current
+
+    def rib_route(node, vrf, prefix):
+        """What the router's own RIB says about the prefix. The collected row when it is fresh enough, otherwise a
+        read straight from the router's API — the same question the poller asks, just now (a steering policy applied
+        a minute ago has to show up the moment somebody looks)."""
+        _, rows = store.paths(alive=True, limit=5, prefix=prefix, vrf=vrf or None, source=node, safi="rib")
+        if rows and time.time() - (rows[0].get("last_seen") or 0) < RIB_FRESH:
+            return paths_mod.from_rib(rows[0])
+        key = ("rib", node, vrf, prefix); now = time.time()
+        hit = route_cache.get(key)
+        if hit and now - hit[0] < ROUTE_TTL: return hit[1]
+        out = None
+        dev = devices.get(node)
+        api_key = (cfg.get("api") or {}).get("key")
+        if dev and api_key:
+            from collect import RouterAPI, rib_entries
+            v6 = ":" in prefix
+            path = [("ipv6" if v6 else "ip"), "route"] + ([] if not vrf or vrf == "default" else ["vrf", vrf]) + ["json"]
+            try:
+                doc = RouterAPI(dev["mgmt_ip"], api_key, timeout=20).show(path)
+                match = {k: v for k, v in (doc or {}).items() if k == prefix}
+                entries = rib_entries(match, "ipv6" if v6 else "ipv4", vrf or "default", node=node)
+                if entries:
+                    entries[0]["via"] = "router-api"; entries[0]["last_seen"] = now
+                    out = paths_mod.from_rib(entries[0])
+            except Exception as e:                                   # noqa: BLE001 — fall through to the stored row
+                app.logger.warning("rib read %s %s: %s", node, prefix, e)
+        if out is None and rows: out = paths_mod.from_rib(rows[0])
+        route_cache[key] = (now, out)
+        return out
+
+    def live_route(node, vrf, prefix):
+        """What the router has installed for the prefix (so a steering policy shows up in the path). Cached briefly:
+        the page asks for a path every time a row is opened."""
+        key = (node, vrf, prefix); now = time.time()
+        hit = route_cache.get(key)
+        if hit and now - hit[0] < ROUTE_TTL: return hit[1]
+        # the kernel's view: the only one that prints the SRv6 encapsulation (FRR's own `show ip route` stops at the
+        # recursive next hop). Not a user-supplied command, so it does not go through the looking-glass allow-list.
+        v6 = ":" in prefix
+        cmd = f"sudo ip -c=never {'-6 ' if v6 else ''}route show{f' vrf {vrf}' if vrf and vrf != 'default' else ''} {prefix}"
+        try: out = _run_on_device(cfg, devices[node], cmd, "raw") if node in devices else None
+        except Exception: out = None                             # noqa: BLE001 — the path is still worth drawing
+        route_cache[key] = (now, out)
+        return out
+
+    @app.get("/api/path")
+    def api_path():
+        g = request.args
+        prefix = g.get("prefix", "")
+        if not prefix: return jsonify({"error": "prefix is required"}), 400
+        vrf = g.get("vrf") or None
+        _, rows = store.paths(alive=True, limit=200, prefix=prefix, vrf=vrf, source="collector")
+        if not rows:                                             # a prefix only seen in a VRF view (a CE's own LAN)
+            _, rows = store.paths(alive=True, limit=200, prefix=prefix, vrf=vrf)
+        vantage = g.get("from") or None
+        first = paths_mod.build(prefix, vrf, rows, cfg, vantage=vantage)
+        if first.get("error"): return jsonify(first), 404
+        if g.get("live", "1") != "1": return jsonify(first)
+        route = rib_route(first["vantage"], first["vrf"], prefix)          # the router's API, collected and stored
+        if route: return jsonify(paths_mod.build(prefix, vrf, rows, cfg, vantage=vantage, route=route))
+        text = live_route(first["vantage"], first["vrf"], prefix)          # …or a live lookup when the RIB is not in yet
+        if text:
+            out = paths_mod.build(prefix, vrf, rows, cfg, vantage=vantage, route_text=text)
+            if out.get("live"): out["live"]["via"] = "router-ssh"; out["sources"]["forwarding"] = "router-ssh"
+            return jsonify(out)
+        return jsonify(first)
 
     @app.post("/api/query")
     def api_query():
@@ -122,7 +220,7 @@ def create_app(cfg, store, collector):
         L = {"lab": cfg["lab"], "node": cfg["node"]}
         out = [f'# HELP lg_up the looking glass is running', f'# TYPE lg_up gauge', _m("lg_up", 1, L)]
         for c in store.counts():
-            lab = {**L, "source": c["source"], "afi": c["afi"], "safi": c["safi"], "vrf": c["vrf"] or "-"}
+            lab = {**L, "source": c["source"], "via": c["via"] or "-", "afi": c["afi"], "safi": c["safi"], "vrf": c["vrf"] or "-"}
             out += [_m("lg_paths", c["n"], lab), _m("lg_prefixes", c["prefixes"], lab)]
         for p in collector.peers.values():
             lab = {**L, "peer": p["name"] or p["ip"], "remote_as": p.get("remote_as")}
@@ -133,9 +231,12 @@ def create_app(cfg, store, collector):
         for kind, n in store.churn(now - 300).items(): out.append(_m("lg_events_5m", n, {**L, "kind": kind}))
         for kind, n in store.churn(now - 3600).items(): out.append(_m("lg_events_1h", n, {**L, "kind": kind}))
         for p in store.polls():
-            lab = {**L, "source": p["source"]}
+            lab = {**L, "source": p["source"], "via": p.get("via") or "-"}
             out += [_m("lg_poll_ok", p["ok"], lab), _m("lg_poll_age_seconds", now - (p["ts"] or now), lab),
                     _m("lg_poll_duration_seconds", p["duration"] or 0, lab)]
+            adj = (p.get("detail") or {}).get("isis") if isinstance(p.get("detail"), dict) else None
+            if adj is not None:
+                out.append(_m("lg_isis_adjacencies_up", len([a for a in adj if (a.get("state") or "").lower() == "up"]), {**L, "node": p["source"]}))
         s = store.stats()
         out += [_m("lg_db_bytes", s["db_bytes"], L), _m("lg_db_events", s["events"], L), _m("lg_db_paths", s["paths"], L)]
         return Response("\n".join(out) + "\n", mimetype="text/plain; version=0.0.4")
@@ -161,7 +262,9 @@ def _run_on_device(cfg, dev, command, kind):
     c = paramiko.SSHClient(); c.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     c.connect(dev["mgmt_ip"], username=ssh["username"], password=ssh["password"], timeout=20, look_for_keys=False, allow_agent=False)
     try:
-        if kind == "show":
+        if kind == "raw":                                        # an internal command (the looking glass's own lookups)
+            cmd = command
+        elif kind == "show":
             cmd = f"vtysh -c '{command}'"
         else:
             m = PING_OK.match(command); tool, target, vrf, count = m.group(1), m.group(2), m.group(4), m.group(6) or "3"

@@ -23,6 +23,9 @@ SCHEMA = """
 CREATE TABLE IF NOT EXISTS path (
   id INTEGER PRIMARY KEY,
   source TEXT NOT NULL,            -- 'collector' (this VM's own BGP table) or the device the view was polled from
+  via TEXT,                        -- how it was obtained: rr-session (iBGP from the reflectors), router-api (the
+                                   -- router's own HTTPS API) or router-ssh (vtysh over SSH, for what the API cannot
+                                   -- express) — the same prefix seen two ways is two rows, and the page says which
   afi TEXT NOT NULL, safi TEXT NOT NULL,
   vrf TEXT,                        -- tenant-a / tenant-b / default (for VPN routes: resolved from the RD)
   rd TEXT,                         -- VPN routes only
@@ -43,6 +46,7 @@ CREATE TABLE IF NOT EXISTS path (
 CREATE INDEX IF NOT EXISTS path_prefix   ON path(prefix);
 CREATE INDEX IF NOT EXISTS path_alive    ON path(alive, source, afi, safi);
 CREATE INDEX IF NOT EXISTS path_vrf      ON path(vrf, alive);
+CREATE INDEX IF NOT EXISTS path_safi     ON path(safi, alive);
 
 CREATE TABLE IF NOT EXISTS event (
   id INTEGER PRIMARY KEY,
@@ -61,7 +65,7 @@ CREATE TABLE IF NOT EXISTS sample (
 CREATE INDEX IF NOT EXISTS sample_metric ON sample(metric, ts);
 
 CREATE TABLE IF NOT EXISTS poll (          -- the health of every collection, so the UI can say when a view went stale
-  source TEXT PRIMARY KEY, ts REAL, ok INTEGER, duration REAL, paths INTEGER, error TEXT
+  source TEXT PRIMARY KEY, ts REAL, ok INTEGER, duration REAL, paths INTEGER, error TEXT, via TEXT, detail TEXT
 );
 """
 
@@ -82,6 +86,17 @@ class Store:
         self._local = threading.local()
         with self.conn() as c:
             c.executescript(SCHEMA)
+            self._migrate(c)
+
+    # columns added after the first release: the history already on the VM is worth more than a clean schema, so the
+    # store grows them in place (SQLite's CREATE TABLE IF NOT EXISTS leaves an existing table exactly as it was)
+    ADDED = {"path": [("via", "TEXT")], "poll": [("via", "TEXT"), ("detail", "TEXT")]}
+
+    def _migrate(self, c):
+        for table, cols in self.ADDED.items():
+            have = {r[1] for r in c.execute(f"PRAGMA table_info({table})")}
+            for name, kind in cols:
+                if name not in have: c.execute(f"ALTER TABLE {table} ADD COLUMN {name} {kind}")
 
     def conn(self):
         """One connection per thread (SQLite objects are not shareable); WAL so the API reads while the collector writes."""
@@ -116,14 +131,15 @@ class Store:
                 for k, p in seen.items():
                     attrs = p["attrs"]; row = have.get(k)
                     cols = dict(peer_name=p.get("peer_name"), origin_node=p.get("origin_node"), origin_as=p.get("origin_as"),
-                                nexthop=p.get("nexthop"), best=1 if p.get("best") else 0, attrs=json.dumps(attrs, sort_keys=True))
+                                nexthop=p.get("nexthop"), best=1 if p.get("best") else 0, via=p.get("via"),
+                                attrs=json.dumps(attrs, sort_keys=True))
                     if row is None:
-                        cur = c.execute("INSERT INTO path (source, afi, safi, vrf, rd, prefix, peer, disc, peer_name, origin_node,"
-                                        " origin_as, nexthop, best, attrs, first_seen, last_seen, last_change, alive)"
-                                        " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1)",
-                                        (source, p["afi"], p["safi"], p.get("vrf"), p.get("rd"), p["prefix"], p.get("peer"),
-                                         p.get("disc"), cols["peer_name"], cols["origin_node"], cols["origin_as"], cols["nexthop"],
-                                         cols["best"], cols["attrs"], ts, ts, ts))
+                        cur = c.execute("INSERT INTO path (source, via, afi, safi, vrf, rd, prefix, peer, disc, peer_name,"
+                                        " origin_node, origin_as, nexthop, best, attrs, first_seen, last_seen, last_change, alive)"
+                                        " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1)",
+                                        (source, cols["via"], p["afi"], p["safi"], p.get("vrf"), p.get("rd"), p["prefix"],
+                                         p.get("peer"), p.get("disc"), cols["peer_name"], cols["origin_node"], cols["origin_as"],
+                                         cols["nexthop"], cols["best"], cols["attrs"], ts, ts, ts))
                         c.execute("INSERT INTO event (ts, path_id, kind, attrs) VALUES (?,?,'announce',?)", (ts, cur.lastrowid, cols["attrs"]))
                         announced += 1
                         continue
@@ -131,22 +147,23 @@ class Store:
                     diff = {k2: [before.get(k2), after.get(k2)] for k2 in set(before) | set(after) if before.get(k2) != after.get(k2)}
                     if row["alive"] == 0:      # it came back
                         c.execute("UPDATE path SET alive=1, attrs=?, peer_name=?, origin_node=?, origin_as=?, nexthop=?, best=?,"
-                                  " last_seen=?, last_change=? WHERE id=?",
+                                  " via=?, last_seen=?, last_change=? WHERE id=?",
                                   (cols["attrs"], cols["peer_name"], cols["origin_node"], cols["origin_as"], cols["nexthop"],
-                                   cols["best"], ts, ts, row["id"]))
+                                   cols["best"], cols["via"], ts, ts, row["id"]))
                         c.execute("INSERT INTO event (ts, path_id, kind, attrs, changes) VALUES (?,?,'announce',?,?)",
                                   (ts, row["id"], cols["attrs"], json.dumps(diff) if diff else None))
                         announced += 1
                     elif diff:
                         c.execute("UPDATE path SET attrs=?, peer_name=?, origin_node=?, origin_as=?, nexthop=?, best=?,"
-                                  " last_seen=?, last_change=? WHERE id=?",
+                                  " via=?, last_seen=?, last_change=? WHERE id=?",
                                   (cols["attrs"], cols["peer_name"], cols["origin_node"], cols["origin_as"], cols["nexthop"],
-                                   cols["best"], ts, ts, row["id"]))
+                                   cols["best"], cols["via"], ts, ts, row["id"]))
                         c.execute("INSERT INTO event (ts, path_id, kind, attrs, changes) VALUES (?,?,'change',?,?)",
                                   (ts, row["id"], cols["attrs"], json.dumps(diff)))
                         changed += 1
-                    else:
-                        c.execute("UPDATE path SET last_seen=?, attrs=? WHERE id=?", (ts, cols["attrs"], row["id"]))
+                    else:   # nothing changed about the path itself; keep the timestamp and how it was obtained current
+                        c.execute("UPDATE path SET last_seen=?, attrs=?, via=? WHERE id=?",
+                                  (ts, cols["attrs"], cols["via"], row["id"]))
                 for k, row in have.items():
                     if k in seen or row["alive"] == 0: continue
                     c.execute("UPDATE path SET alive=0, last_change=? WHERE id=?", (ts, row["id"]))
@@ -162,12 +179,13 @@ class Store:
             self.conn().execute("INSERT INTO sample (ts, source, metric, labels, value) VALUES (?,?,?,?,?)",
                                 (ts or time.time(), source, metric, json.dumps(labels, sort_keys=True), float(value)))
 
-    def note_poll(self, source, ok, duration, paths=0, error=None, ts=None):
+    def note_poll(self, source, ok, duration, paths=0, error=None, ts=None, via=None, detail=None):
         with self._lock:
-            self.conn().execute("INSERT INTO poll (source, ts, ok, duration, paths, error) VALUES (?,?,?,?,?,?)"
+            self.conn().execute("INSERT INTO poll (source, ts, ok, duration, paths, error, via, detail) VALUES (?,?,?,?,?,?,?,?)"
                                 " ON CONFLICT(source) DO UPDATE SET ts=excluded.ts, ok=excluded.ok, duration=excluded.duration,"
-                                " paths=excluded.paths, error=excluded.error",
-                                (source, ts or time.time(), 1 if ok else 0, duration, paths, error))
+                                " paths=excluded.paths, error=excluded.error, via=excluded.via, detail=excluded.detail",
+                                (source, ts or time.time(), 1 if ok else 0, duration, paths, error, via,
+                                 json.dumps(detail) if isinstance(detail, (dict, list)) else detail))
 
     def prune(self):
         """Drop history past the retention window, and the paths that died before it (their events are gone)."""
@@ -190,7 +208,7 @@ class Store:
         """Current (or historical, alive=None) paths with the usual filters; `q` matches prefix / AS path / next hop / SID."""
         where, args = [], []
         if alive is not None: where.append("alive = ?"); args.append(1 if alive else 0)
-        for col in ("source", "afi", "safi", "vrf", "rd", "prefix", "peer_name", "origin_node", "origin_as"):
+        for col in ("source", "via", "afi", "safi", "vrf", "rd", "prefix", "peer_name", "origin_node", "origin_as"):
             v = f.get(col)
             if v in (None, "", "all"): continue
             vals = v if isinstance(v, (list, tuple)) else [v]
@@ -217,7 +235,7 @@ class Store:
         if since: where.append("ts >= ?"); args.append(float(since))
         if until: where.append("ts <= ?"); args.append(float(until))
         if kinds: where.append(f"kind IN ({','.join('?' * len(kinds))})"); args += list(kinds)
-        sql = ("SELECT e.*, p.source, p.afi, p.safi, p.vrf, p.rd, p.prefix, p.peer_name, p.origin_node FROM event e"
+        sql = ("SELECT e.*, p.source, p.via, p.afi, p.safi, p.vrf, p.rd, p.prefix, p.peer_name, p.origin_node FROM event e"
                " JOIN path p ON p.id = e.path_id")
         if where: sql += " WHERE " + " AND ".join(where)
         rows = self.conn().execute(sql + " ORDER BY e.ts DESC, e.id DESC LIMIT ?", args + [int(limit)])
@@ -267,12 +285,18 @@ class Store:
         return list(out.values())
 
     def counts(self, alive=True):
-        rows = self.conn().execute("SELECT source, afi, safi, vrf, COUNT(*) n, COUNT(DISTINCT prefix) prefixes FROM path"
-                                   " WHERE alive = ? GROUP BY source, afi, safi, vrf", (1 if alive else 0,))
+        rows = self.conn().execute("SELECT source, via, afi, safi, vrf, COUNT(*) n, COUNT(DISTINCT prefix) prefixes FROM path"
+                                   " WHERE alive = ? GROUP BY source, via, afi, safi, vrf", (1 if alive else 0,))
         return [dict(r) for r in rows]
 
     def polls(self):
-        return [dict(r) for r in self.conn().execute("SELECT * FROM poll ORDER BY source")]
+        out = []
+        for r in self.conn().execute("SELECT * FROM poll ORDER BY source"):
+            d = dict(r)
+            try: d["detail"] = json.loads(d["detail"]) if d.get("detail") else None
+            except (TypeError, ValueError): pass
+            out.append(d)
+        return out
 
     def churn(self, since):
         rows = self.conn().execute("SELECT kind, COUNT(*) n FROM event WHERE ts >= ? GROUP BY kind", (float(since),))

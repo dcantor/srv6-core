@@ -7,6 +7,11 @@ import ipaddress
 
 NMS_IP, VM_PORT, VL_SYSLOG_PORT, SFLOW_PORT = "10.3.0.10", 8428, 5514, 6343  # the NMS on the OOB network: VictoriaMetrics (InfluxDB API) and VictoriaLogs (syslog)
 TELEGRAF_TOKEN = "srv6core-lab-telegraf".ljust(86, "_") + "=="   # VyOS insists on an InfluxDB-shaped token (86 chars + ==); VictoriaMetrics ignores it
+# The routers' own HTTPS API (VyOS `service https api`): what the BGP looking glass calls to read their tables — the RIB,
+# the per-VRF BGP tables and the IS-IS adjacencies — instead of scraping a terminal. Reachable only from the OOB
+# addresses of the looking glass and the lab host (`allow-client`); a lab key, like the vyos/vyos logins.
+API_KEY = "srv6core-lab-looking-glass"
+API_CLIENTS = ("10.3.0.70", "10.3.0.1")          # the looking glass and the host (lab.sh / the test suites)
 
 
 def render_all(inv):
@@ -39,7 +44,12 @@ class _Renderer:
                 f"set system syslog remote {NMS_IP} port {VL_SYSLOG_PORT}", f"set system syslog remote {NMS_IP} protocol udp",
                 f"set system syslog remote {NMS_IP} facility all level info",
                 f"set service monitoring telegraf global-tag lab value {self.inv['lab']}", f"set service monitoring telegraf global-tag role value {n['role']}",
-                f"set service monitoring telegraf global-tag dc value {n['dc']}"] + self.sflow(n)
+                f"set service monitoring telegraf global-tag dc value {n['dc']}",
+                "# the router's own HTTPS API (/show, /retrieve, /ping, /traceroute): what the BGP looking glass reads the",
+                "# RIB, the per-VRF BGP tables and the IS-IS adjacencies through — a supported interface rather than a",
+                "# scraped terminal, and every answer already JSON. Only the looking glass and the host may call it.",
+                "set service https api rest", f"set service https api keys id lg key {API_KEY}"] + [
+                f"set service https allow-client address {c}" for c in API_CLIENTS] + self.sflow(n)
 
     def sflow(self, n):
         """sFlow (hsflowd) from the P routers' ports to the collector on the NMS (goflow2 -> VictoriaLogs): the outer IPv6 flows
@@ -333,13 +343,29 @@ def lg_app_config(inv, name=None, port=8080, poll_local=20, poll_devices=120, hi
                          "loopback6": x.get("loopback6"), "locator": x.get("locator"),
                          "router_id": x.get("router_id") if x.get("asn") else None}
              for x in inv["nodes"] if x["role"] != "host"}
+    # the wiring, so the looking glass can draw the testbed and work out which routers a prefix's traffic crosses:
+    # the hosts and their LANs belong in it too (they are the ends of the path). Sorted, because the two producers
+    # build the inventory in different orders.
+    hosts = {x["name"]: {"role": "host", "dc": x["dc"], "mgmt_ip": x["mgmt_ip"],
+                         "ip": (x["ports"][0]["ip"] or "").split("/")[0] or None,
+                         "ip6": (x["ports"][0].get("ip6") or "").split("/")[0] or None,
+                         "tenant": x["ports"][0].get("tenant")}
+             for x in inv["nodes"] if x["role"] == "host" and x["ports"]}
+    links = sorted(({"a": l["a"], "a_port": l["a_port"], "a_ip": l["a_ip"], "b": l["b"], "b_port": l["b_port"],
+                     "b_ip": l["b_ip"], "prefix": l["prefix"], "tenant": l.get("tenant")} for l in inv["links"]),
+                   key=lambda l: (l["a"], l["a_port"], l["b"], l["b_port"]))
     devices = []
     for x in inv["nodes"]:
-        if x["role"] not in ("pe", "ce", "fw"): continue
+        if x["role"] not in ("pe", "p", "ce", "fw"): continue
         vrfs = sorted({p["tenant"] for p in x["ports"] if p.get("tenant")})
         families = [("ipv4", "unicast")] + ([("ipv6", "unicast")] if any(p.get("ip6") for p in x["ports"]) else [])
+        # what to ask each router for, and therefore how: the RIB and the IS-IS adjacencies come from its own HTTPS
+        # API (JSON), the VPN table too (the reflector's own view, to hold against what the session delivered), and
+        # the per-VRF BGP tables over SSH because VyOS's op-mode has no `json` for them
+        collect = {"rib": True, "isis": x["role"] in ("pe", "p"),
+                   "vpn": x["role"] == "pe" or x["name"] in svc["rrs"], "bgp_vrf": bool(vrfs)}
         devices.append({"name": x["name"], "role": x["role"], "dc": x["dc"], "mgmt_ip": x["mgmt_ip"], "vrfs": vrfs,
-                        "families": [list(f) for f in families]})
+                        "families": [list(f) for f in families], "collect": collect})
     devices.sort(key=lambda d: d["name"])      # two producers feed this (lab.conf and Nautobot): the order must not depend on them
     return {"lab": inv["lab"], "node": n["name"], "listen": {"host": "0.0.0.0", "port": port},
             "db": "/var/lib/lgd/lg.db", "history_days": history_days,
@@ -347,8 +373,12 @@ def lg_app_config(inv, name=None, port=8080, poll_local=20, poll_devices=120, hi
                           "families": [["ipv4", "vpn"], ["ipv6", "vpn"]]},
             "service": {"core_as": svc["core_as"], "rrs": svc["rrs"], "srv6": svc["srv6"],
                         "tenants": svc["tenants"], "isis_area": svc.get("isis_area")},
-            "rd_map": rd_map, "nodes": nodes, "devices": devices,
+            "rd_map": rd_map, "nodes": nodes, "devices": devices, "topology": {"links": links, "hosts": hosts},
             "loopbacks": {x["loopback6"]: x["name"] for x in inv["nodes"] if x.get("loopback6")},
             "locators": {x["locator"]: x["name"] for x in inv["nodes"] if x.get("locator")},
             "poll": {"local": poll_local, "devices": poll_devices},
-            "ssh": {"username": ssh[0], "password": ssh[1]}, "nms": nms}
+            "ssh": {"username": ssh[0], "password": ssh[1]},
+            # the routers' own HTTPS API: where the RIBs, the VPN tables and the IS-IS adjacencies come from. The
+            # per-VRF BGP tables still come over SSH — VyOS's op-mode has no `json` for them — and every row the
+            # looking glass stores says which of the two it came from.
+            "api": {"key": API_KEY, "scheme": "https"}, "nms": nms}

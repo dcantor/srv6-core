@@ -41,6 +41,23 @@
   .tl .ev { position:absolute; top:0; bottom:0; width:3px; border-radius:2px } .tl .ev.announce { background:var(--ok) } .tl .ev.change { background:var(--warn) } .tl .ev.withdraw { background:var(--bad) }
   .chart { width:100%; height:120px } .chart text { font-size:10px; fill:var(--muted) } .chart path { fill:none; stroke-width:1.8 }
   .legend span { margin-right:12px; font-size:12px; color:var(--muted) } .legend i { display:inline-block; width:9px; height:9px; border-radius:2px; margin-right:4px }
+  svg.topo { width:100%; height:auto; display:block; max-height:420px }
+  .topo .coreband { fill:var(--row); stroke:var(--line) } .topo .lane { fill:var(--row); stroke:var(--line); opacity:.55 }
+  .topo .lanel { font-size:10px; fill:var(--muted) }
+  .topo line.tl { stroke:var(--line); stroke-width:1.4 } .topo line.core { stroke:var(--accent); stroke-width:1.8; opacity:.75 }
+  .topo line.acc { stroke:var(--muted); stroke-width:1.2; opacity:.6 } .topo line.coll { stroke:var(--ok); stroke-dasharray:4 3; opacity:.8 }
+  .topo line.lit { stroke:var(--bad); stroke-width:3.4; opacity:1 }
+  .topo line.down { stroke:var(--bad); stroke-width:1.6; stroke-dasharray:3 3; opacity:.9 }
+  .topo .tn rect { fill:var(--card); stroke:var(--line); stroke-width:1.4; cursor:pointer }
+  .topo .tn text { font-size:11px; fill:var(--ink); font-family:ui-monospace, Menlo, Consolas, monospace; pointer-events:none }
+  .topo .tn.p rect { stroke:var(--accent) } .topo .tn.pe rect { stroke:var(--blue) } .topo .tn.lg rect { stroke:var(--ok) }
+  .topo .tn.host rect { stroke:var(--muted) } .topo .tn.lit rect { stroke:var(--bad); stroke-width:2.6; fill:var(--bad-bg) }
+  .topo .step { fill:var(--bad) } .topo .stept { font-size:9px; fill:#fff; font-weight:700 }
+  .hops { display:flex; flex-wrap:wrap; align-items:stretch; gap:6px; margin-top:12px }
+  .hop { border:1px solid var(--line); border-radius:8px; padding:7px 10px; min-width:150px; max-width:260px; background:var(--card) }
+  .hop .n { font-weight:600; font-size:12.5px } .hop .w { font-size:12px; color:var(--ink); margin-top:2px }
+  .hop.ingress { border-color:var(--blue) } .hop.egress { border-color:var(--ok) } .hop.host { background:var(--row) }
+  .arrow { align-self:center; color:var(--muted) } .pathline { font-size:13px; margin-bottom:4px }
   .split { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:14px } @media (max-width:1100px) { .split { grid-template-columns:1fr } }
 </style></head>
 <body>
@@ -50,6 +67,7 @@
     <a href="#overview" data-view="overview" class="on">Overview</a>
     <a href="#prefixes" data-view="prefixes">Prefixes</a>
     <a href="#history" data-view="history">History</a>
+    <a href="#routers" data-view="routers">Routers</a>
     <a href="#peers" data-view="peers">Sessions</a>
     <a href="#query" data-view="query">Live query</a>
   </nav>
@@ -59,6 +77,9 @@
 
 <section id="v-overview" class="view on">
   <div class="kpis" id="kpis"></div>
+  <div class="card"><h2>The testbed <small id="topo-sub">the core, the sites and where this collector hangs off it</small>
+      <span style="float:right" class="hint" id="topo-legend"></span></h2>
+    <div id="topo"></div></div>
   <div class="split">
     <div class="card"><h2>Collector sessions <small>iBGP to every route reflector, one link each</small></h2>
       <table><thead><tr><th>Reflector</th><th>State</th><th>AS</th><th>VPNv4</th><th>VPNv6</th><th>Up since</th></tr></thead><tbody id="ov-peers"></tbody></table>
@@ -68,7 +89,7 @@
   </div>
   <div class="split">
     <div class="card"><h2>What each view holds <small>the core's VPN table, then every router's own tenant view — click a row to list it</small></h2>
-      <div class="scroll"><table><thead><tr><th>View</th><th>Family</th><th>VRF</th><th>Prefixes</th><th>Paths</th><th>Collected</th></tr></thead><tbody id="ov-counts"></tbody></table></div></div>
+      <div class="scroll"><table><thead><tr><th>View</th><th>Table</th><th>VRF</th><th>Prefixes</th><th>Paths</th><th>How</th><th>Collected</th></tr></thead><tbody id="ov-counts"></tbody></table></div></div>
     <div class="card"><h2>Latest changes <small>announce / change / withdraw, as the collector saw them</small></h2>
       <div class="scroll"><table><thead><tr><th>When</th><th></th><th>Prefix</th><th>VRF</th><th>From</th><th>What</th></tr></thead><tbody id="ov-events"></tbody></table></div></div>
   </div>
@@ -81,6 +102,7 @@
       <div><label>Address family</label><select id="f-afi"></select></div>
       <div><label>VRF</label><select id="f-vrf"></select></div>
       <div><label>Route distinguisher</label><select id="f-rd"></select></div>
+      <div><label>How it was read</label><select id="f-via"></select></div>
       <div><label>Origin AS</label><input id="f-as" placeholder="65001"></div>
       <div style="flex:2"><label>Search (prefix, next hop, SID, RT, AS path)</label><input id="f-q" placeholder="172.20. / fd00:c:1:: / RT:65000:100"></div>
       <div style="flex:0"><label>&nbsp;</label><button class="primary" onclick="loadPrefixes()">Search</button></div>
@@ -88,8 +110,14 @@
     </div>
     <p class="hint" id="pf-hint" style="margin:8px 0 0"></p>
   </div>
+  <div class="card" id="pf-path-card" style="display:none">
+    <h2>The path to <span class="mono" id="pp-prefix"></span> <small>router by router, from a chosen vantage point</small>
+      <span style="float:right"><label style="display:inline;margin-right:6px">from</label>
+        <select id="pp-from" style="width:auto;display:inline-block" onchange="showPath(PP_PREFIX, PP_VRF, this.value)"></select>
+        <button onclick="closePath()" style="margin-left:8px">close</button></span></h2>
+    <div id="pp-body"></div></div>
   <div class="card"><div class="scroll"><table><thead><tr>
-    <th>Prefix</th><th>VRF</th><th>RD</th><th>Next hop</th><th>From</th><th>AS path</th><th>Origin</th><th>Local pref</th><th>MED</th><th>SID</th><th>Route targets</th><th>Age</th><th>View</th>
+    <th></th><th>Prefix</th><th>VRF</th><th>RD</th><th>Next hop</th><th>From</th><th>AS path</th><th>Origin</th><th>Local pref</th><th>MED</th><th>SID</th><th>Route targets</th><th>Age</th><th>View</th><th>How</th>
   </tr></thead><tbody id="pf-rows"></tbody></table></div>
   <div class="row" style="margin-top:8px"><div style="flex:0"><button id="pf-more" onclick="morePrefixes()">Load more</button></div><div class="hint" id="pf-shown"></div></div></div>
 </section>
@@ -108,6 +136,10 @@
     <div class="tl"><div class="bar" id="px-timeline"></div></div>
     <div class="hint" id="px-range"></div>
     <div class="scroll" style="margin-top:8px"><table><thead><tr><th>When</th><th></th><th>View</th><th>VRF / RD</th><th>From</th><th>What changed</th></tr></thead><tbody id="px-events"></tbody></table></div></div>
+  <div class="card"><h2>The path <small>router by router — where traffic to this prefix goes, and why</small>
+      <span style="float:right"><label style="display:inline;margin-right:6px">from</label>
+        <select id="px-from" style="width:auto;display:inline-block" onchange="showPath(CURRENT_PREFIX, null, this.value, 'px-path')"></select></span></h2>
+    <div id="px-path"></div></div>
   <div id="px-paths"></div>
 </section>
 
@@ -127,6 +159,16 @@
     <table><thead><tr><th>Peer</th><th>Name</th><th>State</th><th>AS</th><th>Router-id</th><th>Accepted</th><th>Messages rx/tx</th><th>Established</th></tr></thead><tbody id="pe-rows"></tbody></table></div>
   <div class="card"><h2>Collections <small>the collector's own table is read locally; the per-VRF views are polled over SSH</small></h2>
     <table><thead><tr><th>View</th><th>Last</th><th>Result</th><th>Paths</th><th>Took</th><th>Error</th></tr></thead><tbody id="pe-polls"></tbody></table></div>
+</section>
+
+<section id="v-routers" class="view">
+  <div class="card"><h2>The routers <small>every box the looking glass reads, and how it reads each part</small></h2>
+    <p class="hint" id="rt-transports"></p>
+    <div class="scroll"><table><thead><tr><th>Router</th><th>Role</th><th>Identity</th><th>Read through</th><th>Last</th>
+      <th>RIB</th><th>BGP (per VRF)</th><th>VPN table</th><th>IS-IS adjacencies</th></tr></thead><tbody id="rt-rows"></tbody></table></div></div>
+  <div class="card"><h2>What each router holds <small>by address family and VRF — click to list it</small></h2>
+    <div class="scroll"><table><thead><tr><th>Router</th><th>Table</th><th>VRF</th><th>Prefixes</th><th>Paths</th><th>How</th></tr></thead>
+      <tbody id="rt-holds"></tbody></table></div></div>
 </section>
 
 <section id="v-query" class="view">
@@ -153,6 +195,13 @@ const fmtAgo = t => { if (!t) return '—'; const s = Date.now() / 1000 - t;
 const esc = s => (s ?? '').toString().replace(/[<>&]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]));
 const node = name => name ? `<span class="pill">${esc(name)}</span>` : '';
 const prefixLink = p => `<a class="link mono" href="#prefix/${encodeURIComponent(p)}">${esc(p)}</a>`;
+/* how a row was obtained — the looking glass never shows a route without saying where it got it */
+const VIA = {
+  'rr-session': ['session', 'ok', 'the collector\'s own iBGP session with the route reflectors — full path attributes'],
+  'router-api': ['router API', 'warn', 'read from the router\'s own HTTPS API (JSON)'],
+  'router-ssh': ['router SSH', '', 'read with vtysh over SSH — the views the router\'s API cannot express'],
+};
+const viaPill = v => { const x = VIA[v] || [v || '—', '', '']; return `<span class="pill ${x[1]}" title="${esc(x[2])}">${esc(x[0])}</span>`; };
 
 /* ---- routing --------------------------------------------------------- */
 function route() {
@@ -165,6 +214,7 @@ function route() {
   if (name === 'prefixes') { if (!$('#pf-rows').children.length) loadPrefixes(); }
   if (name === 'prefix') renderPrefix(decodeURIComponent(rest.join('/')));
   if (name === 'history') loadHistory();
+  if (name === 'routers') loadRouters();
   if (name === 'peers') loadPeers();
   if (name === 'query') loadQuery();
 }
@@ -197,8 +247,14 @@ async function loadOverview() {
     `<tr style="cursor:pointer" onclick="jumpTo('${c.source}','${c.afi}','${c.safi}','${c.vrf || ''}')">
        <td>${c.source === 'collector' ? '<span class="pill ok">core (collector)</span>' : node(c.source)}</td>
        <td class="mono">${c.afi} ${c.safi}</td><td>${esc(c.vrf || '—')}</td>
-       <td>${c.prefixes}</td><td>${c.n}</td>
+       <td>${c.prefixes}</td><td>${c.n}</td><td>${viaPill(c.via)}</td>
        <td class="hint">${s.polls[c.source] ? fmtAgo(s.polls[c.source].ts) + ' ago' : '—'}</td></tr>`).join('');
+  try { if (!ROUTERS) await loadRouters(); } catch (e) { }      // the map colours core links by live IS-IS state
+  drawTopology($('#topo'));
+  $('#topo-legend').innerHTML = `<i style="display:inline-block;width:14px;border-top:2px solid var(--accent)"></i> core ·
+    <i style="display:inline-block;width:14px;border-top:2px solid var(--muted)"></i> tenant ·
+    <i style="display:inline-block;width:14px;border-top:2px dashed var(--ok)"></i> collector session ·
+    <i style="display:inline-block;width:14px;border-top:2px dashed var(--bad)"></i> no IS-IS adjacency · click a router to list what it holds`;
   const ev = await api('/api/history?limit=25');
   $('#ov-events').innerHTML = ev.events.map(eventRow).join('') || '<tr><td colspan="6" class="hint">nothing has changed since the collector started</td></tr>';
   drawSeries();
@@ -233,6 +289,120 @@ async function drawSeries() {
   $('#ov-legend').innerHTML = series.map((s, i) => `<span><i style="background:${colors[i % colors.length]}"></i>${esc(s.labels.afi)} ${esc(s.labels.safi)} ${esc(s.labels.vrf || '')}</span>`).join('');
 }
 
+/* ---- the testbed, drawn from the model -------------------------------
+   One picture serves both pages: the overview draws it plain, a prefix's path draws the same map with the routers and
+   links of that path lit up. Laid out by role — the P routers in a core band, a PE under each of them, the CE and its
+   site below, the collector hanging off the reflectors — so it stays readable however many sites the lab has. */
+const TOPO = { w: 0, h: 0, pos: {} };
+function layout() {
+  const N = META.topology ? META.nodes : {}, hosts = (META.topology || {}).hosts || {};
+  const role = n => (META.nodes[n] || hosts[n] || {}).role;
+  const ps = Object.keys(N).filter(n => role(n) === 'p').sort();
+  const pes = Object.keys(N).filter(n => role(n) === 'pe').sort();
+  const lgs = Object.keys(N).filter(n => role(n) === 'lg').sort();
+  const dcs = [...new Set(pes.map(p => N[p].dc))];
+  const W = Math.max(940, 190 * pes.length + 180), colW = (W - 150) / pes.length;
+  const X = {}, Y = { p: 60, pe: 170, ce: 260, host: 340, fw: 260, lg: 60 };
+  pes.forEach((pe, i) => { X[pe] = 90 + colW * (i + 0.5); });
+  ps.forEach((p, i) => { X[p] = 90 + (W - 180) * (i + 0.5) / ps.length; });
+  lgs.forEach(l => { X[l] = W - 60; Y.lg = 96; });
+  Object.keys(N).forEach(n => {                       // CEs and the firewall sit under the PE they attach to
+    if (!['ce', 'fw'].includes(role(n))) return;
+    const pe = pes.find(pe => (META.topology.links || []).some(l => (l.a === n && l.b === pe) || (l.b === n && l.a === pe)));
+    X[n] = pe ? X[pe] + (role(n) === 'fw' ? 62 : 0) : 90;
+  });
+  Object.keys(hosts).forEach(h => {                    // hosts spread under their CE
+    const l = (META.topology.links || []).find(l => l.b === h || l.a === h); if (!l) return;
+    const ce = l.a === h ? l.b : l.a; const sibs = Object.keys(hosts).filter(x => {
+      const m = (META.topology.links || []).find(l2 => l2.a === x || l2.b === x); return m && (m.a === ce || m.b === ce);
+    }).sort();
+    X[h] = (X[ce] ?? 90) + (sibs.indexOf(h) - (sibs.length - 1) / 2) * 76;
+  });
+  TOPO.w = W; TOPO.h = 400; TOPO.pos = {};
+  Object.keys(X).forEach(n => { TOPO.pos[n] = { x: X[n], y: Y[role(n)] ?? 260, role: role(n) }; });
+  return TOPO;
+}
+const NODE_W = { p: 62, pe: 62, ce: 56, fw: 56, lg: 74, host: 66 }, NODE_H = { host: 22, lg: 26 };
+function drawTopology(el, opts = {}) {
+  const { pos, w, h } = layout(), links = (META.topology || {}).links || [], hosts = (META.topology || {}).hosts || {};
+  const on = new Set(opts.path || []), seq = opts.path || [];
+  const isOn = (a, b) => { const i = seq.indexOf(a), j = seq.indexOf(b); return i >= 0 && j >= 0 && Math.abs(i - j) === 1; };
+  const box = n => { const p = pos[n], bw = NODE_W[p.role] || 60, bh = NODE_H[p.role] || 26; return { x: p.x - bw / 2, y: p.y - bh / 2, w: bw, h: bh, cx: p.x, cy: p.y }; };
+  const parts = [];
+  links.forEach(l => {
+    if (!pos[l.a] || !pos[l.b]) return;
+    const A = box(l.a), B = box(l.b), lit = isOn(l.a, l.b);
+    const core = ['p', 'pe'].includes(pos[l.a].role) && ['p', 'pe'].includes(pos[l.b].role);
+    const lgLink = pos[l.a].role === 'lg' || pos[l.b].role === 'lg';
+    const adjDown = core && adjacencyState(l) === false;
+    const cls = lit ? 'lit' : (lgLink ? 'coll' : (adjDown ? 'down' : (core ? 'core' : 'acc')));
+    parts.push(`<line x1="${A.cx.toFixed(0)}" y1="${A.cy.toFixed(0)}" x2="${B.cx.toFixed(0)}" y2="${B.cy.toFixed(0)}" class="tl ${cls}"><title>${esc(l.a)} ${esc(l.a_port)} — ${esc(l.b)} ${esc(l.b_port)} (${esc(l.prefix)}${l.tenant ? ', ' + esc(l.tenant) : ''})</title></line>`);
+  });
+  Object.keys(pos).forEach(n => {
+    const b = box(n), p = pos[n], lit = on.has(n), step = seq.indexOf(n);
+    const info = META.nodes[n] || hosts[n] || {};
+    const sub = p.role === 'p' ? (META.rrs.includes(n) ? 'RR' : 'P') : p.role === 'lg' ? 'collector' : p.role;
+    const title = `${n} — ${sub}${info.mgmt_ip ? ' · ' + info.mgmt_ip : ''}${info.locator ? ' · ' + info.locator : ''}${info.ip ? ' · ' + info.ip : ''}`;
+    parts.push(`<g class="tn ${p.role} ${lit ? 'lit' : ''}" onclick="topoClick('${n}')">
+      <rect x="${b.x.toFixed(0)}" y="${b.y.toFixed(0)}" width="${b.w}" height="${b.h}" rx="6"/>
+      <text x="${b.cx.toFixed(0)}" y="${(b.cy + 4).toFixed(0)}" text-anchor="middle">${esc(n)}</text>
+      ${lit && step >= 0 ? `<circle cx="${(b.x + b.w).toFixed(0)}" cy="${b.y.toFixed(0)}" r="8" class="step"/><text x="${(b.x + b.w).toFixed(0)}" y="${(b.y + 3).toFixed(0)}" text-anchor="middle" class="stept">${step + 1}</text>` : ''}
+      <title>${esc(title)}</title></g>`);
+  });
+  const dcs = {};
+  Object.keys(pos).forEach(n => { const d = (META.nodes[n] || hosts[n] || {}).dc; if (d && d !== 'core') (dcs[d] = dcs[d] || []).push(n); });
+  const lanes = Object.entries(dcs).map(([dc, ns]) => {
+    const xs = ns.map(n => box(n)), x0 = Math.min(...xs.map(b => b.x)) - 14, x1 = Math.max(...xs.map(b => b.x + b.w)) + 14;
+    return `<rect x="${x0.toFixed(0)}" y="140" width="${(x1 - x0).toFixed(0)}" height="225" rx="10" class="lane"/>
+            <text x="${((x0 + x1) / 2).toFixed(0)}" y="382" text-anchor="middle" class="lanel">${esc(dc)}</text>`;
+  });
+  el.innerHTML = `<svg viewBox="0 0 ${w} ${h}" class="topo" preserveAspectRatio="xMidYMid meet">
+    <rect x="30" y="26" width="${w - 60}" height="70" rx="10" class="coreband"/>
+    <text x="40" y="20" class="lanel">core — IS-IS, SRv6 ${esc((META.srv6 || {}).format || '')}</text>
+    ${lanes.join('')}${parts.join('')}</svg>`;
+}
+/* a core link is "up" when a router at one of its ends reports an IS-IS adjacency with the other over it */
+function adjacencyState(l) {
+  if (!ROUTERS) return null;
+  const by = {}; ROUTERS.routers.forEach(r => { by[r.name] = r.adjacencies || []; });
+  const seen = (a, b, port) => (by[a] || []).some(x => x.neighbor === b && (!port || x.interface === port));
+  if (!(l.a in by) && !(l.b in by)) return null;
+  if (!(by[l.a] || []).length && !(by[l.b] || []).length) return null;
+  const up = seen(l.a, l.b, l.a_port) || seen(l.b, l.a, l.b_port);
+  return up ? true : false;
+}
+function topoClick(n) { if ((META.nodes[n] || {}).role) { location.hash = '#prefixes'; setTimeout(() => { $('#f-source').value = META.sources.includes(n) ? n : ''; loadPrefixes(); }, 50); } }
+
+/* ---- the path of one prefix ------------------------------------------ */
+let PP_PREFIX = null, PP_VRF = null;
+async function showPath(prefix, vrf, from, target) {
+  PP_PREFIX = prefix; PP_VRF = vrf || null;
+  const into = target || 'pp-body';
+  if (into === 'pp-body') { $('#pf-path-card').style.display = ''; $('#pp-prefix').textContent = prefix; }
+  const el = $('#' + into); el.innerHTML = '<p class="hint">working out the path…</p>';
+  let d;
+  try { d = await api(`/api/path?prefix=${encodeURIComponent(prefix)}${vrf ? '&vrf=' + vrf : ''}${from ? '&from=' + from : ''}`); }
+  catch (e) { el.innerHTML = `<p class="msg">${esc(e.message)}</p>`; return; }
+  const sel = $('#' + (into === 'pp-body' ? 'pp-from' : 'px-from'));
+  const places = Object.entries(META.nodes).filter(([, n]) => ['pe', 'ce', 'fw'].includes(n.role)).map(([n]) => n).sort();
+  sel.innerHTML = places.map(n => `<option${n === d.vantage ? ' selected' : ''}>${n}</option>`).join('');
+  const chain = d.hops.map((h, i) => `<div class="hop ${h.role}${h.ingress ? ' ingress' : ''}${h.egress ? ' egress' : ''}">
+      <div class="n">${i + 1}. ${esc(h.node)} <span class="pill">${esc(h.role)}</span>${h.interface ? ` <span class="hint mono">${esc(h.interface)}</span>` : ''}</div>
+      <div class="w">${esc(h.what)}</div>${h.detail ? `<div class="hint mono">${esc(h.detail)}</div>` : ''}</div>`).join('<div class="arrow">→</div>');
+  el.innerHTML = `<div class="pathline"><b class="mono">${esc(d.prefix)}</b> in <b>${esc(d.vrf || '—')}</b>
+      · RD ${esc(d.rd || '—')} · ${esc(d.route_target || '')} · egress <b>${esc(d.egress || '?')}</b>
+      ${d.sid ? `· SID <span class="mono">${esc(d.sid)}</span>` : ''}
+      ${d.steered ? '<span class="pill warn">steered</span>' : '<span class="pill ok">IGP shortest path</span>'}</div>
+    <div class="hint">who said so: the route and its attributes from ${viaPill((d.sources || {}).control_plane)},
+      what ${esc(d.vantage)} actually forwards out of from ${viaPill((d.sources || {}).forwarding)}</div>
+    <div id="path-topo"></div>
+    <div class="hops">${chain}</div>
+    ${(d.notes || []).map(n => `<p class="hint">${esc(n)}</p>`).join('')}
+    ${d.live && d.live.raw ? `<p class="hint mono">${esc(d.vantage)}: ${esc(d.live.raw)}</p>` : ''}`;
+  drawTopology(el.querySelector('#path-topo'), { path: d.hops.map(h => h.node) });
+}
+function closePath() { $('#pf-path-card').style.display = 'none'; PP_PREFIX = null; }
+
 /* ---- prefixes -------------------------------------------------------- */
 function filterQuery(offset) {
   const fam = $('#f-afi').value.split(' ');
@@ -241,6 +411,7 @@ function filterQuery(offset) {
   if (fam[0]) { p.set('afi', fam[0]); if (fam[1]) p.set('safi', fam[1]); }
   if ($('#f-vrf').value) p.set('vrf', $('#f-vrf').value);
   if ($('#f-rd').value) p.set('rd', $('#f-rd').value);
+  if ($('#f-via').value) p.set('via', $('#f-via').value);
   if ($('#f-as').value) p.set('origin_as', $('#f-as').value);
   if ($('#f-q').value) p.set('q', $('#f-q').value);
   p.set('limit', 200); p.set('offset', offset);
@@ -260,10 +431,11 @@ async function loadPrefixes(append) {
     : 'A device view is that router’s own table after import — what the tenant actually has on that PE or CE.';
 }
 const morePrefixes = () => loadPrefixes(true);
-function resetFilters() { ['f-source', 'f-afi', 'f-vrf', 'f-rd'].forEach(i => $('#' + i).selectedIndex = 0); $('#f-as').value = ''; $('#f-q').value = ''; loadPrefixes(); }
+function resetFilters() { ['f-source', 'f-afi', 'f-vrf', 'f-rd', 'f-via'].forEach(i => $('#' + i).selectedIndex = 0); $('#f-as').value = ''; $('#f-q').value = ''; loadPrefixes(); }
 function pathRow(p) {
   const a = p.attrs || {};
   return `<tr>
+    <td><button title="show the path this prefix's traffic takes" onclick="showPath('${p.prefix}', '${p.vrf || ''}')" style="padding:1px 7px">path</button></td>
     <td>${prefixLink(p.prefix)}${p.best ? ' <span class="pill ok">best</span>' : ''}</td>
     <td>${esc(p.vrf || '—')}</td><td class="mono">${esc(p.rd || '—')}</td>
     <td class="mono">${esc(p.nexthop || '—')}${p.origin_node ? ' ' + node(p.origin_node) : ''}</td>
@@ -272,7 +444,8 @@ function pathRow(p) {
     <td>${a.local_pref ?? '—'}</td><td>${a.med ?? '—'}</td>
     <td class="mono">${esc(a.sid || '—')}</td><td class="mono">${esc(a.ext_communities || '—')}</td>
     <td class="hint">${fmtAgo(p.first_seen)}</td>
-    <td>${p.source === 'collector' ? '<span class="pill ok">core</span>' : node(p.source)}</td></tr>`;
+    <td>${p.source === 'collector' ? '<span class="pill ok">core</span>' : node(p.source)}</td>
+    <td>${viaPill(p.via)}</td></tr>`;
 }
 
 /* ---- one prefix ------------------------------------------------------ */
@@ -297,12 +470,15 @@ async function renderPrefix(prefix, at) {
     <td>${e.source === 'collector' ? '<span class="pill ok">core</span>' : node(e.source)}</td><td>${esc(e.vrf || '—')}<div class="hint mono">${esc(e.rd || '')}</div></td>
     <td>${node(e.origin_node || e.peer_name || '')}</td><td class="mono">${changeText(e)}</td>
     <td style="width:1%"><button onclick="showAt(${e.ts})">this moment</button></td></tr>`).join('');
+  showPath(prefix, null, null, 'px-path');
   const groups = {}, rank = s => s === 'collector' ? 0 : (META.nodes[s] || {}).role === 'pe' ? 1 : (META.nodes[s] || {}).role === 'ce' ? 2 : 3;
   paths.sort((a, b) => rank(a.source) - rank(b.source) || a.source.localeCompare(b.source) || (b.best - a.best));
   paths.forEach(p => { (groups[p.source] = groups[p.source] || []).push(p); });
   $('#px-paths').innerHTML = Object.entries(groups).map(([source, ps]) => `<div class="card">
     <h2>${source === 'collector' ? 'The core’s VPN table' : 'On ' + esc(source)}
-      <small>${source === 'collector' ? 'as the reflectors handed it over' : 'after import, in the tenant’s VRF'}</small></h2>
+      <small>${source === 'collector' ? 'as the reflectors handed it over' :
+        [...new Set(ps.map(x => x.safi))].map(s => s === 'rib' ? 'its routing table' : s === 'vpn' ? 'its own VPN table' : 'after import, in the tenant’s VRF').join(' and ')}</small>
+      <span style="float:right">${[...new Set(ps.map(x => x.via))].map(viaPill).join(' ')}</span></h2>
     ${ps.map(pathCard).join('')}</div>`).join('');
 }
 function pathCard(p) {
@@ -354,6 +530,33 @@ async function loadPeers() {
     <td>${p.paths}</td><td>${(p.duration || 0).toFixed(1)} s</td><td class="mono">${esc(p.error || '')}</td></tr>`).join('');
 }
 
+/* ---- routers --------------------------------------------------------- */
+let ROUTERS = null;
+async function loadRouters() {
+  const d = await api('/api/routers'); ROUTERS = d;
+  $('#rt-transports').innerHTML = Object.entries(d.transports).map(([k, v]) => `${viaPill(k)} ${esc(v)}`).join(' · ');
+  const holds = {};
+  $('#rt-rows').innerHTML = d.routers.map(r => {
+    const det = (r.poll.detail || {}), adj = r.adjacencies || [];
+    const identity = [r.router_id && `rid ${r.router_id}`, r.asn && `AS ${r.asn}`, r.loopback6, r.locator].filter(Boolean).join(' · ');
+    (r.holds || []).forEach(h => { (holds[r.name] = holds[r.name] || []).push(h); });
+    return `<tr><td>${node(r.name)}<div class="hint mono">${esc(r.mgmt_ip)}</div></td><td>${esc(r.role)} <span class="hint">${esc(r.dc)}</span></td>
+      <td class="hint mono">${esc(identity)}</td>
+      <td>${(r.poll.via || '').split('+').filter(Boolean).map(viaPill).join(' ') || '<span class="pill bad">not read</span>'}</td>
+      <td>${r.poll.ts ? fmtAgo(r.poll.ts) + ' ago' : '—'}<div class="hint">${(r.poll.duration || 0).toFixed(1)} s</div>
+        ${r.poll.ok ? '' : `<div class="msg">${esc(r.poll.error || 'failed')}</div>`}</td>
+      <td>${det.rib ?? '—'}</td><td>${det.bgp ?? '—'}</td><td>${det.vpn ?? '—'}</td>
+      <td>${adj.length ? adj.map(a => `<span class="pill ${(a.state || '').toLowerCase() === 'up' ? 'ok' : 'bad'}" title="${esc(a.interface || '')} · level ${esc(a.level || '')} · expires ${esc(a.expires || '')}">${esc(a.neighbor)}</span>`).join(' ') : '<span class="hint">—</span>'}</td></tr>`;
+  }).join('');
+  const rows = [];
+  d.routers.forEach(r => (r.holds || []).sort((a, b) => (a.safi + a.afi + (a.vrf || '')).localeCompare(b.safi + b.afi + (b.vrf || ''))).forEach(h => {
+    rows.push(`<tr style="cursor:pointer" onclick="jumpTo('${r.name}','${h.afi}','${h.safi}','${h.vrf || ''}')">
+      <td>${node(r.name)}</td><td class="mono">${esc(h.afi)} ${esc(h.safi)}</td><td>${esc(h.vrf || '—')}</td>
+      <td>${h.prefixes}</td><td>${h.n}</td><td>${viaPill(h.via)}</td></tr>`);
+  }));
+  $('#rt-holds').innerHTML = rows.join('');
+}
+
 /* ---- live query ------------------------------------------------------ */
 function loadQuery() {
   if ($('#q-device').children.length) return;
@@ -380,7 +583,8 @@ async function boot() {
   document.title = `BGP Looking Glass — ${META.lab}`;
   $('#sub').textContent = `a passive route collector in the ${META.lab} core (AS ${META.core_as}, reflectors ${META.rrs.join(' + ')}) — every VPN prefix, its attributes, and how they changed`;
   $('#f-source').innerHTML = '<option value="">every view</option>' + META.sources.map(s => `<option value="${s}">${s === 'collector' ? 'the core (collector)' : s}</option>`).join('');
-  $('#f-afi').innerHTML = '<option value="">every family</option>' + ['ipv4 vpn', 'ipv6 vpn', 'ipv4 unicast', 'ipv6 unicast'].map(f => `<option>${f}</option>`).join('');
+  $('#f-afi').innerHTML = '<option value="">every family</option>' + ['ipv4 vpn', 'ipv6 vpn', 'ipv4 unicast', 'ipv6 unicast', 'ipv4 rib', 'ipv6 rib'].map(f => `<option>${f}</option>`).join('');
+  $('#f-via').innerHTML = '<option value="">however it was read</option>' + Object.entries(VIA).map(([k, v]) => `<option value="${k}">${v[0]}</option>`).join('');
   $('#f-vrf').innerHTML = '<option value="">every VRF</option>' + META.vrfs.map(v => `<option>${v}</option>`).join('');
   $('#f-rd').innerHTML = '<option value="">every RD</option>' + Object.entries(META.rds).sort().map(([rd, v]) => `<option value="${rd}">${rd} — ${v.vrf} on ${v.pe}</option>`).join('');
   try {                                      // the header line belongs to every page, not only the overview
