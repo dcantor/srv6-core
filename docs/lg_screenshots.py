@@ -17,7 +17,7 @@ from playwright.sync_api import sync_playwright                     # noqa: E402
 
 SHOTS = [("lg-overview", "#overview", None), ("lg-prefixes", "#prefixes", None), ("lg-routers", "#routers", None),
          ("lg-path", "#prefixes", "path"), ("lg-prefix", f"#prefix/{PREFIX.replace('/', '%2F')}", None),
-         ("lg-query", "#query", "query")]
+         ("lg-timetravel", f"#prefix/{PREFIX.replace('/', '%2F')}", "past"), ("lg-query", "#query", "query")]
 
 with sync_playwright() as pw:
     b = pw.chromium.launch(channel="chrome", headless=True)   # the system Chrome, as docs/topology.py does
@@ -29,6 +29,14 @@ with sync_playwright() as pw:
             pg.click("#q-run"); pg.wait_for_timeout(4000)
         if action == "path":                                         # the path card, open on a tenant LAN
             pg.evaluate(f"showPath({PREFIX!r}, 'tenant-a')"); pg.wait_for_timeout(5000)
+        if action == "past":                                         # the slider, dragged back to the last change
+            pg.evaluate("""() => {
+                const e = (PX.events || []).filter(x => x.kind !== 'withdraw');
+                if (!e.length) return;
+                const to = Math.ceil(e[0].ts) + 1;
+                document.querySelector('#px-slider').value = to; sliderMoved(to);
+            }""")
+            pg.wait_for_timeout(6000)
         pg.screenshot(path=str(OUT / f"{name}.png"), full_page=True)
         print(f"wrote {OUT / f'{name}.png'}")
     b.close()

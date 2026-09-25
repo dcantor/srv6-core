@@ -15,6 +15,7 @@ Everything the UI shows comes from these endpoints, so anything the page can do 
   GET  /api/routers                      every router: how it was read (its own API / SSH), what it holds, its IS-IS
                                          adjacencies and the last error if a transport is failing
   GET  /api/path?prefix=&vrf=&from=      the hops a packet to that prefix crosses, from a chosen vantage point
+                                         (`at=<epoch>`: the path as it was then, replayed from the history)
   POST /api/query {device, command}      a live `show` on a router — the classic looking-glass button
   GET  /metrics                          Prometheus exposition of the same numbers
 """
@@ -128,13 +129,20 @@ def create_app(cfg, store, collector):
 
     RIB_FRESH = 45          # a collected RIB row older than this is re-read: a path view has to be current
 
+    def best_rib(rows):
+        """A prefix can have several RIB entries at once — the BGP one and a steering policy's static one live side by
+        side, one of them installed. The path follows the one the kernel is actually using."""
+        if not rows: return None
+        return next((r for r in rows if (r.get("attrs") or {}).get("installed") or (r.get("attrs") or {}).get("selected")), rows[0])
+
     def rib_route(node, vrf, prefix):
         """What the router's own RIB says about the prefix. The collected row when it is fresh enough, otherwise a
         read straight from the router's API — the same question the poller asks, just now (a steering policy applied
         a minute ago has to show up the moment somebody looks)."""
         _, rows = store.paths(alive=True, limit=5, prefix=prefix, vrf=vrf or None, source=node, safi="rib")
-        if rows and time.time() - (rows[0].get("last_seen") or 0) < RIB_FRESH:
-            return paths_mod.from_rib(rows[0])
+        row = best_rib(rows)
+        if row and time.time() - (row.get("last_seen") or 0) < RIB_FRESH:
+            return paths_mod.from_rib(row)
         key = ("rib", node, vrf, prefix); now = time.time()
         hit = route_cache.get(key)
         if hit and now - hit[0] < ROUTE_TTL: return hit[1]
@@ -149,12 +157,13 @@ def create_app(cfg, store, collector):
                 doc = RouterAPI(dev["mgmt_ip"], api_key, timeout=20).show(path)
                 match = {k: v for k, v in (doc or {}).items() if k == prefix}
                 entries = rib_entries(match, "ipv6" if v6 else "ipv4", vrf or "default", node=node)
-                if entries:
-                    entries[0]["via"] = "router-api"; entries[0]["last_seen"] = now
-                    out = paths_mod.from_rib(entries[0])
+                chosen = best_rib(entries)
+                if chosen:
+                    chosen["via"] = "router-api"; chosen["last_seen"] = now
+                    out = paths_mod.from_rib(chosen)
             except Exception as e:                                   # noqa: BLE001 — fall through to the stored row
                 app.logger.warning("rib read %s %s: %s", node, prefix, e)
-        if out is None and rows: out = paths_mod.from_rib(rows[0])
+        if out is None and row: out = paths_mod.from_rib(row)
         route_cache[key] = (now, out)
         return out
 
@@ -179,10 +188,27 @@ def create_app(cfg, store, collector):
         prefix = g.get("prefix", "")
         if not prefix: return jsonify({"error": "prefix is required"}), 400
         vrf = g.get("vrf") or None
+        vantage = g.get("from") or None
+        at = g.get("at")
+        if at:
+            # the path as it was: both halves come out of the history — the route and its attributes as the session
+            # delivered them then, and the forwarding state from the RIB row the router had at that moment
+            at = float(at)
+            was = store.state_at(at, prefix=prefix)
+            rows = [r for r in was if r["safi"] == "vpn" and (not vrf or r["vrf"] == vrf)] or \
+                   [r for r in was if r["safi"] != "rib" and (not vrf or r["vrf"] == vrf)]
+            if not rows: return jsonify({"error": f"{prefix} was not in the table at that moment", "at": at}), 404
+            out = paths_mod.build(prefix, vrf, rows, cfg, vantage=vantage)
+            rib = best_rib([r for r in was if r["safi"] == "rib" and r["source"] == out["vantage"]
+                            and (not out["vrf"] or r["vrf"] == out["vrf"])])
+            if rib: out = paths_mod.build(prefix, vrf, rows, cfg, vantage=vantage, route=paths_mod.from_rib(rib))
+            out["at"] = at
+            out["notes"].append(f"this is the path as the looking glass recorded it at {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(at))}"
+                                + ("" if rib else "; no RIB entry was held for it then, so the core hops are the IGP shortest path"))
+            return jsonify(out)
         _, rows = store.paths(alive=True, limit=200, prefix=prefix, vrf=vrf, source="collector")
         if not rows:                                             # a prefix only seen in a VRF view (a CE's own LAN)
             _, rows = store.paths(alive=True, limit=200, prefix=prefix, vrf=vrf)
-        vantage = g.get("from") or None
         first = paths_mod.build(prefix, vrf, rows, cfg, vantage=vantage)
         if first.get("error"): return jsonify(first), 404
         if g.get("live", "1") != "1": return jsonify(first)

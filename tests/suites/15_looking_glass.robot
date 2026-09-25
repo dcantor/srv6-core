@@ -54,6 +54,13 @@ Prefix Should Be Gone
     ${paths}=    Collector Paths For    ${prefix}    ${vrf}
     Should Be Empty    ${paths}    msg=${prefix} is still in the collector's table
 
+Rib Should Be Recorded
+    [Documentation]    Wait until the collector has stored a RIB entry of the given protocol for the prefix.
+    [Arguments]    ${prefix}    ${vrf}    ${node}    ${protocol}
+    ${d}=    Lg    /api/prefixes    source=${node}    safi=rib    vrf=${vrf}    prefix=${prefix}
+    ${protos}=    Evaluate    [p["attrs"].get("protocol") for p in $d["paths"] if p["attrs"].get("installed")]
+    Should Contain    ${protos}    ${protocol}    msg=${node}: no installed ${protocol} route for ${prefix} recorded yet
+
 Path Should Be Steered
     [Arguments]    ${prefix}    ${vrf}    ${from}
     ${d}=    Lg    /api/path    prefix=${prefix}    vrf=${vrf}    from=${from}
@@ -291,6 +298,39 @@ A steered prefix is drawn along the segment list the policy installed
         Steer    del    ${PES}[0]    ${t}    ${lan}
     END
     Wait Until Keyword Succeeds    90 s    10 s    Path Should Not Be Steered    ${lan}    ${t}    ${PES}[0]
+
+The table can be read as it was at any moment, and so can the path
+    ${t}=    Set Variable    ${TENANTS}[0]
+    ${dst}=    Evaluate    [d for d in $SITES["${t}"] if $SITES["${t}"][d]["pe"] != "${PES}[0]"][0]
+    ${site}=    Set Variable    ${SITES}[${t}][${dst}]
+    ${lan}=    Set Variable    ${site}[lan]
+    ${now}=    Evaluate    time.time()
+    # now: the prefix is there, and the path is drawn from the routers' current state
+    ${live}=    Lg    /api/path    prefix=${lan}    vrf=${t}    from=${PES}[0]
+    Should Not Be True    ${live}[steered]
+    # a moment the collector cannot know about yet (before it ever ran) holds nothing
+    ${before}=    Evaluate    $now - 86400 * 365
+    ${empty}=    Lg    /api/state    at=${before}    prefix=${lan}
+    Should Be Equal As Integers    ${empty}[count]    0    msg=the looking glass claims to know ${lan} a year ago
+    # steer the prefix, then read both moments back: before the change and after it
+    ${mark}=    Evaluate    time.time()
+    Steer    add    ${PES}[0]    ${t}    ${lan}    ${PS}[0]    ${PS}[2]
+    TRY
+        Wait Until Keyword Succeeds    3 min    10 s    Rib Should Be Recorded    ${lan}    ${t}    ${PES}[0]    static
+        ${when}=    Evaluate    time.time()
+        ${then}=    Lg    /api/path    prefix=${lan}    vrf=${t}    from=${PES}[0]    at=${when}
+        Should Be True    ${then}[steered]    msg=the moment ${when} should show the steering policy
+        ${crossed}=    Evaluate    [h["node"] for h in $then["hops"] if h["role"] == "p"]
+        ${want}=    Create List    ${PS}[0]    ${PS}[2]
+        Should Be Equal    ${crossed}    ${want}
+        # ...and the moment before the policy was applied still shows the shortest path
+        ${earlier}=    Lg    /api/path    prefix=${lan}    vrf=${t}    from=${PES}[0]    at=${mark}
+        Should Not Be True    ${earlier}[steered]    msg=the moment before the policy was applied should not be steered
+        ${state}=    Lg    /api/state    at=${mark}    prefix=${lan}
+        Should Be True    ${state}[count] > 0    msg=the table at ${mark} holds no path for ${lan}
+    FINALLY
+        Steer    del    ${PES}[0]    ${t}    ${lan}
+    END
 
 The numbers are exported for Prometheus, and the portal points the scraper at them
     ${text}=    Http Get    ${LG_URL}/metrics

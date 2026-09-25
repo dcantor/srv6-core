@@ -37,6 +37,13 @@
   .attrs { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:6px 16px; font-size:12.5px }
   .attrs div span { color:var(--muted); display:inline-block; min-width:96px }
   .scroll { max-height:40vh; overflow:auto }
+  .slider { position:relative; padding-top:12px }
+  .slider input[type=range] { width:100%; margin:0; accent-color:var(--accent); background:transparent }
+  .slider .marks { position:absolute; left:0; right:0; top:0; height:12px }
+  .slider .marks i { position:absolute; top:0; width:2px; height:9px; border-radius:1px; transform:translateX(-1px) }
+  .slider .marks i.announce { background:var(--ok) } .slider .marks i.change { background:var(--warn) } .slider .marks i.withdraw { background:var(--bad) }
+  .past { background:var(--warn-bg); color:var(--warn); border-color:var(--warn) }
+  .tl .now { position:absolute; top:-3px; bottom:-3px; width:2px; background:var(--ink) }
   .tl { position:relative; margin:6px 0 2px } .tl .bar { height:26px; background:var(--row); border-radius:5px; position:relative; overflow:hidden }
   .tl .ev { position:absolute; top:0; bottom:0; width:3px; border-radius:2px } .tl .ev.announce { background:var(--ok) } .tl .ev.change { background:var(--warn) } .tl .ev.withdraw { background:var(--bad) }
   .chart { width:100%; height:120px } .chart text { font-size:10px; fill:var(--muted) } .chart path { fill:none; stroke-width:1.8 }
@@ -44,10 +51,10 @@
   svg.topo { width:100%; height:auto; display:block; max-height:420px }
   .topo .coreband { fill:var(--row); stroke:var(--line) } .topo .lane { fill:var(--row); stroke:var(--line); opacity:.55 }
   .topo .lanel { font-size:10px; fill:var(--muted) }
-  .topo line.tl { stroke:var(--line); stroke-width:1.4 } .topo line.core { stroke:var(--accent); stroke-width:1.8; opacity:.75 }
-  .topo line.acc { stroke:var(--muted); stroke-width:1.2; opacity:.6 } .topo line.coll { stroke:var(--ok); stroke-dasharray:4 3; opacity:.8 }
-  .topo line.lit { stroke:var(--bad); stroke-width:3.4; opacity:1 }
-  .topo line.down { stroke:var(--bad); stroke-width:1.6; stroke-dasharray:3 3; opacity:.9 }
+  .topo .tl { stroke:var(--line); stroke-width:1.4; fill:none } .topo .core { stroke:var(--accent); stroke-width:1.8; opacity:.75 }
+  .topo .acc { stroke:var(--muted); stroke-width:1.2; opacity:.6 } .topo .coll { stroke:var(--ok); stroke-dasharray:4 3; opacity:.8 }
+  .topo .lit { stroke:var(--bad); stroke-width:3.4; opacity:1 }
+  .topo .down { stroke:var(--bad); stroke-width:1.6; stroke-dasharray:3 3; opacity:.9 }
   .topo .tn rect { fill:var(--card); stroke:var(--line); stroke-width:1.4; cursor:pointer }
   .topo .tn text { font-size:11px; fill:var(--ink); font-family:ui-monospace, Menlo, Consolas, monospace; pointer-events:none }
   .topo .tn.p rect { stroke:var(--accent) } .topo .tn.pe rect { stroke:var(--blue) } .topo .tn.lg rect { stroke:var(--ok) }
@@ -124,13 +131,23 @@
 
 <section id="v-prefix" class="view">
   <div class="card"><h2 id="px-title">Prefix</h2>
-    <div class="row">
+    <div class="row" style="align-items:flex-end">
       <div style="flex:0"><button onclick="location.hash='#prefixes'">&larr; back</button></div>
-      <div><label>State at (leave empty for now)</label><input id="px-at" placeholder="2026-09-24 14:05:00"></div>
-      <div style="flex:0"><label>&nbsp;</label><button onclick="timeTravel()">Show that moment</button></div>
-      <div style="flex:0"><label>&nbsp;</label><button onclick="renderPrefix(CURRENT_PREFIX)">Now</button></div>
-      <div class="hint" id="px-when" style="flex:2"></div>
+      <div style="flex:6; min-width:320px">
+        <label>Drag to see this prefix as it was — every table, and the path it took</label>
+        <div class="slider">
+          <div class="marks" id="px-marks"></div>
+          <input type="range" id="px-slider" min="0" max="100" value="100" step="1"
+                 oninput="sliderMoved(+this.value)" onchange="sliderMoved(+this.value)">
+        </div>
+        <div class="hint" id="px-span"></div>
+      </div>
+      <div style="flex:0"><button onclick="stepChange(-1)" title="the moment just after the previous change">&#9664; change</button></div>
+      <div style="flex:0"><button onclick="stepChange(1)" title="the moment just after the next change">change &#9654;</button></div>
+      <div style="flex:0"><button class="primary" id="px-now" onclick="goLive()">Now</button></div>
+      <div style="flex:2; min-width:190px"><label>Showing</label><input id="px-at" placeholder="now (live)" onchange="timeTravel()"></div>
     </div>
+    <div class="hint" id="px-when" style="margin-top:8px"></div>
   </div>
   <div class="card"><h2>History <small>every announce, attribute change and withdraw kept for this prefix</small></h2>
     <div class="tl"><div class="bar" id="px-timeline"></div></div>
@@ -138,7 +155,7 @@
     <div class="scroll" style="margin-top:8px"><table><thead><tr><th>When</th><th></th><th>View</th><th>VRF / RD</th><th>From</th><th>What changed</th></tr></thead><tbody id="px-events"></tbody></table></div></div>
   <div class="card"><h2>The path <small>router by router — where traffic to this prefix goes, and why</small>
       <span style="float:right"><label style="display:inline;margin-right:6px">from</label>
-        <select id="px-from" style="width:auto;display:inline-block" onchange="showPath(CURRENT_PREFIX, null, this.value, 'px-path')"></select></span></h2>
+        <select id="px-from" style="width:auto;display:inline-block" onchange="showPath(CURRENT_PREFIX, null, this.value, 'px-path', PX.at)"></select></span></h2>
     <div id="px-path"></div></div>
   <div id="px-paths"></div>
 </section>
@@ -212,7 +229,7 @@ function route() {
   $$('header nav a').forEach(a => a.classList.toggle('on', a.dataset.view === name));
   if (name === 'overview') loadOverview();
   if (name === 'prefixes') { if (!$('#pf-rows').children.length) loadPrefixes(); }
-  if (name === 'prefix') renderPrefix(decodeURIComponent(rest.join('/')));
+  if (name === 'prefix') { const p = decodeURIComponent(rest.join('/')); if (p !== PX.prefix) renderPrefix(p); }
   if (name === 'history') loadHistory();
   if (name === 'routers') loadRouters();
   if (name === 'peers') loadPeers();
@@ -336,7 +353,16 @@ function drawTopology(el, opts = {}) {
     const lgLink = pos[l.a].role === 'lg' || pos[l.b].role === 'lg';
     const adjDown = core && adjacencyState(l) === false;
     const cls = lit ? 'lit' : (lgLink ? 'coll' : (adjDown ? 'down' : (core ? 'core' : 'acc')));
-    parts.push(`<line x1="${A.cx.toFixed(0)}" y1="${A.cy.toFixed(0)}" x2="${B.cx.toFixed(0)}" y2="${B.cy.toFixed(0)}" class="tl ${cls}"><title>${esc(l.a)} ${esc(l.a_port)} — ${esc(l.b)} ${esc(l.b_port)} (${esc(l.prefix)}${l.tenant ? ', ' + esc(l.tenant) : ''})</title></line>`);
+    const title = `<title>${esc(l.a)} ${esc(l.a_port)} — ${esc(l.b)} ${esc(l.b_port)} (${esc(l.prefix)}${l.tenant ? ', ' + esc(l.tenant) : ''})</title>`;
+    // two routers in the same row with another one between them: arch over it, or the line reads as passing through it
+    const between = A.cy === B.cy && Object.entries(pos).some(([n, q]) => q.y === pos[l.a].y && n !== l.a && n !== l.b
+      && q.x > Math.min(A.cx, B.cx) && q.x < Math.max(A.cx, B.cx));
+    if (between) {
+      const mx = (A.cx + B.cx) / 2, lift = 26 + Math.abs(A.cx - B.cx) * 0.06;
+      parts.push(`<path d="M${A.cx.toFixed(0)},${(A.cy - A.h / 2).toFixed(0)} Q${mx.toFixed(0)},${(A.cy - A.h / 2 - lift).toFixed(0)} ${B.cx.toFixed(0)},${(B.cy - B.h / 2).toFixed(0)}" class="tl ${cls}" fill="none">${title}</path>`);
+    } else {
+      parts.push(`<line x1="${A.cx.toFixed(0)}" y1="${A.cy.toFixed(0)}" x2="${B.cx.toFixed(0)}" y2="${B.cy.toFixed(0)}" class="tl ${cls}">${title}</line>`);
+    }
   });
   Object.keys(pos).forEach(n => {
     const b = box(n), p = pos[n], lit = on.has(n), step = seq.indexOf(n);
@@ -346,7 +372,7 @@ function drawTopology(el, opts = {}) {
     parts.push(`<g class="tn ${p.role} ${lit ? 'lit' : ''}" onclick="topoClick('${n}')">
       <rect x="${b.x.toFixed(0)}" y="${b.y.toFixed(0)}" width="${b.w}" height="${b.h}" rx="6"/>
       <text x="${b.cx.toFixed(0)}" y="${(b.cy + 4).toFixed(0)}" text-anchor="middle">${esc(n)}</text>
-      ${lit && step >= 0 ? `<circle cx="${(b.x + b.w).toFixed(0)}" cy="${b.y.toFixed(0)}" r="8" class="step"/><text x="${(b.x + b.w).toFixed(0)}" y="${(b.y + 3).toFixed(0)}" text-anchor="middle" class="stept">${step + 1}</text>` : ''}
+      ${lit && step >= 0 ? `<circle cx="${(b.x + b.w + 4).toFixed(0)}" cy="${(b.y - 3).toFixed(0)}" r="7.5" class="step"/><text x="${(b.x + b.w + 4).toFixed(0)}" y="${(b.y).toFixed(0)}" text-anchor="middle" class="stept">${step + 1}</text>` : ''}
       <title>${esc(title)}</title></g>`);
   });
   const dcs = {};
@@ -375,14 +401,14 @@ function topoClick(n) { if ((META.nodes[n] || {}).role) { location.hash = '#pref
 
 /* ---- the path of one prefix ------------------------------------------ */
 let PP_PREFIX = null, PP_VRF = null;
-async function showPath(prefix, vrf, from, target) {
+async function showPath(prefix, vrf, from, target, at) {
   PP_PREFIX = prefix; PP_VRF = vrf || null;
   const into = target || 'pp-body';
   if (into === 'pp-body') { $('#pf-path-card').style.display = ''; $('#pp-prefix').textContent = prefix; }
   const el = $('#' + into); el.innerHTML = '<p class="hint">working out the path…</p>';
   let d;
-  try { d = await api(`/api/path?prefix=${encodeURIComponent(prefix)}${vrf ? '&vrf=' + vrf : ''}${from ? '&from=' + from : ''}`); }
-  catch (e) { el.innerHTML = `<p class="msg">${esc(e.message)}</p>`; return; }
+  try { d = await api(`/api/path?prefix=${encodeURIComponent(prefix)}${vrf ? '&vrf=' + vrf : ''}${from ? '&from=' + from : ''}${at ? '&at=' + at : ''}`); }
+  catch (e) { el.innerHTML = `<p class="hint">no path for this prefix at that moment (${esc(e.message)})</p>`; return; }
   const sel = $('#' + (into === 'pp-body' ? 'pp-from' : 'px-from'));
   const places = Object.entries(META.nodes).filter(([, n]) => ['pe', 'ce', 'fw'].includes(n.role)).map(([n]) => n).sort();
   sel.innerHTML = places.map(n => `<option${n === d.vantage ? ' selected' : ''}>${n}</option>`).join('');
@@ -392,7 +418,8 @@ async function showPath(prefix, vrf, from, target) {
   el.innerHTML = `<div class="pathline"><b class="mono">${esc(d.prefix)}</b> in <b>${esc(d.vrf || '—')}</b>
       · RD ${esc(d.rd || '—')} · ${esc(d.route_target || '')} · egress <b>${esc(d.egress || '?')}</b>
       ${d.sid ? `· SID <span class="mono">${esc(d.sid)}</span>` : ''}
-      ${d.steered ? '<span class="pill warn">steered</span>' : '<span class="pill ok">IGP shortest path</span>'}</div>
+      ${d.steered ? '<span class="pill warn">steered</span>' : '<span class="pill ok">IGP shortest path</span>'}
+      ${d.at ? `<span class="pill past">as it was at ${esc(fmtTime(d.at))}</span>` : ''}</div>
     <div class="hint">who said so: the route and its attributes from ${viaPill((d.sources || {}).control_plane)},
       what ${esc(d.vantage)} actually forwards out of from ${viaPill((d.sources || {}).forwarding)}</div>
     <div id="path-topo"></div>
@@ -448,29 +475,89 @@ function pathRow(p) {
     <td>${viaPill(p.via)}</td></tr>`;
 }
 
-/* ---- one prefix ------------------------------------------------------ */
-async function renderPrefix(prefix, at) {
-  CURRENT_PREFIX = prefix;
+/* ---- one prefix, at any moment ---------------------------------------
+   The page is built once (title, history, the slider's range and its marks) and then re-rendered for whatever moment
+   the slider points at: the tables as they stood then, replayed from the event log, and the path the packet would
+   have taken — including a steering policy that was in place at the time and is not any more. The right-hand end of
+   the slider is "now", where everything is live again. */
+const PX = { prefix: null, events: [], t0: 0, t1: 0, at: null, timer: null, seq: 0 };
+
+async function renderPrefix(prefix) {
+  PX.prefix = CURRENT_PREFIX = prefix; PX.at = null;
   $('#px-title').innerHTML = `Prefix <span class="mono">${esc(prefix)}</span>`;
   const d = await api('/api/prefix?prefix=' + encodeURIComponent(prefix));
-  let paths = d.paths;
-  if (at) {
-    const st = await api(`/api/state?at=${at}&prefix=${encodeURIComponent(prefix)}`);
-    paths = st.paths;
-    $('#px-when').innerHTML = `showing the table as it stood at <b>${fmtTime(at)}</b> — ${paths.length} path(s)`;
-  } else {
-    $('#px-when').textContent = `first seen ${fmtTime(d.first_seen)}, last change ${fmtTime(d.last_change)}`;
-  }
-  const events = d.events;
-  const t0 = events.length ? Math.min(...events.map(e => e.ts)) : Date.now() / 1000 - 3600, t1 = Date.now() / 1000;
-  $('#px-timeline').innerHTML = events.map(e =>
-    `<div class="ev ${e.kind}" style="left:${(100 * (e.ts - t0) / Math.max(1, t1 - t0)).toFixed(2)}%" title="${esc(e.kind)} ${fmtTime(e.ts)}"></div>`).join('');
-  $('#px-range').textContent = events.length ? `${events.length} event(s) between ${fmtTime(t0)} and now` : 'no change since the collector started';
-  $('#px-events').innerHTML = events.map(e => `<tr><td class="hint">${fmtTime(e.ts)}</td><td><span class="pill ${e.kind}">${e.kind}</span></td>
+  PX.events = d.events || [];
+  PX.t1 = Math.ceil(Date.now() / 1000);
+  const earliest = PX.events.length ? Math.min(...PX.events.map(e => e.ts)) : (d.first_seen || PX.t1 - 3600);
+  PX.t0 = Math.floor(Math.min(earliest, PX.t1 - 300) - 60);        // a little headroom before the first event
+  const s = $('#px-slider'); s.min = PX.t0; s.max = PX.t1; s.step = 1; s.value = PX.t1;
+  $('#px-marks').innerHTML = PX.events.map(e =>
+    `<i class="${e.kind}" style="left:${pct(e.ts)}%" title="${esc(e.kind)} — ${fmtTime(e.ts)}"></i>`).join('');
+  $('#px-span').textContent = `${fmtTime(PX.t0)}  →  now · ${PX.events.length} recorded change${PX.events.length === 1 ? '' : 's'}`;
+  $('#px-timeline').innerHTML = PX.events.map(e =>
+    `<div class="ev ${e.kind}" style="left:${pct(e.ts)}%" title="${esc(e.kind)} ${fmtTime(e.ts)}"></div>`).join('')
+    + '<div class="now" id="px-marker" style="display:none"></div>';
+  $('#px-range').textContent = PX.events.length
+    ? `${PX.events.length} event(s) between ${fmtTime(Math.min(...PX.events.map(e => e.ts)))} and now`
+    : 'no change since the collector started';
+  $('#px-events').innerHTML = PX.events.map(e => `<tr><td class="hint">${fmtTime(e.ts)}</td><td><span class="pill ${e.kind}">${e.kind}</span></td>
     <td>${e.source === 'collector' ? '<span class="pill ok">core</span>' : node(e.source)}</td><td>${esc(e.vrf || '—')}<div class="hint mono">${esc(e.rd || '')}</div></td>
     <td>${node(e.origin_node || e.peer_name || '')}</td><td class="mono">${changeText(e)}</td>
     <td style="width:1%"><button onclick="showAt(${e.ts})">this moment</button></td></tr>`).join('');
-  showPath(prefix, null, null, 'px-path');
+  renderAt(null);
+}
+const pct = ts => (100 * (ts - PX.t0) / Math.max(1, PX.t1 - PX.t0)).toFixed(2);
+
+function sliderMoved(v) {                                          // dragging: label now, data a moment later
+  const live = v >= +$('#px-slider').max;
+  PX.at = live ? null : v;
+  $('#px-at').value = live ? '' : new Date(v * 1000).toLocaleString();
+  $('#px-now').classList.toggle('primary', !live);
+  markMoment();
+  clearTimeout(PX.timer);
+  PX.timer = setTimeout(() => renderAt(PX.at), 180);
+}
+function markMoment() {
+  const m = $('#px-marker'); if (!m) return;
+  if (PX.at === null) { m.style.display = 'none'; return; }
+  m.style.display = ''; m.style.left = pct(PX.at) + '%';
+}
+function goLive() { const s = $('#px-slider'); s.value = s.max; sliderMoved(+s.max); }
+function stepChange(dir) {                                         // snap to just after the previous / next recorded change
+  const here = PX.at === null ? PX.t1 : PX.at;
+  const times = [...new Set(PX.events.map(e => Math.ceil(e.ts) + 1))].sort((a, b) => a - b);
+  const next = dir > 0 ? times.find(x => x > here + 0.5) : [...times].reverse().find(x => x < here - 0.5);
+  const to = next === undefined ? (dir > 0 ? +$('#px-slider').max : PX.t0) : next;
+  $('#px-slider').value = to; sliderMoved(to);
+}
+const showAt = ts => { const to = Math.ceil(ts) + 1; $('#px-slider').value = to; sliderMoved(to); };
+function timeTravel() {
+  const v = $('#px-at').value.trim();
+  if (!v) return goLive();
+  const ms = Date.parse(v.replace(' ', 'T'));
+  if (isNaN(ms)) { alert('Give a moment like 2026-09-24 14:05:00'); return; }
+  const to = Math.min(Math.max(Math.round(ms / 1000), PX.t0), +$('#px-slider').max);
+  $('#px-slider').value = to; sliderMoved(to);
+}
+
+async function renderAt(at) {
+  const seq = ++PX.seq;                                            // drags overlap: only the newest answer may paint
+  let paths, note;
+  if (at === null) {
+    const d = await api('/api/prefix?prefix=' + encodeURIComponent(PX.prefix));
+    if (seq !== PX.seq) return;
+    paths = d.paths.filter(p => p.alive !== false);
+    note = `<span class="pill ok">live</span> first seen ${fmtTime(d.first_seen)}, last change ${fmtTime(d.last_change)}`;
+  } else {
+    const st = await api(`/api/state?at=${at}&prefix=${encodeURIComponent(PX.prefix)}`);
+    if (seq !== PX.seq) return;
+    paths = st.paths;
+    const gone = PX.events.filter(e => e.ts <= at).length;
+    note = `<span class="pill past">as it stood ${fmtAgo(at)} ago</span> <b>${fmtTime(at)}</b> — ${paths.length} path(s) in
+            ${new Set(paths.map(p => p.source)).size} view(s), ${gone} of ${PX.events.length} recorded changes had happened`;
+  }
+  $('#px-when').innerHTML = note;
+  showPath(PX.prefix, null, $('#px-from').value || null, 'px-path', at);
   const groups = {}, rank = s => s === 'collector' ? 0 : (META.nodes[s] || {}).role === 'pe' ? 1 : (META.nodes[s] || {}).role === 'ce' ? 2 : 3;
   paths.sort((a, b) => rank(a.source) - rank(b.source) || a.source.localeCompare(b.source) || (b.best - a.best));
   paths.forEach(p => { (groups[p.source] = groups[p.source] || []).push(p); });
@@ -479,8 +566,10 @@ async function renderPrefix(prefix, at) {
       <small>${source === 'collector' ? 'as the reflectors handed it over' :
         [...new Set(ps.map(x => x.safi))].map(s => s === 'rib' ? 'its routing table' : s === 'vpn' ? 'its own VPN table' : 'after import, in the tenant’s VRF').join(' and ')}</small>
       <span style="float:right">${[...new Set(ps.map(x => x.via))].map(viaPill).join(' ')}</span></h2>
-    ${ps.map(pathCard).join('')}</div>`).join('');
+    ${ps.map(pathCard).join('')}</div>`).join('')
+    || '<div class="card"><p class="hint">the looking glass held no path for this prefix at that moment</p></div>';
 }
+
 function pathCard(p) {
   const a = p.attrs || {};
   const rows = [
@@ -496,15 +585,6 @@ function pathCard(p) {
   return `<div style="border-left:3px solid ${p.best ? 'var(--ok)' : 'var(--line)'}; padding-left:10px; margin-bottom:12px">
     <div class="attrs">${rows.map(([k, v]) => `<div><span>${k}</span> <b class="mono">${esc(v)}</b></div>`).join('')}</div></div>`;
 }
-const showAt = ts => { $('#px-at').value = new Date(ts * 1000).toLocaleString(); renderPrefix(CURRENT_PREFIX, ts + 0.001); };
-function timeTravel() {
-  const v = $('#px-at').value.trim();
-  if (!v) return renderPrefix(CURRENT_PREFIX);
-  const t = Date.parse(v.replace(' ', 'T'));
-  if (isNaN(t)) { alert('Give a moment like 2026-09-24 14:05:00'); return; }
-  renderPrefix(CURRENT_PREFIX, t / 1000);
-}
-
 /* ---- history --------------------------------------------------------- */
 async function loadHistory() {
   const p = new URLSearchParams({ limit: 500 });
