@@ -33,7 +33,8 @@ cmd="${1:-help}"; shift || true
 case "$cmd" in
   help|-h|--help) usage ;;
   version|--version)
-    echo "srv6-core tooling image — built from ${SRV6_REVISION:-unknown} at ${SRV6_BUILT:-unknown}"
+    read -r rev built < /etc/srv6-build 2>/dev/null || { rev=unknown; built=unknown; }
+    echo "srv6-core tooling image — built from ${rev} at ${built}"
     echo "  $("$PY" --version), $("${SRV6_ROBOT:-robot}" --version 2>&1 | head -1)"
     "$PY" - <<'P'
 import importlib.metadata as m

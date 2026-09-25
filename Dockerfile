@@ -41,7 +41,9 @@ RUN chmod +x /usr/local/bin/srv6
 # held against the repository it came from (tools/docker.sh fills these in and tags the image with the same short SHA).
 ARG SRV6_REVISION=unknown
 ARG SRV6_BUILT=unknown
-ENV SRV6_REVISION=$SRV6_REVISION SRV6_BUILT=$SRV6_BUILT
+# written by a RUN, not carried in ENV: a layer that only sets variables is cache-hit even when the build argument
+# changes, and an image that misreports the commit it came from is worse than one that does not claim to know
+RUN printf '%s %s\n' "$SRV6_REVISION" "$SRV6_BUILT" > /etc/srv6-build
 LABEL org.opencontainers.image.title="srv6-core tooling" \
       org.opencontainers.image.description="Render, seed, verify and test the srv6-core lab; the VM lifecycle stays on the host" \
       org.opencontainers.image.source="https://github.com/dcantor/srv6-core" \
