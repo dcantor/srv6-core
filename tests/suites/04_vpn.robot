@@ -30,6 +30,29 @@ The route reflector holds every data-centre LAN of every tenant under its PE's r
         END
     END
 
+The extra loopbacks of every CE travel the same way: under its PE's RD at the reflector, imported into the other PEs' VRF
+    [Documentation]    Each CE carries CE_LOOPBACKS extra /32s on a dummy interface inside the tenant VRF and announces
+    ...    them over the same eBGP session as its LAN, so each one becomes a VPN route with that PE's RD and End.DT46 SID.
+    Skip If    not $CE_LOOPBACK_TENANTS    no extra CE loopbacks in lab.conf (CE_LOOPBACKS)
+    ${vpn}=    Vyos    ${RR}    show bgp ipv4 vpn
+    FOR    ${t}    IN    @{CE_LOOPBACK_TENANTS}
+        FOR    ${dc}    IN    @{SITES}[${t}]
+            ${d}=    Set Variable    ${SITES}[${t}][${dc}]
+            ${lbs}=    Set Variable    ${CE_LOOPBACK_OF}[${t}][${d}[ce]]
+            Should Not Be Empty    ${lbs}    msg=${d}[ce] has no loopbacks in the inventory
+            FOR    ${ip}    IN    @{lbs}
+                Should Match Regexp    ${vpn}    (?s)Route Distinguisher: ${d}[rd]\\n.*?\\*>i\\s*${ip}/32\\s+${LOOPBACK}[${d}[pe]]    msg=${t} ${dc}: ${ip}/32 not at ${RR} under RD ${d}[rd] via ${d}[pe]
+            END
+            # ...and on a PE that does not own them, imported into the VRF with that PE's SID, exactly like the LAN
+            ${other}=    Evaluate    [p for p in $PES if p != "${d}[pe]"][0]
+            ${detail}=    Shell    ${other}    sudo vtysh -c 'show bgp vrf ${t} ipv4 unicast ${lbs}[0]/32'
+            Should Contain    ${detail}    Imported from ${d}[rd]:${lbs}[0]/32    msg=${other}: ${lbs}[0]/32 not imported from ${d}[rd]
+            ${sid}=    Regex Findall    ${detail}    (?m)^\\s*Remote SID: ([0-9a-f:]+)
+            Should Not Be Empty    ${sid}    msg=${other}: no SRv6 SID on ${lbs}[0]/32
+            Ip In Network    ${sid}[0]    ${LOCATOR}[${d}[pe]]
+        END
+    END
+
 Every PE imports the other LANs of a tenant into that tenant's VRF with an SRv6 SID from the originating PE's locator
     FOR    ${pe}    IN    @{PES}
         FOR    ${t}    IN    @{TENANTS}

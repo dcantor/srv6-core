@@ -51,6 +51,7 @@ Credentials: VyOS `vyos`/`vyos` (`./lab.sh ssh pe1`), hosts `lab`/`lab` (`./lab.
 | Service | one VRF per tenant on every PE — `tenant-a` (table 100, RT 65000:100, RD 65000:10*n*) and `tenant-b` (table 200, RT 65000:200, RD 65000:20*n*) — each with its own attachment circuit and eBGP session to the CE, VPNv4 to the route reflector over the IPv6 loopbacks with `capability extended-nexthop`, `sid vpn export auto` → one End.DT4 SID per tenant | PEs |
 | Route reflection | p1 **and p3**, each with peer-group `RR-CLIENTS`, VPNv4 only; every PE peers with both and holds each VPN route twice (different cluster-ids), so losing a reflector changes nothing — p2 runs no BGP and knows nothing about the tenants | p1, p3 |
 | Router API | `service https api` on every VyOS node (REST, key `srv6core-lab-looking-glass`, `allow-client` = the looking glass and the host): `/show` for op-mode, `/retrieve` for configuration, `/ping`, `/traceroute` — what the BGP looking glass reads the RIBs, the VPN tables and the IS-IS adjacencies through | every VyOS node |
+| Extra loopbacks | every CE carries `CE_LOOPBACKS` (10) extra /32s per tenant in `CE_LOOPBACK_TENANTS` on a dummy interface **inside that tenant's VRF**, announced by the same eBGP session as its LAN — `172.(24+i).<site>.<n>/32`, so `172.24.3.7` is ce3's seventh tenant-a loopback. They become ordinary VPN routes with the PE's RD and End.DT46 SID: 40 more prefixes in the core, reachable from every site of that tenant and from no other | CEs |
 | Access | the CE keeps the tenants apart too: VRF `tenant-a` (eth1 to the PE, eth2 LAN `172.20.n.0/24`, host h1) and VRF `tenant-b` (eth3 to the PE, eth4 LAN `172.21.n.0/24`, host h2); each VRF runs its own eBGP session announcing its LAN and learning the other three; the CE's default VRF carries only OOB management (plus the empty default BGP instance VyOS insists on while VRF instances exist) | CEs, hosts |
 
 What the data plane looks like on a PE (`sudo ip route show vrf tenant-a` / `sudo ip -6 route | grep seg6local`):
@@ -99,7 +100,7 @@ via p3→p1 half the time); per-locator entries keep the forwarding plane consis
 | p1 | p (RR) | 10.3.0.21 | fd00:a::11 | 10.255.0.11 | 49.0001.0000.0000.0011.00 | fd00:c:11::/48 | 65000 |
 | p2 | p | 10.3.0.22 | fd00:a::12 | 10.255.0.12 | 49.0001.0000.0000.0012.00 | fd00:c:12::/48 | – |
 | p3 | p (RR) | 10.3.0.23 | fd00:a::13 | 10.255.0.13 | 49.0001.0000.0000.0013.00 | fd00:c:13::/48 | 65000 |
-| ce1..ce4 | ce | 10.3.0.31-34 | – | 172.20.*n*.1 (tenant-a) / 172.21.*n*.1 (tenant-b) | – | – | 6500*n* |
+| ce1..ce4 | ce | 10.3.0.31-34 | dum1: 172.24.*n*.1-10/32 (tenant-a, announced) | 172.20.*n*.1 (tenant-a) / 172.21.*n*.1 (tenant-b) | – | – | 6500*n* |
 | fw-inet | fw (internet breakout) | 10.3.0.61 | – | 172.16.5.2 (tenant-a) / 172.18.5.2 (tenant-b) / 10.3.0.61 (default VRF) | – | – | 65010 |
 | dc*n*-h1 | host (tenant-a) | 10.3.0.41-44 | – | – | – | – | – |
 | dc*n*-h2 | host (tenant-b) | 10.3.0.51-54 | – | – | – | – | – |
@@ -128,7 +129,8 @@ VRFs: `tenant-a` table 100, RT 65000:100, RD 65000:10*n*; `tenant-b` table 200, 
 number). OOB network `srv6-oob` 10.3.0.0/24, host 10.3.0.1; serial consoles 127.0.0.1:5301–5320 (5320 = fw-inet).
 
 Links: core `fd00:b:0:<ab>::/64` (`ab` = the two node numbers, e.g. p1–p2 `fd00:b:0:12::/64`, p2–pe1 `fd00:b:0:201::/64`);
-tenant-a: PE–CE `172.16.n.0/30` (PE .1), CE–host `172.20.n.0/24`; tenant-b: PE–CE `172.18.n.0/30`, CE–host `172.21.n.0/24`
+tenant-a: PE–CE `172.16.n.0/30` (PE .1), CE–host `172.20.n.0/24`, CE loopbacks `172.24.n.1-10/32`; tenant-b: PE–CE
+`172.18.n.0/30`, CE–host `172.21.n.0/24` (and `172.25.n.x/32` if `CE_LOOPBACK_TENANTS` is extended to it)
 (CE .1 = gateway, host .2). A fourth token on a `LINKS` entry names the tenant. The first end of a link in
 `lab.conf` gets the first address. `./lab.sh status` prints every link with both addresses, `./lab.sh inventory`
 the whole lab as JSON (what the tests read; a future Nautobot seed would too).
@@ -451,6 +453,34 @@ here, then `nautobot seed` / `render` / `nac apply` on the IPsec side.
   `EXT_NODES` is empty (the current state), and needs the IPsec lab up. Resource note: both labs plus the NMS need ~52 GiB and the eight
   C8000v each keep a core busy — run the two labs' test suites one after the other.
 
+## The tooling in a container (`Dockerfile`, `tools/docker.sh`)
+Everything the lab is driven *with* — rendering the configurations, seeding Nautobot and checking it still renders the
+same, the Robot Framework suites, the tenant portal, the looking glass's deploy — is Python and SSH, so it runs just as
+well in a container as on the host. Only what the lab runs *on* stays outside: `up`, `down`, `bootstrap`, `rebuild`,
+`clean` and `console` need libvirt, and the entrypoint refuses them with a pointer to `./lab.sh` rather than half-doing
+them.
+
+```bash
+tools/docker.sh build                     # podman or docker, whichever is installed
+tools/docker.sh inventory                 # the lab as JSON, straight from lab.conf
+tools/docker.sh render                    # nodes/<n>/vyos_config.txt + nodes/lg/{frr.conf,lgd.json}
+tools/docker.sh nautobot render --check   # Nautobot renders the same as lab.conf
+tools/docker.sh test suites/04_vpn.robot  # the suites, against the running lab
+tools/docker.sh lg status                 # the looking glass
+```
+
+The repository is **mounted** at `/lab` rather than copied in, so one build serves every checkout and every change;
+the container joins the host's network namespace because all of this talks to the lab over the OOB networks
+(`10.3.0.0/24` here, `10.0.0.10` for Nautobot / Gitea / Grafana); and `~/.ssh` is mounted read-only so the Nautobot
+token is fetched exactly as `lab.sh` does on the host (or set `NAUTOBOT_TOKEN` and keep the key to yourself). The
+image carries the same dependency lists the host installs (`tests/requirements.txt`, `webapp/requirements.txt`), and
+`SRV6_PYTHON` / `SRV6_ROBOT` tell `lab.sh` and `tests/run.sh` to use the image's own interpreter instead of the host's
+`tests/.venv` — which the container never touches.
+
+Proven here: `render` reproduced every configuration byte-for-byte, `nautobot render --check` came back clean for all
+12 routers and the collector's two files, and `test suites/01_management.robot` ran green against the live lab from
+inside the container.
+
 ## CI on every push (Gitea Actions on the lab host)
 ![lab-ci](http://10.0.0.10:3000/lab/srv6-core/actions/workflows/lab-ci.yml/badge.svg?branch=main)
 
@@ -502,13 +532,13 @@ rendered line is on the routers — suite 09 asserts both plus the model itself.
 invisible to REST reads (verify through GraphQL), VRF prefixes go through `vrf-prefix-assignments`, GraphQL returns
 choice fields upper-cased, and new custom fields need a Nautobot restart before GraphQL sees them.
 
-## Tests (`./lab.sh test`, 98 cases)
+## Tests (`./lab.sh test`, 100 cases)
 | Suite | Checks |
 |---|---|
 | 01 management | every node on the OOB network with SSH, host names, host LAN addresses, MTU 9000 on all core links, config saved |
 | 02 underlay | exactly the expected IS-IS L2 adjacencies (2/4/6/4/2), every loopback via IS-IS, PE↔PE pings incl. 1600-byte DF (headroom for the encapsulation) |
 | 03 srv6 | locator Up with the lab's structure (usid-f3216, 32/16/16, uN with NEXT-C-SID) on all 7 nodes, all 7 in `show isis segment-routing srv6 node`, all locators in every RIB, End / End.X SIDs and exactly one End.DT46 SID per tenant VRF in the kernel (BGP's per-VRF SID), seg6 enabled per core interface |
-| 04 vpn | per tenant: 4 clients Established at **both** reflectors and both reflector sessions up on every PE, every LAN under its RD at the RR, remote LANs imported into the right VRF only (no prefix of the other tenant) with a SID inside the right locator and a recursive seg6 route, CEs learn the other three LANs in the tenant's own VRF over that VRF's session, nothing in the default VRF |
+| 04 vpn | **every CE's ten extra loopbacks under its PE's RD at the reflector and imported into the other PEs' VRF with that PE's SID**; per tenant: 4 clients Established at **both** reflectors and both reflector sessions up on every PE, every LAN under its RD at the RR, remote LANs imported into the right VRF only (no prefix of the other tenant) with a SID inside the right locator and a recursive seg6 route, CEs learn the other three LANs in the tenant's own VRF over that VRF's session, nothing in the default VRF |
 | 06 rr redundancy | every PE holds every remote VPN route once per reflector; **shutting p1's client sessions** (peer-group `shutdown`, restored in the teardown) leaves every VRF route, every SRv6 encap route and every in-tenant ping intact via p3; the sessions come back after the restore |
 | 07 steering | `steer add` installs the one-segment uSID carrier (`fd00:c:11:13:3:e001::`); captures on p1/p3 show the destination shifting hop by hop with the carrier in a one-segment SRH, p2 carries none of it, pings work, the return path crosses p2; the same path as an uncompressed three-segment list also works; `steer del` restores the BGP route |
 | 08 failover | BFD up on all 24 adjacencies; silent cut of p2–pe3 with a live 0.2 s ping: pe3 moves every tenant route to p3 within seconds, BFD reports Down, ≤ 10 packets lost across cut and repair (measured: 4); all BFD sessions and adjacencies back afterwards |
@@ -519,7 +549,7 @@ choice fields upper-cased, and new custom fields need a Nautobot restart before 
 | 12 interconnect | the IPsec headends as tenant-a CEs: PE↔headend eBGP with the right AS, headend + branch LANs on every PE with a SID from the attaching PE's locator and under its RD at the reflectors, absent from tenant-b, dc host ↔ branch pings both ways, the path dc → PE → core → headend → IPsec tunnel → branch, SRv6 encapsulation on p2 (skipped without `EXT_NODES`) |
 | 13 dual-stack | per VRF an Established IPv6 eBGP session with the CE announcing its IPv6 LAN; every IPv6 LAN at both reflectors under the right RD and on every PE once per reflector; **one End.DT46 per VRF** with the same SID and label on the IPv4 and the IPv6 route; SRv6 encap routes for every remote IPv6 LAN in the right VRF only; the 8×7 IPv6 host matrix (in-tenant ok, cross-tenant none); IPv6-in-IPv6 on p2 towards the same SID |
 | 14 internet | the firewall has a DHCP address and default route on the uplink and reaches the internet itself; Established as a CE of every tenant on pe4 sending exactly one prefix; the default route on every PE per tenant as an SRv6 route to pe4's End.DT46 SID (via the firewall on pe4 itself); one default per tenant under pe4's RD at both reflectors; every host of every tenant pings a public address and fetches a web page; packets leave masqueraded with the uplink address and the path crosses the firewall; a cross-tenant ping fails **and the firewall logs it as dropped**; input policy default-drop with only management / BGP / DHCP open, masquerade rule present; the portal's breakout metrics all 1 |
-| 05 end to end | every host reaches every host of its tenant (2 × 4×3 pings) and **none of the other tenant's**, not even at the same site; dc1→dc3 traffic transits p2 with `tcpdump` showing `IP6 fd00:a::1 > fd00:c:3:…` both ways; P routers hold no VRF and no tenant routes |
+| 05 end to end | **every host reaches all 40 extra CE loopbacks of its own tenant and none of the other's**; every host reaches every host of its tenant (2 × 4×3 pings) and **none of the other tenant's**, not even at the same site; dc1→dc3 traffic transits p2 with `tcpdump` showing `IP6 fd00:a::1 > fd00:c:3:…` both ways; P routers hold no VRF and no tenant routes |
 
 Every run lands in `results/<timestamp>/` — `report.html`, `log.html`, `output.xml`, and `configs/{pre-run,post-run}/` with
 `show configuration commands` of every VyOS node (diffed pre vs post; the diff must be empty) plus `routes/` with the
@@ -570,6 +600,7 @@ a terminal page; run it with the cat8000v-ipsec `webapp/.venv` python).
 | `docs/session/`, `tools/demo_live.py` | the teaching / interview kit: guide, questions, exercises, slides; the presenter-mode demo |
 | `docs/demo/record.py` | records `docs/demo/srv6-demo.{gif,mp4}` from the live lab |
 | `docs/topology.pdf`, `docs/topology.py` | the topology as a two-page PDF (diagram, addressing, packet walk), drawn from `lab.sh inventory` — rerun the script after editing `lab.conf` |
+| `Dockerfile`, `tools/docker.sh`, `tools/docker-entrypoint.sh` | the tooling as a container image (podman or docker): the repo is mounted at `/lab`, the VM lifecycle stays on the host |
 | `tools/gen_configs.py` | renders `nodes/<n>/vyos_config.txt` (the day-0 `set` lines) from `lab.sh inventory` — run after editing `lab.conf` |
 | `tools/vyos_console.py`, `tools/vyos_push.py` | serial-console helper (first boot) and the SSH equivalent (`configure`) |
 | `tools/vyos_cmd.py`, `tools/host_cmd.py` | SSH helpers (netmiko for VyOS, paramiko for CirrOS; `host_cmd.py matrix` = the ping matrix) |

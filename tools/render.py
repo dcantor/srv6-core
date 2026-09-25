@@ -255,6 +255,17 @@ class _Renderer:
                 f"set firewall ipv4 input filter rule 40 action accept", f"set firewall ipv4 input filter rule 40 inbound-interface name {netp['name']}", "set firewall ipv4 input filter rule 40 protocol udp", "set firewall ipv4 input filter rule 40 source port 67", "set firewall ipv4 input filter rule 40 description 'DHCP from the host'"]
         return out
 
+    def ce_loopbacks(self, n, vrf):
+        """The extra loopbacks of a CE in one tenant: a dummy interface inside that VRF carrying them, and one
+        `network` statement each so the CE's eBGP session announces them exactly as it announces its site LAN."""
+        lbs = [l for l in (n.get("loopbacks") or []) if l["tenant"] == vrf]
+        if not lbs: return []
+        i = lbs[0]["interface"]
+        return [f"# {len(lbs)} extra loopbacks of {n['name']} in {vrf} on {i}, announced by the eBGP session below like the LAN is"] + [
+                f"set interfaces dummy {i} vrf {vrf}", f"set interfaces dummy {i} description '{vrf} loopbacks of {n['name']}'"] + [
+                f"set interfaces dummy {i} address {l['address']}" for l in lbs] + [
+                f"set vrf name {vrf} protocols bgp address-family ipv4-unicast network {l['address']}" for l in lbs]
+
     def ce(self, n):
         """Per tenant: its own VRF on the CE (`vrf name <tenant>`) holding the attachment circuit to the PE and the site LAN, with an
         eBGP session announcing the LAN — the CE's default VRF carries only management, so the tenants never meet on the CE either."""
@@ -274,7 +285,8 @@ class _Renderer:
                     f"set interfaces ethernet {lan['name']} address {lan['ip']}"] + ([f"set interfaces ethernet {lan['name']} address {lan['ip6']}"] if lan.get("ip6") else []) + [f"set interfaces ethernet {lan['name']} description '{n['dc']} LAN {vrf}: {lan['peer']}'",
                     f"set {v}protocols bgp system-as {n['asn']}", f"set {v}protocols bgp parameters router-id {lan_net.network_address + 1}", f"set {v}protocols bgp parameters log-neighbor-changes",
                     f"set {v}protocols bgp neighbor {pe_ip} remote-as {self.SVC['core_as']}", f"set {v}protocols bgp neighbor {pe_ip} description '{pe_port['peer']} ({vrf})'",
-                    f"set {v}protocols bgp neighbor {pe_ip} address-family ipv4-unicast", f"set {v}protocols bgp address-family ipv4-unicast network {lan_net}"] + ([
+                    f"set {v}protocols bgp neighbor {pe_ip} address-family ipv4-unicast", f"set {v}protocols bgp address-family ipv4-unicast network {lan_net}"] + (
+                    self.ce_loopbacks(n, vrf)) + ([
                     f"set {v}protocols bgp neighbor {pe_ip6} remote-as {self.SVC['core_as']}", f"set {v}protocols bgp neighbor {pe_ip6} description '{pe_port['peer']} ({vrf}, IPv6)'",
                     f"set {v}protocols bgp neighbor {pe_ip6} address-family ipv6-unicast", f"set {v}protocols bgp address-family ipv6-unicast network {lan_net6}"] if pe_ip6 else [])
         return out

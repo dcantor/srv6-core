@@ -9,7 +9,9 @@
 #   log.html, report.html, output.xml   Robot Framework results
 set -uo pipefail
 cd "$(dirname "$(readlink -f "$0")")"
-[[ -x .venv/bin/robot ]] || { echo "error: run tests/setup.sh first" >&2; exit 1; }
+# the host runs the suites out of tests/.venv; SRV6_ROBOT / SRV6_PYTHON let the container use its own installation
+ROBOT="${SRV6_ROBOT:-$PWD/.venv/bin/robot}"; PY="${SRV6_PYTHON:-$PWD/.venv/bin/python}"
+[[ -x "$ROBOT" ]] || { echo "error: run tests/setup.sh first (or set SRV6_ROBOT)" >&2; exit 1; }
 # one run at a time on this host (manual, portal, CI): the suites cut links and shut sessions, two runs would fail each other
 exec 9>/tmp/srv6-core-test.lock
 flock -n 9 || { echo "==> another test run holds /tmp/srv6-core-test.lock — waiting for it"; flock 9; }
@@ -20,16 +22,16 @@ mkdir -p "$out/configs"
 echo "==> results: $out"
 
 echo "==> capturing VyOS configurations and routing tables (pre-run)"
-.venv/bin/python capture_configs.py "$out/configs/pre-run" || echo "warning: config capture failed" >&2
+"$PY" capture_configs.py "$out/configs/pre-run" || echo "warning: config capture failed" >&2
 
 echo "==> running Robot Framework suites"
 # explicit suite files on the command line replace the default "every suite"
 args=("$@"); explicit=0; for x in "$@"; do [[ "$x" == *.robot ]] && explicit=1; done; [[ $explicit -eq 1 ]] || args+=(suites/)
-.venv/bin/robot --outputdir "$out" --name "srv6 core lab" --loglevel INFO "${args[@]}"
+"$ROBOT" --outputdir "$out" --name "srv6 core lab" --loglevel INFO "${args[@]}"
 rc=$?
 
 echo "==> capturing VyOS configurations and routing tables (post-run backup)"
-.venv/bin/python capture_configs.py "$out/configs/post-run" || echo "warning: config capture failed" >&2
+"$PY" capture_configs.py "$out/configs/post-run" || echo "warning: config capture failed" >&2
 # diff ignoring the capture-timestamp header line
 diff -ru -x routes -I '^# .* captured ' "$out/configs/pre-run" "$out/configs/post-run" > "$out/configs/pre-vs-post.diff" \
   && echo "    no configuration changes during the run" \

@@ -59,8 +59,10 @@ Tenants are VRFs with their route targets, prefixes, and a route distinguisher p
         Should Be Equal    ${v}[import_targets][0][name]    ${VRF_RT}[${t}]
         Should Be Equal    ${v}[export_targets][0][name]    ${VRF_RT}[${t}]
         ${pfx}=    Evaluate    sorted([p["prefix"] for p in $v["prefixes"]])
-        ${want}=    Evaluate    sorted([l["prefix"] for l in $LINKS if l["tenant"] == $t] + [l["prefix6"] for l in $LINKS if l["tenant"] == $t and l.get("prefix6")])
-        Lists Should Be Equal    ${pfx}    ${want}    msg=${t}: VRF prefixes differ from the tenant links (IPv4 and their IPv6 twins)
+        # the tenant's links (IPv4 and their IPv6 twins) plus, where the CEs carry extra loopbacks, the /16 they come from
+        ${lb}=    Evaluate    sorted({str(ipaddress.ip_network(a, strict=False).supernet(new_prefix=16)) for ce in $CES for a in $CE_LOOPBACKS[ce].get($t, [])})    modules=ipaddress
+        ${want}=    Evaluate    sorted([l["prefix"] for l in $LINKS if l["tenant"] == $t] + [l["prefix6"] for l in $LINKS if l["tenant"] == $t and l.get("prefix6")] + $lb)
+        Lists Should Be Equal    ${pfx}    ${want}    msg=${t}: VRF prefixes differ from the tenant links (IPv4, their IPv6 twins, the CE loopback container)
         FOR    ${dc}    IN    @{SITES}[${t}]
             ${s}=    Set Variable    ${SITES}[${t}][${dc}]
             ${va}=    Nautobot Get    ipam/vrf-device-assignments/    vrf=${t}    device=${s}[pe]

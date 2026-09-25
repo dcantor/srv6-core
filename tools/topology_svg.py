@@ -20,7 +20,7 @@ def draw(inv, live=None):
     for dc in dcs: DCX[dc] = x + lane_w[dc] / 2; x += lane_w[dc] + GAP
     has_lg = any(n["role"] == "lg" for n in inv["nodes"])
     W = max(x + 6, 1200) + (90 if has_lg else 0); ROWS = {"p": 175, "pe": 380, "ce": 560, "host": 720, "ext-ce": 560, "fw": 560, "lg": 278}; H = 790
-    BOX = {"p": (240, 74), "pe": (270, 62 + 14 * len(tenants)), "ce": (min(340, min(lane_w.values()) - 30), 48 + 14 * len(tenants)), "host": (HW, 56), "ext-ce": (300, 62), "fw": (310, 48 + 14 * (len(tenants) + 1)), "lg": (340, 62)}
+    BOX = {"p": (240, 74), "pe": (270, 62 + 14 * len(tenants)), "ce": (min(340, min(lane_w.values()) - 30), 48 + 14 * (len(tenants) + len({l["tenant"] for x in inv["nodes"] for l in (x.get("loopbacks") or [])}))), "host": (HW, 56), "ext-ce": (300, 62), "fw": (310, 48 + 14 * (len(tenants) + 1)), "lg": (340, 62)}
     ps = sorted(n["name"] for n in inv["nodes"] if n["role"] == "p")
     core_left, core_right = 150, W - 150; PX = {p: core_left + (core_right - core_left) * (i + 0.5) / len(ps) for i, p in enumerate(ps)}
     COLS = {**{n["name"]: DCX[n["dc"]] for n in inv["nodes"] if n["role"] in ("pe", "ce")}, **PX}
@@ -105,7 +105,13 @@ def draw(inv, live=None):
         elif n["role"] == "pe": lines = [f'{n["loopback6"]} · rid {n["router_id"]} · AS {n["asn"]}', f'locator {n["locator"]}'] + [f'VRF {t} · RD {n["rd"].get(t, "?")} · End.DT46' for t in tenants if t in n["rd"]]
         elif n["role"] == "ce":
             lans6 = {p["tenant"]: p.get("prefix6") for p in n["ports"] if p["peer"] and N[p["peer"]]["role"] == "host"}
-            lines = [f'AS {n["asn"]} · eBGP v4 + v6 → {n["pe"]} per tenant'] + [f'VRF {t}: {lans[t]}' + (f' · {lans6[t]}' if lans6.get(t) else '') for t in tenants if t in lans]
+            lbs = {}
+            for l in n.get("loopbacks") or []: lbs.setdefault(l["tenant"], []).append(l["address"])
+            lines = [f'AS {n["asn"]} · eBGP v4 + v6 → {n["pe"]} per tenant'] + [
+                f'VRF {t}: {lans[t]}' + (f' · {lans6[t]}' if lans6.get(t) else '') for t in tenants if t in lans] + [
+                # the extra loopbacks announced from this CE, as a range rather than ten lines
+                f'{len(v)} loopbacks: {v[0].split("/")[0]}-{v[-1].split("/")[0].rsplit(".", 1)[1]} ({t})'
+                for t, v in sorted(lbs.items())]
         elif n["role"] == "ext-ce": lines = [f'AS {n["asn"]} · IPsec headend ({n.get("lab", "external")})', f'eBGP → {n["pe"]} in {next(p["tenant"] for p in n["ports"] if p["peer"])}', "announces its site + branch LANs"]
         elif n["role"] == "lg":
             lines = [f'AS {n["asn"]} · rid {n["router_id"]} · route collector',

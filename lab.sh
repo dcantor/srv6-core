@@ -4,7 +4,7 @@ set -euo pipefail
 source "$(dirname "$(readlink -f "$0")")/lab.conf"
 
 # Re-exec under the libvirt group if this login session doesn't have it yet.
-if ! id -nG | tr ' ' '\n' | grep -qx libvirt && getent group libvirt | grep -qw "$USER"; then
+if ! id -nG | tr ' ' '\n' | grep -qx libvirt && getent group libvirt | grep -qw "${USER:-$(id -un)}"; then
   exec sg libvirt -c "$(printf '%q ' "$0" "$@")"
 fi
 
@@ -23,7 +23,10 @@ is_host() { [[ "${ROLE[$1]}" == "host" ]]; }
 is_lg()   { [[ "${ROLE[$1]}" == "lg" ]]; }                 # the looking-glass collector: Alpine + FRR, cloud-init like a host
 is_vyos() { ! is_host "$1" && ! is_lg "$1"; }
 vyos_nodes_or_all() { local n out=(); for n in $(nodes_or_all "$@"); do is_vyos "$n" && out+=("$n"); done; echo "${out[*]:-}"; }
-PY="$LAB_DIR/tests/.venv/bin/python"; [[ -x "$PY" ]] || PY=python3
+# the host uses the test virtualenv; SRV6_PYTHON lets the container (and CI) point at its own interpreter instead —
+# and when it does, nothing here may build or touch that virtualenv: it belongs to the host and is mounted read-write
+PY="${SRV6_PYTHON:-$LAB_DIR/tests/.venv/bin/python}"; [[ -x "$PY" ]] || PY=python3
+need_python() { [[ -n "${SRV6_PYTHON:-}" ]] && return 0; [[ -x "$LAB_DIR/tests/.venv/bin/python" ]] || "$LAB_DIR/tests/setup.sh"; }
 
 # ---- networks -------------------------------------------------------------
 ensure_networks() {
@@ -69,6 +72,25 @@ link_ip6() {    # node port -> "address/64" on the IPv6 twin of a tenant link (:
   echo "${p6%::/64}::$end/64"
 }
 link_addr6() { link_ip6 "$1" "$2" | cut -d/ -f1; }
+# ---- extra CE loopbacks ---------------------------------------------------
+tenant_index() { local t="$1" i=0 x; for x in "${TENANTS[@]}"; do [[ "$x" == "$t" ]] && { echo "$i"; return; }; i=$((i+1)); done; echo 0; }
+ce_site_index() {   # ce tenant -> the site number its LAN carries (172.20.N.0/24 -> N), which numbers its loopbacks
+  local n="$1" t="$2" p peer pn pp pfx end tt
+  for p in $(node_ports "$n"); do
+    peer="$(link_peer "$n" "$p")"; [[ -n "$peer" ]] || continue
+    read -r pn pp pfx end tt <<<"$peer"
+    [[ "$tt" == "$t" && "${ROLE[$pn]}" == "host" ]] && { echo "$pfx" | cut -d. -f3; return; }
+  done
+}
+ce_loopback_interface() { echo "dum$(( $(tenant_index "$1") + 1 ))"; }          # one dummy per tenant, dum1, dum2, ...
+ce_loopbacks() {    # ce tenant -> its /32 loopbacks, one per line (empty when the feature is off)
+  local n="$1" t="$2" site k
+  [[ "${CE_LOOPBACKS:-0}" -gt 0 ]] || return 0
+  site="$(ce_site_index "$n" "$t")"; [[ -n "$site" ]] || return 0
+  for k in $(seq 1 "$CE_LOOPBACKS"); do echo "172.$(( CE_LOOPBACK_BASE + $(tenant_index "$t") )).$site.$k/32"; done
+}
+ce_loopback_block() { echo "172.$(( CE_LOOPBACK_BASE + $(tenant_index "$1") )).0.0/16"; }   # the container they come from
+
 link_prefix6() { # nodeA nodeB prefix -> the link's IPv6 twin, or empty when an end is the (IPv4-only) internet firewall
   [[ "${ROLE[$1]}" == "fw" || "${ROLE[$2]}" == "fw" ]] && return; prefix6_of "$3"; }
 
@@ -407,7 +429,7 @@ cmd_bootstrap() {  # push the day-0 config to VyOS nodes over their serial conso
 }
 
 cmd_configure() {  # (re)apply nodes/<n>/vyos_config.txt over SSH — idempotent, for changes made after the first boot
-  [[ -x "$LAB_DIR/tests/.venv/bin/python" ]] || "$LAB_DIR/tests/setup.sh"
+  need_python
   local n; for n in $(vyos_nodes_or_all "$@"); do "$PY" "$LAB_DIR/tools/vyos_push.py" "${MGMT_IP[$n]}" "$(node_dir "$n")/vyos_config.txt" | sed "s/^/[$n] /"; done
   "$PY" "$LAB_DIR/tools/frr_logging.py" $(vyos_nodes_or_all "$@")   # FRR state changes to syslog (not expressible in the CLI, see the tool)
   for n in $(nodes_or_all "$@"); do is_lg "$n" && cmd_lg deploy; done   # the collector: its FRR config and the lgd service
@@ -415,7 +437,7 @@ cmd_configure() {  # (re)apply nodes/<n>/vyos_config.txt over SSH — idempotent
 }
 
 cmd_steer() {      # explicit-path SRv6 steering: add|del|show|sid (tools/steer.py)
-  [[ -x "$LAB_DIR/tests/.venv/bin/python" ]] || "$LAB_DIR/tests/setup.sh"
+  need_python
   "$PY" "$LAB_DIR/tools/steer.py" "$@"
 }
 
@@ -424,7 +446,7 @@ NAUTOBOT_URL="${NAUTOBOT_URL:-http://10.0.0.10:8080}"
 nautobot_token() { [[ -n "${NAUTOBOT_TOKEN:-}" ]] && { echo "$NAUTOBOT_TOKEN"; return; }
   ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR lab@10.0.0.10 "grep ^NAUTOBOT_SUPERUSER_API_TOKEN /opt/nautobot/.env | cut -d= -f2"; }
 cmd_nautobot() {   # seed | render [--check|--live|--write|--inventory|--node N] | token
-  [[ -x "$LAB_DIR/tests/.venv/bin/python" ]] || "$LAB_DIR/tests/setup.sh"
+  need_python
   local sub="${1:-}"; shift || true; local tok; tok="$(nautobot_token)"; [[ -n "$tok" ]] || die "no Nautobot token (set NAUTOBOT_TOKEN or make lab@10.0.0.10 reachable)"
   case "$sub" in
     seed)   NAUTOBOT_URL="$NAUTOBOT_URL" NAUTOBOT_TOKEN="$tok" "$PY" "$LAB_DIR/nautobot/seed.py" "$@" ;;
@@ -501,7 +523,16 @@ cmd_inventory() {  # the lab as JSON (nodes, links, service) — consumed by tes
         else printf '{"name": "%s", "ip": null, "peer": null}' "$(port_name "$n" "$p")"; fi
       done
       if [[ -n "${NET_PORT[$n]:-}" ]]; then printf ',{"name": "eth%s", "ip": "dhcp", "peer": null, "network": "%s"}' "${NET_PORT[$n]%%:*}" "${NET_PORT[$n]##*:}"; fi
-      printf ']}'
+      printf ']'
+      if [[ "${ROLE[$n]}" == "ce" ]]; then      # extra loopbacks: address, the tenant VRF they live in, the dummy interface
+        local lj="" t a
+        for t in "${CE_LOOPBACK_TENANTS[@]:-}"; do
+          [[ -n "$t" ]] || continue
+          for a in $(ce_loopbacks "$n" "$t"); do lj+="${lj:+, }{\"address\": \"$a\", \"tenant\": \"$t\", \"interface\": \"$(ce_loopback_interface "$t")\"}"; done
+        done
+        printf ', "loopbacks": [%s]' "$lj"
+      fi
+      printf '}'
     done
     echo; echo ' ],'
     echo ' "links": ['
@@ -533,7 +564,7 @@ cmd_log() { tail -n "${2:-50}" -f "$(node_dir "${1:?node}")/console.log"; }
 vy() { "$PY" "$LAB_DIR/tools/vyos_cmd.py" "${MGMT_IP[$1]}" "${@:2}"; }
 
 cmd_verify() {     # a quick look at the control plane and the data plane end to end
-  [[ -x "$LAB_DIR/tests/.venv/bin/python" ]] || "$LAB_DIR/tests/setup.sh"
+  need_python
   local n
   echo "== IS-IS adjacencies (PEs: 2, p1: 4, p2: 6, p3: 4)"
   for n in "${PES[@]}" "${PS[@]}"; do echo "-- $n"; vy "$n" "show isis neighbor" | grep -E 'Up|Init|Down' || echo "   (none)"; done
@@ -552,17 +583,17 @@ cmd_verify() {     # a quick look at the control plane and the data plane end to
 }
 
 cmd_iperf() {      # throughput between two tenant hosts: iperf <src> <dst> [-t s] [-u -b RATE] | iperf --scenarios
-  [[ -x "$LAB_DIR/tests/.venv/bin/python" ]] || "$LAB_DIR/tests/setup.sh"
+  need_python
   "$PY" "$LAB_DIR/tools/iperf.py" "$@"
 }
 
 cmd_backup() {     # commit running + intended configs and routing tables to the local Gitea (lab/srv6-core-configs)
-  [[ -x "$LAB_DIR/tests/.venv/bin/python" ]] || "$LAB_DIR/tests/setup.sh"
+  need_python
   "$PY" "$LAB_DIR/tools/backup_configs.py" "$@"
 }
 
 cmd_ci() {         # CI plumbing: setup (Gitea mirror + Actions), sync (mirror now, start the workflow), status (last runs)
-  [[ -x "$LAB_DIR/tests/.venv/bin/python" ]] || "$LAB_DIR/tests/setup.sh"
+  need_python
   "$PY" "$LAB_DIR/tools/ci.py" "$@"
 }
 
@@ -578,7 +609,7 @@ cmd_webapp() {     # the tenant provisioning portal (FastAPI/uvicorn) on http://
 }
 
 cmd_lg() {         # the BGP looking glass: build the image, deploy / restart the collector, look at what it holds
-  [[ -x "$LAB_DIR/tests/.venv/bin/python" ]] || "$LAB_DIR/tests/setup.sh"
+  need_python
   local sub="${1:-status}"; shift || true
   case "$sub" in
     image)   "$LAB_DIR/tools/build_lg_image.sh" "$@" ;;
@@ -593,7 +624,7 @@ cmd_lg() {         # the BGP looking glass: build the image, deploy / restart th
 }
 
 cmd_test() {       # Robot Framework suite; results in results/<date>_<time>/
-  [[ -x "$LAB_DIR/tests/.venv/bin/robot" ]] || "$LAB_DIR/tests/setup.sh"
+  [[ -n "${SRV6_ROBOT:-}" || -x "$LAB_DIR/tests/.venv/bin/robot" ]] || "$LAB_DIR/tests/setup.sh"
   exec "$LAB_DIR/tests/run.sh" "$@"
 }
 

@@ -19,13 +19,35 @@ N = {n["name"]: n for n in inv["nodes"]}
 CREDS = dict(username=os.environ.get("VYOS_USERNAME", "vyos"), password=os.environ.get("VYOS_PASSWORD", "vyos"))
 
 
-def conn(node): return ConnectHandler(device_type="vyos", host=N[node]["mgmt_ip"], **CREDS)
+# The routers answer more slowly the more routes they hold (a commit + save on a PE with a full VPN table takes a
+# while, and netmiko's prompt matching gives up mid-answer), so every call here gets a generous read timeout and one
+# retry on a fresh session: a steering change that half-happened is worse than one that takes a few seconds longer.
+READ_TIMEOUT = 180
+
+
+def conn(node): return ConnectHandler(device_type="vyos", host=N[node]["mgmt_ip"], conn_timeout=30, **CREDS)
+
+
+def with_retry(node, fn, attempts=2):
+    """Run fn(connection) against the node, reconnecting once if netmiko loses the prompt."""
+    from netmiko.exceptions import ReadTimeout, NetmikoTimeoutException
+    last = None
+    for i in range(attempts):
+        c = conn(node)
+        try: return fn(c)
+        except (ReadTimeout, NetmikoTimeoutException, OSError, EOFError) as e:
+            last = e
+            print(f"# {node}: {e.__class__.__name__} — retrying on a fresh session ({i + 1}/{attempts})", file=sys.stderr)
+        finally:
+            try: c.disconnect()
+            except Exception: pass                               # noqa: BLE001
+    raise last
 
 
 def dt4_sid(pe, tenant):
     """The SID BGP allocated for a tenant VRF on a PE: the per-VRF End.DT46 (one for both address families), or the
     per-address-family End.DT4 if the VRF is configured that way (from `show bgp segment-routing srv6`)."""
-    c = conn(pe); out = c.send_command("show bgp segment-routing srv6"); c.disconnect()
+    out = with_retry(pe, lambda c: c.send_command("show bgp segment-routing srv6", read_timeout=READ_TIMEOUT))
     blk = re.search(rf"- name: {re.escape(tenant)}\n(.*?)(?=\n- name:|\Z)", out, re.S)
     m = blk and (re.search(r"per-vrf tovpn_sid: ([0-9a-f:]+)", blk[1]) or re.search(r"vpn_policy\[AFI_IP\]\.tovpn_sid: ([0-9a-f:]+)", blk[1]))
     if not m: sys.exit(f"{pe}: no End.DT46 / End.DT4 SID for {tenant}")
@@ -75,17 +97,20 @@ if cmd == "add":
     sr = inv["service"]["srv6"]
     if sr["format"].startswith("usid") and not uncompressed:
         segs = [usid_carrier(sr, ps, sid)]
-    c = conn(src)
-    out = c.send_config_set([f"set {path(src, tenant, prefix)} interface {iface} vrf default", f"set {path(src, tenant, prefix)} interface {iface} segments {'/'.join(segs)}", "commit", "save"],
-                            exit_config_mode=True, cmd_verify=False, read_timeout=120)
+    out = with_retry(src, lambda c: c.send_config_set(
+        [f"set {path(src, tenant, prefix)} interface {iface} vrf default",
+         f"set {path(src, tenant, prefix)} interface {iface} segments {'/'.join(segs)}", "commit", "save"],
+        exit_config_mode=True, cmd_verify=False, read_timeout=READ_TIMEOUT))
     if re.search(r"Invalid|failed", out): sys.exit(out[-500:])
     print(f"{src}: {tenant} {prefix} -> {' -> '.join(ps)} -> {dst}  segments {' / '.join(segs)}  (out {iface})" + ("  [uSID: one compressed segment]" if len(segs) == 1 and len(ps) >= 1 and inv["service"]["srv6"]["format"].startswith("usid") and not uncompressed else ""))
-    print(c.send_command(f"sudo ip -c=never route show vrf {tenant} {prefix}")); c.disconnect()
+    print(with_retry(src, lambda c: c.send_command(f"sudo ip -c=never route show vrf {tenant} {prefix}", read_timeout=READ_TIMEOUT)))
 elif cmd == "del":
     src, tenant, prefix = sys.argv[2], sys.argv[3], sys.argv[4]
-    c = conn(src); out = c.send_config_set([f"delete {path(src, tenant, prefix)}", "commit", "save"], exit_config_mode=True, cmd_verify=False, read_timeout=120)
+    out = with_retry(src, lambda c: c.send_config_set([f"delete {path(src, tenant, prefix)}", "commit", "save"],
+                                                      exit_config_mode=True, cmd_verify=False, read_timeout=READ_TIMEOUT))
     if re.search(r"Invalid|failed", out): sys.exit(out[-500:])
-    print(f"{src}: {tenant} {prefix} back on the IGP shortest path"); print(c.send_command(f"sudo ip -c=never route show vrf {tenant} {prefix}")); c.disconnect()
+    print(f"{src}: {tenant} {prefix} back on the IGP shortest path")
+    print(with_retry(src, lambda c: c.send_command(f"sudo ip -c=never route show vrf {tenant} {prefix}", read_timeout=READ_TIMEOUT)))
 elif cmd == "show":
     for pe in (sys.argv[2:] or [n["name"] for n in inv["nodes"] if n["role"] == "pe"]):
         c = conn(pe); lines = []

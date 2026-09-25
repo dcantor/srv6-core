@@ -8,7 +8,8 @@ What is modelled
                  linux) and the BGP looking glass (role srv6-lg: an Alpine route collector); eth0 = OOB (primary IPv4),
                  ethN with the lab MACs, lo and dum0 as virtual interfaces; cables from LINKS
   custom fields  device: isis_net, srv6_locator (grouping SRv6); interface: none — link roles are prefix roles
-  IPAM           prefixes with roles oob-management / loopback / wan-p2p / srv6-locator / attachment-circuit / site-lan / router-id,
+  IPAM           prefixes with roles oob-management / loopback / wan-p2p / srv6-locator / attachment-circuit / site-lan / router-id
+                 (the CEs' extra loopbacks live in a per-tenant /16 container with role loopback, their /32s on a dummy interface),
                  tenant prefixes in VRFs tenant-a / tenant-b (route targets 65000:100 / 65000:200), VRF device assignments with
                  the per-PE RD; every interface address
   BGP            nautobot-bgp-models: AS 65000 + one per CE, a routing instance per BGP speaker (router-id), address families
@@ -196,6 +197,17 @@ for t in tenants:
     if {x["name"] for x in vq.get(t, {}).get("import_targets", [])} != {SVC["tenants"][t]["rt"]} or {x["name"] for x in vq.get(t, {}).get("export_targets", [])} != {SVC["tenants"][t]["rt"]}:
         patch(f"ipam/vrfs/{vrfs[t].id}", import_targets=[rts[t].id], export_targets=[rts[t].id]); created.append(f"vrf targets:{t}")
 vrf_prefixes = {t: {x["prefix"] for x in vq.get(t, {}).get("prefixes", [])} for t in tenants}; vrf_prefix_ids = {t: [] for t in tenants}
+ce_loopback_containers = {}
+for t in tenants:   # the CE loopbacks of a tenant come out of one container (172.(24+i).0.0/16), like its circuits and LANs
+    lbs = [l for n in inv["nodes"] for l in (n.get("loopbacks") or []) if l["tenant"] == t]
+    if not lbs: continue
+    sup = str(ipaddress.ip_network(lbs[0]["address"], strict=False).supernet(new_prefix=16))
+    pf = ensure_prefix(sup, "loopback", f"extra loopbacks of the {t} CEs (one /32 each, announced by their eBGP session)",
+                       type="container", tenant=tenants[t].id)
+    ce_loopback_containers[t] = sup
+    if sup not in vrf_prefixes[t]:
+        nb.ipam.vrf_prefix_assignments.create(vrf=vrfs[t].id, prefix=pf.id); created.append(f"vrf {t} += {sup}")
+        vrf_prefixes[t].add(sup)
 link_prefix = {}
 for l in inv["links"]:
     net = ipaddress.ip_network(l["prefix"]); a_n, b_n = N[l["a"]], N[l["b"]]
@@ -214,23 +226,27 @@ for l in inv["links"]:
         vrf_prefix_ids[l["tenant"]].append(pf6.id)
 for t in tenants:
     want = [p for l in inv["links"] if l.get("tenant") == t for p in ([l["prefix"]] + ([l["prefix6"]] if l.get("prefix6") else []))]
+    keep = set(want) | {ce_loopback_containers[t]} if t in ce_loopback_containers else set(want)   # the loopback container stays
     for pf_id, pfx in zip(vrf_prefix_ids[t], want):
         if pfx not in vrf_prefixes[t]: nb.ipam.vrf_prefix_assignments.create(vrf=vrfs[t].id, prefix=pf_id); created.append(f"vrf {t} += {pfx}")
-    for pfx in vrf_prefixes[t] - set(want):   # a renumbered circuit leaves its old prefix in the VRF: drop the assignment (the prefix itself may belong to another lab)
+    for pfx in vrf_prefixes[t] - keep:        # a renumbered circuit leaves its old prefix in the VRF: drop the assignment (the prefix itself may belong to another lab)
         old = nb.ipam.prefixes.get(prefix=pfx, namespace=ns.id); va = old and nb.ipam.vrf_prefix_assignments.get(vrf=vrfs[t].id, prefix=old.id)
         if va: va.delete(); created.append(f"vrf {t} -= {pfx}")
 
 # ---- devices, interfaces, addresses, cables -------------------------------------------------------------------------
 devs, ifs, ips = {}, {}, {}
-def ensure_ip(address, description, iface=None, tenant=None):
+def ensure_ip(address, description, iface=None, tenant=None, exclusive=True):
+    """`exclusive` is the normal rule — a lab interface carries one address per family, so a renumbered link drops the
+    old one. A CE's loopback interface is the exception: it carries a whole set, and the caller prunes it."""
     ip = nb.ipam.ip_addresses.get(address=address, namespace=ns.id)
     if ip is None: ip = nb.ipam.ip_addresses.create(address=address, namespace=ns.id, status=active.id, description=description, **({"tenant": tenant.id} if tenant else {})); created.append(f"ip:{address}")
     else: ensure(ip, description=description, **({"tenant": tenant.id} if tenant else {}))
     if iface is not None:
-        fam = ipaddress.ip_interface(address).version
-        for x in nb.ipam.ip_address_to_interface.filter(interface=iface.id):   # one address per family per lab interface: a renumbered link drops the old one
-            if str(getattr(x.ip_address, "id", x.ip_address)) != ip.id and ipaddress.ip_interface(str(nb.ipam.ip_addresses.get(id=getattr(x.ip_address, "id", x.ip_address)).address)).version == fam:
-                x.delete(); created.append(f"unassign old address from {iface.device.name} {iface.name}")
+        if exclusive:
+            fam = ipaddress.ip_interface(address).version
+            for x in nb.ipam.ip_address_to_interface.filter(interface=iface.id):   # one address per family per lab interface: a renumbered link drops the old one
+                if str(getattr(x.ip_address, "id", x.ip_address)) != ip.id and ipaddress.ip_interface(str(nb.ipam.ip_addresses.get(id=getattr(x.ip_address, "id", x.ip_address)).address)).version == fam:
+                    x.delete(); created.append(f"unassign old address from {iface.device.name} {iface.name}")
         if not nb.ipam.ip_address_to_interface.get(ip_address=ip.id, interface=iface.id):
             nb.ipam.ip_address_to_interface.create(ip_address=ip.id, interface=iface.id); created.append(f"assign {address} -> {iface.device.name} {iface.name}")
     return ip
@@ -291,6 +307,15 @@ for n in inv["nodes"]:
             for x in nb.ipam.ip_address_to_interface.filter(interface=i.id): x.delete(); created.append(f"address unassigned from unwired {n['name']} {port['name']}")
     if role == "lg":
         ensure_ip(f"{n['router_id']}/32", f"{n['name']} BGP router-id (the collector has no loopback: it peers over its links)", None)
+    for iface, lbs in sorted({l["interface"]: [x for x in n.get("loopbacks") or [] if x["interface"] == l["interface"]]
+                              for l in (n.get("loopbacks") or [])}.items()):
+        t = lbs[0]["tenant"]
+        i = ensure_if(iface, "virtual", f"{t} loopbacks of {n['name']} (announced by its eBGP session)")
+        want = {l["address"] for l in lbs}
+        for x in nb.ipam.ip_address_to_interface.filter(interface=i.id):   # a shrunken set leaves addresses behind
+            addr = str(nb.ipam.ip_addresses.get(id=getattr(x.ip_address, "id", x.ip_address)).address)
+            if addr not in want: x.delete(); created.append(f"unassign {addr} from {n['name']} {iface}")
+        for l in lbs: ensure_ip(l["address"], f"{n['name']} {t} loopback", i, tenants.get(t), exclusive=False)
     if role in ("pe", "p"):
         lo = ensure_if("lo", "virtual", "loopback: IS-IS passive, BGP source, SRv6 encapsulation source")
         ensure_ip(f"{n['loopback6']}/128", f"{n['name']} loopback", lo)

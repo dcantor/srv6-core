@@ -84,6 +84,16 @@ if INTERNET:
 INTERNET_PROBE = "1.1.1.1"     # a public address every host must reach through the breakout (ICMP), and a URL over TCP
 INTERNET_URL = "http://example.com"
 
+# Extra loopbacks injected on every CE (lab.conf CE_LOOPBACKS / CE_LOOPBACK_TENANTS): {ce: {tenant: [address, ...]}},
+# and the same set flattened per tenant — what every site of that tenant must be able to reach.
+CE_LOOPBACKS = {ce: {} for ce in CES}
+for ce in CES:
+    for l in NODES[ce].get("loopbacks") or []:
+        CE_LOOPBACKS[ce].setdefault(l["tenant"], []).append(l["address"])
+CE_LOOPBACK_TENANTS = sorted({t for v in CE_LOOPBACKS.values() for t in v})
+CE_LOOPBACK_IPS = {t: [a.split("/")[0] for ce in CES for a in CE_LOOPBACKS[ce].get(t, [])] for t in CE_LOOPBACK_TENANTS}
+CE_LOOPBACK_OF = {t: {ce: [a.split("/")[0] for a in CE_LOOPBACKS[ce].get(t, [])] for ce in CES} for t in CE_LOOPBACK_TENANTS}
+
 # BGP looking glass (role lg): a passive route collector peering with every reflector over its own link, serving the
 # looking-glass API on LG_PORT. LG_PEERS: what the collector's sessions should be (the reflector, and both link ends).
 LGS = sorted(n for n, v in NODES.items() if v["role"] == "lg")

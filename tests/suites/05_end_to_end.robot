@@ -18,6 +18,26 @@ Every host pings every other host of its own tenant across the core
         END
     END
 
+Every host reaches every extra CE loopback of its own tenant, and none of another tenant's
+    [Documentation]    The CEs' extra /32s are ordinary tenant routes: a host at any site reaches every one of them
+    ...    across the core, and a host of another tenant reaches none.
+    Skip If    not $CE_LOOPBACK_TENANTS    no extra CE loopbacks in lab.conf (CE_LOOPBACKS)
+    FOR    ${t}    IN    @{CE_LOOPBACK_TENANTS}
+        ${ips}=    Set Variable    ${CE_LOOPBACK_IPS}[${t}]
+        FOR    ${src}    IN    @{HOSTS}
+            IF    $HOST_TENANT[$src] == "${t}"
+                FOR    ${ip}    IN    @{ips}
+                    ${out}=    Host    ${src}    ping -c 1 -W 2 ${ip}
+                    Should Contain    ${out}    0% packet loss    msg=${src} cannot reach the ${t} loopback ${ip}
+                END
+            ELSE
+                ${out}=    Host    ${src}    ping -c 2 -W 2 ${ips}[0]; true
+                ${lost}=    Ping Loss    ${out}
+                Should Be Equal As Integers    ${lost}    2    msg=${src} (${HOST_TENANT}[${src}]) reached the ${t} loopback ${ips}[0]
+            END
+        END
+    END
+
 Hosts of different tenants cannot reach each other, not even at the same site
     [Documentation]    h1 (tenant-a) and h2 (tenant-b) share the CE, the PE and the core, yet the VRFs on the CE and the PE
     ...    keep them apart: every cross-tenant ping loses 100% and the ICMP never reaches the other host.

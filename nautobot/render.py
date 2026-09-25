@@ -44,12 +44,17 @@ def inventory_from_nautobot():
     for name, x in sorted(devs.items(), key=lambda kv: kv[0]):
         role = ROLE[x["role"]["name"]]; loc = x["location"]["name"]; dc = loc if loc != "srv6-core" else "core"
         ri = (x["bgp_routing_instances"] or [None])[0]
-        ports, lo6, locator_addr = [], None, None
+        ports, lo6, locator_addr, loopbacks = [], None, None, []
         for i in sorted(x["interfaces"], key=lambda i: (i["name"][:3], int(i["name"][3:]) if i["name"][3:].isdigit() else 0)):
             addrs = i["ip_addresses"]; v4 = [a for a in addrs if ":" not in a["address"]]; v6 = [a for a in addrs if ":" in a["address"]]
             addr = (v4 or v6 or [{"address": None}])[0]["address"]   # core links are IPv6-only; tenant links are dual-stack (IPv4 first, its twin second)
             if i["name"] == "lo": lo6 = addr.split("/")[0] if addr else None; continue
-            if i["name"] == "dum0": locator_addr = addr; continue
+            if i["name"] == "dum0" and role in ("pe", "p"): locator_addr = addr; continue
+            if i["name"].startswith("dum"):      # a CE's extra loopbacks: the VRF comes from their container prefix
+                for ad in sorted(addrs, key=lambda x: ipaddress.ip_interface(x["address"])):
+                    parent = ad["parent"]["prefix"] if ad.get("parent") else None
+                    loopbacks.append({"address": ad["address"], "tenant": vrf_of_prefix.get(parent), "interface": i["name"]})
+                continue
             if i["mgmt_only"]: continue
             if role == "fw" and not addrs and i["description"].startswith("internet:"):   # the firewall's DHCP uplink on the host's libvirt NAT network
                 ports.append({"name": i["name"], "ip": "dhcp", "peer": None, "network": inet["net"] if inet else i["description"].split()[2]}); continue
@@ -61,7 +66,8 @@ def inventory_from_nautobot():
         rd = {va["vrf"]["name"]: va["rd"] for va in x["vrf_assignments"] if va["rd"]}
         nodes.append({"name": name, "role": role, "dc": dc, "mgmt_ip": x["primary_ip4"]["address"].split("/")[0], "loopback6": lo6,
                       "router_id": ri["router_id"]["address"].split("/")[0] if ri and ri["router_id"] else None, "locator": x["cf_srv6_locator"] or None,
-                      "isis_net": x["cf_isis_net"] or None, "asn": int(ri["autonomous_system"]["asn"]) if ri else None, "pe": pe, "rd": rd, "ports": ports})
+                      "isis_net": x["cf_isis_net"] or None, "asn": int(ri["autonomous_system"]["asn"]) if ri else None, "pe": pe, "rd": rd,
+                      "ports": ports, "loopbacks": loopbacks})
     # external CEs: a PE port cabled to a device outside the lab (an IPsec headend) — modelled minimally, as lab.sh does
     for pe in [n for n in nodes if n["role"] == "pe"]:
         for pt in pe["ports"]:

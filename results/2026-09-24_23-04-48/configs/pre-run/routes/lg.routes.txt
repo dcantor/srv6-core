@@ -1,0 +1,420 @@
+# lg (10.3.0.70) BGP looking glass captured 2026-09-24 23:04:51
+
+==== FRR configuration (rendered by tools/render.py): doas cat /etc/frr/frr.conf
+! lg: the lab's BGP looking glass — a passive route collector, rendered by tools/render.py
+! It peers with every route reflector over its own point-to-point link and receives the whole VPN table with the
+! attributes the PEs originated (RD, route targets, SRv6 SID and label, originator, cluster list). It runs no IGP,
+! installs nothing in the kernel and announces nothing: COLLECTOR-NO-EXPORT denies everything outbound.
+frr defaults traditional
+hostname lg
+log file /var/log/frr/frr.log informational
+log syslog informational
+service integrated-vtysh-config
+!
+router bgp 65000
+ bgp router-id 10.255.0.21
+ bgp log-neighbor-changes
+ no bgp default ipv4-unicast
+ no bgp network import-check
+ bgp graceful-restart
+ neighbor fd00:b:0:121::1 remote-as 65000
+ neighbor fd00:b:0:121::1 description p1 (route reflector) via eth1
+ neighbor fd00:b:0:121::1 capability extended-nexthop
+ neighbor fd00:b:0:121::1 timers 10 30
+ neighbor fd00:b:0:321::1 remote-as 65000
+ neighbor fd00:b:0:321::1 description p3 (route reflector) via eth2
+ neighbor fd00:b:0:321::1 capability extended-nexthop
+ neighbor fd00:b:0:321::1 timers 10 30
+ address-family ipv4 vpn
+  neighbor fd00:b:0:121::1 activate
+  neighbor fd00:b:0:121::1 soft-reconfiguration inbound
+  neighbor fd00:b:0:121::1 route-map COLLECTOR-NO-EXPORT out
+  neighbor fd00:b:0:321::1 activate
+  neighbor fd00:b:0:321::1 soft-reconfiguration inbound
+  neighbor fd00:b:0:321::1 route-map COLLECTOR-NO-EXPORT out
+ exit-address-family
+ address-family ipv6 vpn
+  neighbor fd00:b:0:121::1 activate
+  neighbor fd00:b:0:121::1 soft-reconfiguration inbound
+  neighbor fd00:b:0:121::1 route-map COLLECTOR-NO-EXPORT out
+  neighbor fd00:b:0:321::1 activate
+  neighbor fd00:b:0:321::1 soft-reconfiguration inbound
+  neighbor fd00:b:0:321::1 route-map COLLECTOR-NO-EXPORT out
+ exit-address-family
+exit
+!
+route-map COLLECTOR-NO-EXPORT deny 10
+exit
+!
+
+==== collector sessions: doas vtysh -c 'show bgp summary'
+
+IPv4 VPN Summary:
+BGP router identifier 10.255.0.21, local AS number 65000 VRF default vrf-id 0
+BGP table version 0
+RIB entries 15, using 1920 bytes of memory
+Peers 2, using 33 KiB of memory
+
+Neighbor        V         AS   MsgRcvd   MsgSent   TblVer  InQ OutQ  Up/Down State/PfxRcd   PfxSnt Desc
+fd00:b:0:121::1 4      65000      3917      3317      160    0    0 09:11:54           60        0 p1 (route
+fd00:b:0:321::1 4      65000      3883      3317      160    0    0 09:11:54           60        0 p3 (route
+
+Total number of neighbors 2
+
+IPv6 VPN Summary:
+BGP router identifier 10.255.0.21, local AS number 65000 VRF default vrf-id 0
+BGP table version 0
+RIB entries 15, using 1920 bytes of memory
+Peers 2, using 33 KiB of memory
+
+Neighbor        V         AS   MsgRcvd   MsgSent   TblVer  InQ OutQ  Up/Down State/PfxRcd   PfxSnt Desc
+fd00:b:0:121::1 4      65000      3917      3317      153    0    0 09:11:54           16        0 p1 (route
+fd00:b:0:321::1 4      65000      3883      3317      153    0    0 09:11:54           16        0 p3 (route
+
+Total number of neighbors 2
+
+==== BGP VPNv4 table (collected): doas vtysh -c 'show bgp ipv4 vpn'
+BGP table version is 160, local router ID is 10.255.0.21, vrf id 0
+Default local pref 100, local AS 65000
+Status codes:  s suppressed, d damped, h history, u unsorted, * valid, > best, = multipath,
+               i internal, r RIB-failure, S Stale, R Removed
+Nexthop codes: @NNN nexthop's vrf id, < announce-nh-self
+Origin codes:  i - IGP, e - EGP, ? - incomplete
+RPKI validation codes: V valid, I invalid, N Not found
+
+     Network          Next Hop            Metric LocPrf Weight Path
+Route Distinguisher: 65000:101
+ *>i 172.16.1.0/30    fd00:a::1                0    100      0 ?
+    UN=fd00:a::1 EC{65000:100} label=917536 sid=fd00:c:1:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::1                0    100      0 ?
+    UN=fd00:a::1 EC{65000:100} label=917536 sid=fd00:c:1:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *>i 172.20.1.0/24    fd00:a::1                0    100      0 65001 i
+    UN=fd00:a::1 EC{65000:100} label=917536 sid=fd00:c:1:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::1                0    100      0 65001 i
+    UN=fd00:a::1 EC{65000:100} label=917536 sid=fd00:c:1:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *>i 172.24.1.1/32    fd00:a::1                0    100      0 65001 i
+    UN=fd00:a::1 EC{65000:100} label=917536 sid=fd00:c:1:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::1                0    100      0 65001 i
+    UN=fd00:a::1 EC{65000:100} label=917536 sid=fd00:c:1:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *>i 172.24.1.2/32    fd00:a::1                0    100      0 65001 i
+    UN=fd00:a::1 EC{65000:100} label=917536 sid=fd00:c:1:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::1                0    100      0 65001 i
+    UN=fd00:a::1 EC{65000:100} label=917536 sid=fd00:c:1:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *>i 172.24.1.3/32    fd00:a::1                0    100      0 65001 i
+    UN=fd00:a::1 EC{65000:100} label=917536 sid=fd00:c:1:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::1                0    100      0 65001 i
+    UN=fd00:a::1 EC{65000:100} label=917536 sid=fd00:c:1:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *>i 172.24.1.4/32    fd00:a::1                0    100      0 65001 i
+    UN=fd00:a::1 EC{65000:100} label=917536 sid=fd00:c:1:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::1                0    100      0 65001 i
+    UN=fd00:a::1 EC{65000:100} label=917536 sid=fd00:c:1:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *>i 172.24.1.5/32    fd00:a::1                0    100      0 65001 i
+    UN=fd00:a::1 EC{65000:100} label=917536 sid=fd00:c:1:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::1                0    100      0 65001 i
+    UN=fd00:a::1 EC{65000:100} label=917536 sid=fd00:c:1:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *>i 172.24.1.6/32    fd00:a::1                0    100      0 65001 i
+    UN=fd00:a::1 EC{65000:100} label=917536 sid=fd00:c:1:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::1                0    100      0 65001 i
+    UN=fd00:a::1 EC{65000:100} label=917536 sid=fd00:c:1:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *>i 172.24.1.7/32    fd00:a::1                0    100      0 65001 i
+    UN=fd00:a::1 EC{65000:100} label=917536 sid=fd00:c:1:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::1                0    100      0 65001 i
+    UN=fd00:a::1 EC{65000:100} label=917536 sid=fd00:c:1:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *>i 172.24.1.8/32    fd00:a::1                0    100      0 65001 i
+    UN=fd00:a::1 EC{65000:100} label=917536 sid=fd00:c:1:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::1                0    100      0 65001 i
+    UN=fd00:a::1 EC{65000:100} label=917536 sid=fd00:c:1:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *>i 172.24.1.9/32    fd00:a::1                0    100      0 65001 i
+    UN=fd00:a::1 EC{65000:100} label=917536 sid=fd00:c:1:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::1                0    100      0 65001 i
+    UN=fd00:a::1 EC{65000:100} label=917536 sid=fd00:c:1:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *>i 172.24.1.10/32   fd00:a::1                0    100      0 65001 i
+    UN=fd00:a::1 EC{65000:100} label=917536 sid=fd00:c:1:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::1                0    100      0 65001 i
+    UN=fd00:a::1 EC{65000:100} label=917536 sid=fd00:c:1:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+Route Distinguisher: 65000:102
+ *>i 172.16.2.0/30    fd00:a::2                0    100      0 ?
+    UN=fd00:a::2 EC{65000:100} label=917520 sid=fd00:c:2:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::2                0    100      0 ?
+    UN=fd00:a::2 EC{65000:100} label=917520 sid=fd00:c:2:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *>i 172.20.2.0/24    fd00:a::2                0    100      0 65002 i
+    UN=fd00:a::2 EC{65000:100} label=917520 sid=fd00:c:2:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::2                0    100      0 65002 i
+    UN=fd00:a::2 EC{65000:100} label=917520 sid=fd00:c:2:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *>i 172.24.2.1/32    fd00:a::2                0    100      0 65002 i
+    UN=fd00:a::2 EC{65000:100} label=917520 sid=fd00:c:2:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::2                0    100      0 65002 i
+    UN=fd00:a::2 EC{65000:100} label=917520 sid=fd00:c:2:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *>i 172.24.2.2/32    fd00:a::2                0    100      0 65002 i
+    UN=fd00:a::2 EC{65000:100} label=917520 sid=fd00:c:2:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::2                0    100      0 65002 i
+    UN=fd00:a::2 EC{65000:100} label=917520 sid=fd00:c:2:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *>i 172.24.2.3/32    fd00:a::2                0    100      0 65002 i
+    UN=fd00:a::2 EC{65000:100} label=917520 sid=fd00:c:2:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::2                0    100      0 65002 i
+    UN=fd00:a::2 EC{65000:100} label=917520 sid=fd00:c:2:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *>i 172.24.2.4/32    fd00:a::2                0    100      0 65002 i
+    UN=fd00:a::2 EC{65000:100} label=917520 sid=fd00:c:2:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::2                0    100      0 65002 i
+    UN=fd00:a::2 EC{65000:100} label=917520 sid=fd00:c:2:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *>i 172.24.2.5/32    fd00:a::2                0    100      0 65002 i
+    UN=fd00:a::2 EC{65000:100} label=917520 sid=fd00:c:2:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::2                0    100      0 65002 i
+    UN=fd00:a::2 EC{65000:100} label=917520 sid=fd00:c:2:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *>i 172.24.2.6/32    fd00:a::2                0    100      0 65002 i
+    UN=fd00:a::2 EC{65000:100} label=917520 sid=fd00:c:2:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::2                0    100      0 65002 i
+    UN=fd00:a::2 EC{65000:100} label=917520 sid=fd00:c:2:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *>i 172.24.2.7/32    fd00:a::2                0    100      0 65002 i
+    UN=fd00:a::2 EC{65000:100} label=917520 sid=fd00:c:2:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::2                0    100      0 65002 i
+    UN=fd00:a::2 EC{65000:100} label=917520 sid=fd00:c:2:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *>i 172.24.2.8/32    fd00:a::2                0    100      0 65002 i
+    UN=fd00:a::2 EC{65000:100} label=917520 sid=fd00:c:2:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::2                0    100      0 65002 i
+    UN=fd00:a::2 EC{65000:100} label=917520 sid=fd00:c:2:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *>i 172.24.2.9/32    fd00:a::2                0    100      0 65002 i
+    UN=fd00:a::2 EC{65000:100} label=917520 sid=fd00:c:2:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::2                0    100      0 65002 i
+    UN=fd00:a::2 EC{65000:100} label=917520 sid=fd00:c:2:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *>i 172.24.2.10/32   fd00:a::2                0    100      0 65002 i
+    UN=fd00:a::2 EC{65000:100} label=917520 sid=fd00:c:2:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::2                0    100      0 65002 i
+    UN=fd00:a::2 EC{65000:100} label=917520 sid=fd00:c:2:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+Route Distinguisher: 65000:103
+ *>i 172.16.3.0/30    fd00:a::3                0    100      0 ?
+    UN=fd00:a::3 EC{65000:100} label=917520 sid=fd00:c:3:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::3                0    100      0 ?
+    UN=fd00:a::3 EC{65000:100} label=917520 sid=fd00:c:3:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *>i 172.20.3.0/24    fd00:a::3                0    100      0 65003 i
+    UN=fd00:a::3 EC{65000:100} label=917520 sid=fd00:c:3:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::3                0    100      0 65003 i
+    UN=fd00:a::3 EC{65000:100} label=917520 sid=fd00:c:3:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *>i 172.24.3.1/32    fd00:a::3                0    100      0 65003 i
+    UN=fd00:a::3 EC{65000:100} label=917520 sid=fd00:c:3:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::3                0    100      0 65003 i
+    UN=fd00:a::3 EC{65000:100} label=917520 sid=fd00:c:3:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *>i 172.24.3.2/32    fd00:a::3                0    100      0 65003 i
+    UN=fd00:a::3 EC{65000:100} label=917520 sid=fd00:c:3:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::3                0    100      0 65003 i
+    UN=fd00:a::3 EC{65000:100} label=917520 sid=fd00:c:3:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *>i 172.24.3.3/32    fd00:a::3                0    100      0 65003 i
+    UN=fd00:a::3 EC{65000:100} label=917520 sid=fd00:c:3:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::3                0    100      0 65003 i
+    UN=fd00:a::3 EC{65000:100} label=917520 sid=fd00:c:3:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *>i 172.24.3.4/32    fd00:a::3                0    100      0 65003 i
+    UN=fd00:a::3 EC{65000:100} label=917520 sid=fd00:c:3:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::3                0    100      0 65003 i
+    UN=fd00:a::3 EC{65000:100} label=917520 sid=fd00:c:3:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *>i 172.24.3.5/32    fd00:a::3                0    100      0 65003 i
+    UN=fd00:a::3 EC{65000:100} label=917520 sid=fd00:c:3:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::3                0    100      0 65003 i
+    UN=fd00:a::3 EC{65000:100} label=917520 sid=fd00:c:3:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *>i 172.24.3.6/32    fd00:a::3                0    100      0 65003 i
+    UN=fd00:a::3 EC{65000:100} label=917520 sid=fd00:c:3:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::3                0    100      0 65003 i
+    UN=fd00:a::3 EC{65000:100} label=917520 sid=fd00:c:3:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *>i 172.24.3.7/32    fd00:a::3                0    100      0 65003 i
+    UN=fd00:a::3 EC{65000:100} label=917520 sid=fd00:c:3:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::3                0    100      0 65003 i
+    UN=fd00:a::3 EC{65000:100} label=917520 sid=fd00:c:3:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *>i 172.24.3.8/32    fd00:a::3                0    100      0 65003 i
+    UN=fd00:a::3 EC{65000:100} label=917520 sid=fd00:c:3:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::3                0    100      0 65003 i
+    UN=fd00:a::3 EC{65000:100} label=917520 sid=fd00:c:3:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *>i 172.24.3.9/32    fd00:a::3                0    100      0 65003 i
+    UN=fd00:a::3 EC{65000:100} label=917520 sid=fd00:c:3:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::3                0    100      0 65003 i
+    UN=fd00:a::3 EC{65000:100} label=917520 sid=fd00:c:3:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *>i 172.24.3.10/32   fd00:a::3                0    100      0 65003 i
+    UN=fd00:a::3 EC{65000:100} label=917520 sid=fd00:c:3:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::3                0    100      0 65003 i
+    UN=fd00:a::3 EC{65000:100} label=917520 sid=fd00:c:3:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+Route Distinguisher: 65000:104
+ *>i 0.0.0.0/0        fd00:a::4                0    100      0 65010 i
+    UN=fd00:a::4 EC{65000:100} label=917520 sid=fd00:c:4:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::4                0    100      0 65010 i
+    UN=fd00:a::4 EC{65000:100} label=917520 sid=fd00:c:4:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *>i 172.16.4.0/30    fd00:a::4                0    100      0 ?
+    UN=fd00:a::4 EC{65000:100} label=917520 sid=fd00:c:4:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::4                0    100      0 ?
+    UN=fd00:a::4 EC{65000:100} label=917520 sid=fd00:c:4:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *>i 172.16.5.0/30    fd00:a::4                0    100      0 ?
+    UN=fd00:a::4 EC{65000:100} label=917520 sid=fd00:c:4:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::4                0    100      0 ?
+    UN=fd00:a::4 EC{65000:100} label=917520 sid=fd00:c:4:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *>i 172.20.4.0/24    fd00:a::4                0    100      0 65004 i
+    UN=fd00:a::4 EC{65000:100} label=917520 sid=fd00:c:4:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::4                0    100      0 65004 i
+    UN=fd00:a::4 EC{65000:100} label=917520 sid=fd00:c:4:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *>i 172.24.4.1/32    fd00:a::4                0    100      0 65004 i
+    UN=fd00:a::4 EC{65000:100} label=917520 sid=fd00:c:4:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::4                0    100      0 65004 i
+    UN=fd00:a::4 EC{65000:100} label=917520 sid=fd00:c:4:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *>i 172.24.4.2/32    fd00:a::4                0    100      0 65004 i
+    UN=fd00:a::4 EC{65000:100} label=917520 sid=fd00:c:4:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::4                0    100      0 65004 i
+    UN=fd00:a::4 EC{65000:100} label=917520 sid=fd00:c:4:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *>i 172.24.4.3/32    fd00:a::4                0    100      0 65004 i
+    UN=fd00:a::4 EC{65000:100} label=917520 sid=fd00:c:4:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::4                0    100      0 65004 i
+    UN=fd00:a::4 EC{65000:100} label=917520 sid=fd00:c:4:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *>i 172.24.4.4/32    fd00:a::4                0    100      0 65004 i
+    UN=fd00:a::4 EC{65000:100} label=917520 sid=fd00:c:4:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::4                0    100      0 65004 i
+    UN=fd00:a::4 EC{65000:100} label=917520 sid=fd00:c:4:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *>i 172.24.4.5/32    fd00:a::4                0    100      0 65004 i
+    UN=fd00:a::4 EC{65000:100} label=917520 sid=fd00:c:4:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::4                0    100      0 65004 i
+    UN=fd00:a::4 EC{65000:100} label=917520 sid=fd00:c:4:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *>i 172.24.4.6/32    fd00:a::4                0    100      0 65004 i
+    UN=fd00:a::4 EC{65000:100} label=917520 sid=fd00:c:4:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::4                0    100      0 65004 i
+    UN=fd00:a::4 EC{65000:100} label=917520 sid=fd00:c:4:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *>i 172.24.4.7/32    fd00:a::4                0    100      0 65004 i
+    UN=fd00:a::4 EC{65000:100} label=917520 sid=fd00:c:4:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::4                0    100      0 65004 i
+    UN=fd00:a::4 EC{65000:100} label=917520 sid=fd00:c:4:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *>i 172.24.4.8/32    fd00:a::4                0    100      0 65004 i
+    UN=fd00:a::4 EC{65000:100} label=917520 sid=fd00:c:4:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::4                0    100      0 65004 i
+    UN=fd00:a::4 EC{65000:100} label=917520 sid=fd00:c:4:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *>i 172.24.4.9/32    fd00:a::4                0    100      0 65004 i
+    UN=fd00:a::4 EC{65000:100} label=917520 sid=fd00:c:4:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::4                0    100      0 65004 i
+    UN=fd00:a::4 EC{65000:100} label=917520 sid=fd00:c:4:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *>i 172.24.4.10/32   fd00:a::4                0    100      0 65004 i
+    UN=fd00:a::4 EC{65000:100} label=917520 sid=fd00:c:4:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::4                0    100      0 65004 i
+    UN=fd00:a::4 EC{65000:100} label=917520 sid=fd00:c:4:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+Route Distinguisher: 65000:201
+ *>i 172.18.1.0/30    fd00:a::1                0    100      0 ?
+    UN=fd00:a::1 EC{65000:200} label=917552 sid=fd00:c:1:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::1                0    100      0 ?
+    UN=fd00:a::1 EC{65000:200} label=917552 sid=fd00:c:1:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *>i 172.21.1.0/24    fd00:a::1                0    100      0 65001 i
+    UN=fd00:a::1 EC{65000:200} label=917552 sid=fd00:c:1:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::1                0    100      0 65001 i
+    UN=fd00:a::1 EC{65000:200} label=917552 sid=fd00:c:1:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+Route Distinguisher: 65000:202
+ *>i 172.18.2.0/30    fd00:a::2                0    100      0 ?
+    UN=fd00:a::2 EC{65000:200} label=917504 sid=fd00:c:2:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::2                0    100      0 ?
+    UN=fd00:a::2 EC{65000:200} label=917504 sid=fd00:c:2:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *>i 172.21.2.0/24    fd00:a::2                0    100      0 65002 i
+    UN=fd00:a::2 EC{65000:200} label=917504 sid=fd00:c:2:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::2                0    100      0 65002 i
+    UN=fd00:a::2 EC{65000:200} label=917504 sid=fd00:c:2:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+Route Distinguisher: 65000:203
+ *>i 172.18.3.0/30    fd00:a::3                0    100      0 ?
+    UN=fd00:a::3 EC{65000:200} label=917504 sid=fd00:c:3:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::3                0    100      0 ?
+    UN=fd00:a::3 EC{65000:200} label=917504 sid=fd00:c:3:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *>i 172.21.3.0/24    fd00:a::3                0    100      0 65003 i
+    UN=fd00:a::3 EC{65000:200} label=917504 sid=fd00:c:3:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::3                0    100      0 65003 i
+    UN=fd00:a::3 EC{65000:200} label=917504 sid=fd00:c:3:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+Route Distinguisher: 65000:204
+ *>i 0.0.0.0/0        fd00:a::4                0    100      0 65010 i
+    UN=fd00:a::4 EC{65000:200} label=917504 sid=fd00:c:4:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::4                0    100      0 65010 i
+    UN=fd00:a::4 EC{65000:200} label=917504 sid=fd00:c:4:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *>i 172.18.4.0/30    fd00:a::4                0    100      0 ?
+    UN=fd00:a::4 EC{65000:200} label=917504 sid=fd00:c:4:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::4                0    100      0 ?
+    UN=fd00:a::4 EC{65000:200} label=917504 sid=fd00:c:4:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *>i 172.18.5.0/30    fd00:a::4                0    100      0 ?
+    UN=fd00:a::4 EC{65000:200} label=917504 sid=fd00:c:4:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::4                0    100      0 ?
+    UN=fd00:a::4 EC{65000:200} label=917504 sid=fd00:c:4:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *>i 172.21.4.0/24    fd00:a::4                0    100      0 65004 i
+    UN=fd00:a::4 EC{65000:200} label=917504 sid=fd00:c:4:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::4                0    100      0 65004 i
+    UN=fd00:a::4 EC{65000:200} label=917504 sid=fd00:c:4:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+
+Displayed 60 routes and 120 total paths
+
+==== BGP VPNv6 table (collected): doas vtysh -c 'show bgp ipv6 vpn'
+BGP table version is 150, local router ID is 10.255.0.21, vrf id 0
+Default local pref 100, local AS 65000
+Status codes:  s suppressed, d damped, h history, u unsorted, * valid, > best, = multipath,
+               i internal, r RIB-failure, S Stale, R Removed
+Nexthop codes: @NNN nexthop's vrf id, < announce-nh-self
+Origin codes:  i - IGP, e - EGP, ? - incomplete
+RPKI validation codes: V valid, I invalid, N Not found
+
+     Network          Next Hop            Metric LocPrf Weight Path
+Route Distinguisher: 65000:101
+ *>i fd00:16:1::/64   fd00:a::1                0    100      0 ?
+    UN=fd00:a::1 EC{65000:100} label=917536 sid=fd00:c:1:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::1                0    100      0 ?
+    UN=fd00:a::1 EC{65000:100} label=917536 sid=fd00:c:1:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *>i fd00:20:1::/64   fd00:a::1                0    100      0 65001 i
+    UN=fd00:a::1 EC{65000:100} label=917536 sid=fd00:c:1:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::1                0    100      0 65001 i
+    UN=fd00:a::1 EC{65000:100} label=917536 sid=fd00:c:1:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+Route Distinguisher: 65000:102
+ *>i fd00:16:2::/64   fd00:a::2                0    100      0 ?
+    UN=fd00:a::2 EC{65000:100} label=917520 sid=fd00:c:2:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::2                0    100      0 ?
+    UN=fd00:a::2 EC{65000:100} label=917520 sid=fd00:c:2:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *>i fd00:20:2::/64   fd00:a::2                0    100      0 65002 i
+    UN=fd00:a::2 EC{65000:100} label=917520 sid=fd00:c:2:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::2                0    100      0 65002 i
+    UN=fd00:a::2 EC{65000:100} label=917520 sid=fd00:c:2:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+Route Distinguisher: 65000:103
+ *>i fd00:16:3::/64   fd00:a::3                0    100      0 ?
+    UN=fd00:a::3 EC{65000:100} label=917520 sid=fd00:c:3:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::3                0    100      0 ?
+    UN=fd00:a::3 EC{65000:100} label=917520 sid=fd00:c:3:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *>i fd00:20:3::/64   fd00:a::3                0    100      0 65003 i
+    UN=fd00:a::3 EC{65000:100} label=917520 sid=fd00:c:3:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::3                0    100      0 65003 i
+    UN=fd00:a::3 EC{65000:100} label=917520 sid=fd00:c:3:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+Route Distinguisher: 65000:104
+ *>i fd00:16:4::/64   fd00:a::4                0    100      0 ?
+    UN=fd00:a::4 EC{65000:100} label=917520 sid=fd00:c:4:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::4                0    100      0 ?
+    UN=fd00:a::4 EC{65000:100} label=917520 sid=fd00:c:4:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *>i fd00:20:4::/64   fd00:a::4                0    100      0 65004 i
+    UN=fd00:a::4 EC{65000:100} label=917520 sid=fd00:c:4:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::4                0    100      0 65004 i
+    UN=fd00:a::4 EC{65000:100} label=917520 sid=fd00:c:4:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+Route Distinguisher: 65000:201
+ *>i fd00:18:1::/64   fd00:a::1                0    100      0 ?
+    UN=fd00:a::1 EC{65000:200} label=917552 sid=fd00:c:1:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::1                0    100      0 ?
+    UN=fd00:a::1 EC{65000:200} label=917552 sid=fd00:c:1:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *>i fd00:21:1::/64   fd00:a::1                0    100      0 65001 i
+    UN=fd00:a::1 EC{65000:200} label=917552 sid=fd00:c:1:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::1                0    100      0 65001 i
+    UN=fd00:a::1 EC{65000:200} label=917552 sid=fd00:c:1:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+Route Distinguisher: 65000:202
+ *>i fd00:18:2::/64   fd00:a::2                0    100      0 ?
+    UN=fd00:a::2 EC{65000:200} label=917504 sid=fd00:c:2:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::2                0    100      0 ?
+    UN=fd00:a::2 EC{65000:200} label=917504 sid=fd00:c:2:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *>i fd00:21:2::/64   fd00:a::2                0    100      0 65002 i
+    UN=fd00:a::2 EC{65000:200} label=917504 sid=fd00:c:2:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::2                0    100      0 65002 i
+    UN=fd00:a::2 EC{65000:200} label=917504 sid=fd00:c:2:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+Route Distinguisher: 65000:203
+ *>i fd00:18:3::/64   fd00:a::3                0    100      0 ?
+    UN=fd00:a::3 EC{65000:200} label=917504 sid=fd00:c:3:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::3                0    100      0 ?
+    UN=fd00:a::3 EC{65000:200} label=917504 sid=fd00:c:3:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *>i fd00:21:3::/64   fd00:a::3                0    100      0 65003 i
+    UN=fd00:a::3 EC{65000:200} label=917504 sid=fd00:c:3:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::3                0    100      0 65003 i
+    UN=fd00:a::3 EC{65000:200} label=917504 sid=fd00:c:3:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+Route Distinguisher: 65000:204
+ *>i fd00:18:4::/64   fd00:a::4                0    100      0 ?
+    UN=fd00:a::4 EC{65000:200} label=917504 sid=fd00:c:4:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::4                0    100      0 ?
+    UN=fd00:a::4 EC{65000:200} label=917504 sid=fd00:c:4:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *>i fd00:21:4::/64   fd00:a::4                0    100      0 65004 i
+    UN=fd00:a::4 EC{65000:200} label=917504 sid=fd00:c:4:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+ *=i                  fd00:a::4                0    100      0 65004 i
+    UN=fd00:a::4 EC{65000:200} label=917504 sid=fd00:c:4:: sid_structure=[32,16,16,0] type=bgp, subtype=0
+
+Displayed 16 routes and 32 total paths
