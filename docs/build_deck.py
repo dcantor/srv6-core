@@ -1,175 +1,27 @@
 #!/usr/bin/env python3
 """Build docs/srv6-workflows.pptx — the executive overview of the SRv6 portal and the BGP looking glass.
 
-One layout description drives two outputs: the PowerPoint itself, and an HTML replica at the same coordinates that a
-browser can render, because this host has no LibreOffice and a deck nobody has looked at is a deck nobody should send.
+The layout description and both renderers are decklib's; this file is the deck's content. Alongside the PowerPoint it
+writes an HTML replica at the same coordinates, because this host has no LibreOffice and a deck nobody has looked at is
+a deck nobody should send.
 Run it with the cat8000v-ipsec portal venv, which has python-pptx and Pillow —
    ~/cat8000v-ipsec/webapp/.venv/bin/python docs/build_deck.py            the .pptx and the preview
    ~/cat8000v-ipsec/webapp/.venv/bin/python docs/build_deck.py --preview  the preview only
 Screenshots come from docs/screenshots/deck-*.png (captured against the live lab by docs/deck_screenshots.py)."""
-import html as htmlmod
 import sys
 from pathlib import Path
 
-from PIL import Image
-from pptx import Presentation
-from pptx.dml.color import RGBColor
-from pptx.enum.shapes import MSO_SHAPE
-from pptx.enum.text import MSO_ANCHOR, PP_ALIGN
-from pptx.util import Inches, Pt
-
 HERE = Path(__file__).resolve().parent
-SHOTS = HERE / "screenshots"
+sys.path.insert(0, str(HERE))
+from decklib import BODY, CARD, DEEP, HEAD_FONT, INK, MUTED, PALE, TEAL, W, Deck, para   # noqa: E402
+
 OUT = HERE / "srv6-workflows.pptx"
-W, H = 13.333, 7.5                      # LAYOUT_WIDE
-
-# The lab's own colours: the ink of both headers, the teal the core is drawn in, and the green of the collector's
-# sessions — the two dashed lines on every map in this deck.
-INK, DEEP, TEAL = "07161C", "10303A", "0E7490"
-GREEN, AMBER = "15803D", "B45309"
-GROUND, CARD, LINE = "F6F8F9", "FFFFFF", "DCE3E7"
-BODY, MUTED, PALE = "1F2937", "64748B", "BFD3DA"
-HEAD_FONT, BODY_FONT = "Cambria", "Calibri"
-
-slides = []          # each: {"bg": hex, "items": [...]}
+d = Deck(HERE / "screenshots")
+# the deck below is written against the helpers directly, so bind them once
+slide, text, box, circle, shot, caption = d.slide, d.text, d.box, d.circle, d.shot, d.caption
+side_note, shot_slide, two_up_slide, wide_slide, part_slide = d.side_note, d.shot_slide, d.two_up_slide, d.wide_slide, d.part_slide
 
 
-def slide(bg=GROUND):
-    slides.append({"bg": bg, "items": []}); return slides[-1]
-
-
-def text(s, x, y, w, h, size=16, color=BODY, bold=False, font=BODY_FONT, align="l", anchor="t", spacing=1.15, italic=False):
-    s["items"].append({"k": "text", "x": x, "y": y, "w": w, "h": h, "size": size, "color": color,
-                       "bold": bold, "font": font, "align": align, "anchor": anchor, "spacing": spacing, "italic": italic})
-    return s["items"][-1]
-
-
-def para(item, txt, size=None, color=None, bold=False, italic=False, space_after=6):
-    item.setdefault("paras", []).append({"txt": txt, "size": size or item["size"], "color": color or item["color"],
-                                         "bold": bold, "italic": italic, "space_after": space_after})
-
-
-def box(s, x, y, w, h, fill=CARD, line=LINE, radius=0.06, width=1):
-    s["items"].append({"k": "box", "x": x, "y": y, "w": w, "h": h, "fill": fill, "line": line, "radius": radius, "lw": width})
-
-
-def circle(s, x, y, d, fill=TEAL):
-    s["items"].append({"k": "circle", "x": x, "y": y, "w": d, "h": d, "fill": fill})
-
-
-def shot(s, name, x, y, w=None, h=None, frame=True):
-    """Place a screenshot, scaled to fit the given width or height without distorting it."""
-    iw, ih = Image.open(SHOTS / f"{name}.png").size
-    ratio = iw / ih
-    if w and not h: h = w / ratio
-    elif h and not w: w = h * ratio
-    elif w and h:
-        if w / h > ratio: w = h * ratio
-        else: h = w / ratio
-    if frame: box(s, x - 0.06, y - 0.06, w + 0.12, h + 0.12, fill=CARD, line=LINE, radius=0.04)
-    s["items"].append({"k": "img", "src": str(SHOTS / f"{name}.png"), "x": x, "y": y, "w": w, "h": h})
-    return w, h
-
-
-def caption(s, txt, x, y, w, size=11):
-    it = text(s, x, y, w, 0.35, size=size, color=MUTED)
-    para(it, txt, space_after=0)
-
-
-def side_note(s, x, items, y=1.85, w=None, title=None, h=4.5):
-    w = w or (W - x - 0.75)
-    box(s, x, y, w, h)
-    it = text(s, x + 0.28, y + 0.25, w - 0.56, h - 0.5, size=12.5, color=BODY, spacing=1.3)
-    if title: para(it, title, bold=True, size=14, color=INK, space_after=10)
-    for i, t in enumerate(items):
-        para(it, t, space_after=0 if i == len(items) - 1 else 9)
-
-
-def shot_slide(title, sub, img, note, img_w=8.2, img_h=4.7, badge=None):
-    """A screenshot on the left with room for a card on the right. `badge` numbers a step inside one workflow."""
-    s = slide()
-    tx = 0.75
-    if badge:
-        circle(s, 0.75, 0.5, 0.62)
-        num = text(s, 0.75, 0.62, 0.62, 0.45, size=17, color="FFFFFF", bold=True, align="c", font=HEAD_FONT)
-        para(num, str(badge), space_after=0)
-        tx = 1.55
-    h = text(s, tx, 0.48, W - tx - 0.75, 0.65, size=28, color=INK, bold=True, font=HEAD_FONT)
-    para(h, title, space_after=0)
-    sb = text(s, tx, 1.15, W - tx - 0.75, 0.45, size=13.5, color=MUTED)
-    para(sb, sub, space_after=0)
-    w, hh = shot(s, img, 0.75, 1.85, w=img_w, h=img_h)
-    caption(s, note, 0.75, 1.85 + hh + 0.16, w)
-    return s, 0.75 + w + 0.45, hh
-
-
-def wide_slide(title, sub, img, note, cols, img_h=3.5):
-    """For a picture that is much wider than it is tall: full width, with the commentary in columns underneath."""
-    s = slide()
-    h = text(s, 0.75, 0.5, 11.8, 0.8, size=30, color=INK, bold=True, font=HEAD_FONT)
-    para(h, title, space_after=0)
-    sb = text(s, 0.75, 1.28, 11.8, 0.45, size=13.5, color=MUTED)
-    para(sb, sub, space_after=0)
-    iw, ih = Image.open(SHOTS / f"{img}.png").size                 # a picture narrower than the slide is centred, not left-hung
-    ix = 0.75 + max(0.0, (11.83 - min(11.83, img_h * iw / ih)) / 2)
-    w, hh = shot(s, img, ix, 1.9, w=11.83 - 2 * (ix - 0.75), h=img_h)
-    caption(s, note, ix, 1.9 + hh + 0.14, w)
-    y = 1.9 + hh + 0.62
-    if isinstance(cols, str):                       # a picture worth the whole slide gets one line under it, not columns
-        it = text(s, 0.75, y, 11.83, 7.3 - y, size=13, color=BODY, spacing=1.3)
-        para(it, cols, space_after=0)
-        return s
-    cw = (11.83 - 0.4 * (len(cols) - 1)) / len(cols)
-    bh = 6.95 - y                              # the cards run to the bottom margin, so a short picture leaves no dead band
-    x = 0.75
-    for t, b in cols:
-        box(s, x, y, cw, bh)
-        ht = text(s, x + 0.28, y + 0.28, cw - 0.56, 0.45, size=14, color=INK, bold=True)
-        para(ht, t, space_after=0)
-        bt = text(s, x + 0.28, y + 0.78, cw - 0.56, bh - 1.06, size=12.5, color=BODY, spacing=1.35)
-        para(bt, b, space_after=0)
-        x += cw + 0.4
-    return s
-
-
-def two_up_slide(title, sub, left, right, lcap, rcap, notes, band_h=3.4):
-    s = slide()
-    h = text(s, 0.75, 0.5, 11.8, 0.8, size=30, color=INK, bold=True, font=HEAD_FONT)
-    para(h, title, space_after=0)
-    sb = text(s, 0.75, 1.28, 11.8, 0.45, size=13.5, color=MUTED)
-    para(sb, sub, space_after=0)
-
-    def fit(name, w, h):
-        iw, ih = Image.open(SHOTS / f"{name}.png").size
-        r = iw / ih
-        return (h * r, h) if w / h > r else (w, w / r)
-
-    lw, lh = fit(left, 5.85, band_h); rw, rh = fit(right, 5.6, band_h)
-    band = max(lh, rh)
-    shot(s, left, 0.75, 1.95 + (band - lh) / 2, w=lw, h=lh)
-    caption(s, lcap, 0.75, 1.95 + band + 0.14, lw)
-    shot(s, right, 6.95, 1.95 + (band - rh) / 2, w=rw, h=rh)
-    caption(s, rcap, 6.95, 1.95 + band + 0.14, rw)
-    y = 1.95 + band + 0.62
-    it = text(s, 0.75, y, 11.8, 7.2 - y, size=12.5, color=BODY, spacing=1.3)
-    for i, t in enumerate(notes):
-        para(it, t, space_after=0 if i == len(notes) - 1 else 7)
-    return s
-
-
-def part_slide(kicker, title, lines):
-    """A divider: this deck is two halves — build the service, then look at what it built."""
-    s = slide(DEEP)
-    k = text(s, 1.1, 2.35, 10.5, 0.45, size=13, color=TEAL, bold=True)
-    para(k, kicker, space_after=0)
-    t = text(s, 1.1, 2.85, 10.8, 1.1, size=40, color="FFFFFF", bold=True, font=HEAD_FONT, spacing=1.0)
-    para(t, title, space_after=0)
-    b = text(s, 1.1, 4.2, 10.8, 1.6, size=15, color=PALE, spacing=1.4)
-    for i, ln in enumerate(lines):
-        para(b, ln, space_after=0 if i == len(lines) - 1 else 8)
-
-
-# ---------------------------------------------------------------- the deck
 def title_slide():
     s = slide(INK)
     t = text(s, 0.9, 2.05, 10.0, 1.9, size=40, color="FFFFFF", bold=True, font=HEAD_FONT, spacing=1.0)
@@ -359,81 +211,9 @@ def close_slide():
 close_slide()
 
 
-# ---------------------------------------------------------------- render
-def hexc(c): return RGBColor.from_string(c)
-
-
-def build_pptx():
-    prs = Presentation(); prs.slide_width, prs.slide_height = Inches(W), Inches(H)
-    blank = prs.slide_layouts[6]
-    for sp in slides:
-        sl = prs.slides.add_slide(blank)
-        bg = sl.shapes.add_shape(MSO_SHAPE.RECTANGLE, 0, 0, Inches(W), Inches(H))
-        bg.fill.solid(); bg.fill.fore_color.rgb = hexc(sp["bg"]); bg.line.fill.background(); bg.shadow.inherit = False
-        for it in sp["items"]:
-            if it["k"] == "box":
-                sh = sl.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE if it["radius"] else MSO_SHAPE.RECTANGLE,
-                                         Inches(it["x"]), Inches(it["y"]), Inches(it["w"]), Inches(it["h"]))
-                if it["radius"]: sh.adjustments[0] = min(0.5, it["radius"] * 2 / max(it["w"], it["h"]))
-                sh.fill.solid(); sh.fill.fore_color.rgb = hexc(it["fill"])
-                sh.line.color.rgb = hexc(it["line"]); sh.line.width = Pt(it["lw"]); sh.shadow.inherit = False
-            elif it["k"] == "circle":
-                sh = sl.shapes.add_shape(MSO_SHAPE.OVAL, Inches(it["x"]), Inches(it["y"]), Inches(it["w"]), Inches(it["h"]))
-                sh.fill.solid(); sh.fill.fore_color.rgb = hexc(it["fill"]); sh.line.fill.background(); sh.shadow.inherit = False
-            elif it["k"] == "img":
-                sl.shapes.add_picture(it["src"], Inches(it["x"]), Inches(it["y"]), Inches(it["w"]), Inches(it["h"]))
-            elif it["k"] == "text":
-                tb = sl.shapes.add_textbox(Inches(it["x"]), Inches(it["y"]), Inches(it["w"]), Inches(it["h"]))
-                tf = tb.text_frame; tf.word_wrap = True
-                tf.margin_left = tf.margin_right = tf.margin_top = tf.margin_bottom = 0
-                tf.vertical_anchor = {"t": MSO_ANCHOR.TOP, "m": MSO_ANCHOR.MIDDLE}[it["anchor"]]
-                for i, p in enumerate(it.get("paras", [])):
-                    par = tf.paragraphs[0] if i == 0 else tf.add_paragraph()
-                    par.alignment = {"l": PP_ALIGN.LEFT, "c": PP_ALIGN.CENTER}[it["align"]]
-                    par.line_spacing = it["spacing"]; par.space_after = Pt(p["space_after"])
-                    run = par.add_run(); run.text = p["txt"]
-                    f = run.font; f.name = it["font"]; f.size = Pt(p["size"]); f.bold = p["bold"]; f.italic = p["italic"]
-                    f.color.rgb = hexc(p["color"])
-    prs.save(OUT)
-    return OUT
-
-
-def build_preview():
-    """The same geometry as HTML, so a browser can show what the deck looks like."""
-    px = 96
-    out = ["<!doctype html><meta charset='utf-8'><title>SRv6 portal and looking glass — deck preview</title><style>",
-           "body{margin:0;background:#33383f;font-family:Calibri,Carlito,sans-serif}",
-           f".s{{position:relative;width:{W * px}px;height:{H * px}px;margin:18px auto;overflow:hidden}}",
-           ".i{position:absolute}", ".t{white-space:pre-wrap}", "</style>"]
-    for n, sp in enumerate(slides, 1):
-        out.append(f"<div class='s' style='background:#{sp['bg']}' id='s{n}'>")
-        for it in sp["items"]:
-            st = f"left:{it['x'] * px}px;top:{it['y'] * px}px;width:{it['w'] * px}px;height:{it['h'] * px}px"
-            if it["k"] == "box":
-                out.append(f"<div class='i' style='{st};background:#{it['fill']};border:{it['lw']}px solid #{it['line']};"
-                           f"border-radius:{it['radius'] * px}px;box-sizing:border-box'></div>")
-            elif it["k"] == "circle":
-                out.append(f"<div class='i' style='{st};background:#{it['fill']};border-radius:50%'></div>")
-            elif it["k"] == "img":
-                out.append(f"<img class='i' style='{st}' src='{it['src']}'>")
-            elif it["k"] == "text":
-                al = {"l": "left", "c": "center"}[it["align"]]
-                fam = "Cambria, 'Caladea', serif" if it["font"] == "Cambria" else "Calibri, Carlito, sans-serif"
-                inner = "".join(
-                    f"<div style='font-size:{p['size']}pt;color:#{p['color']};font-weight:{700 if p['bold'] else 400};"
-                    f"font-style:{'italic' if p['italic'] else 'normal'};line-height:{it['spacing']};"
-                    f"margin-bottom:{p['space_after']}pt'>{htmlmod.escape(p['txt'])}</div>" for p in it.get("paras", []))
-                out.append(f"<div class='i t' style='{st};text-align:{al};font-family:{fam};"
-                           f"display:flex;flex-direction:column;justify-content:{'center' if it['anchor'] == 'm' else 'flex-start'}'>{inner}</div>")
-        out.append(f"<div style='position:absolute;right:10px;bottom:6px;font-size:9pt;color:#9aa4b2'>{n}</div></div>")
-    p = HERE / "srv6-workflows-preview.html"
-    p.write_text("\n".join(out), encoding="utf-8")
-    return p
-
-
 if __name__ == "__main__":
-    prev = build_preview()
-    print(f"preview: {prev}  ({len(slides)} slides)")
+    prev = d.save_preview(HERE / "srv6-workflows-preview.html", "SRv6 portal and looking glass — deck preview")
+    print(f"preview: {prev}  ({len(d.slides)} slides)")
     if "--preview" not in sys.argv:
-        f = build_pptx()
-        print(f"deck: {f} ({f.stat().st_size / 1e6:.1f} MB, {len(slides)} slides)")
+        f = d.save_pptx(OUT)
+        print(f"deck: {f} ({f.stat().st_size / 1e6:.1f} MB, {len(d.slides)} slides)")

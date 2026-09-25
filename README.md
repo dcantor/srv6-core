@@ -323,7 +323,8 @@ render the same `frr.conf` and the same `lgd.json`.
 ![A prefix with its core, per-PE and RIB views](docs/screenshots/lg-prefix.png)
 ![The same prefix, dragged back in time](docs/screenshots/lg-timetravel.png)
 
-A 3½-minute walkthrough of all of it is `docs/demo/lg-demo.mp4` (see [Demo](#demo)).
+A 3½-minute walkthrough of all of it is `docs/demo/lg-demo.mp4` (see [Demo](#demo)); the same ground as slides is
+[docs/looking-glass.pptx](docs/looking-glass.pptx) ([PDF](docs/looking-glass.pdf)).
 
 ## Monitoring: Prometheus + VictoriaMetrics + Grafana
 Every device exports metrics on its OOB address and the NMS keeps them:
@@ -562,6 +563,14 @@ routing tables of every node (RIB per VRF, kernel SRv6 routes, BGP VPNv4, IS-IS 
 to the repository** with each change, so the history shows what passed on which version of the lab.
 
 ## Executive overview (slides)
+[docs/looking-glass.pptx](docs/looking-glass.pptx) ([PDF](docs/looking-glass.pdf)) — *the looking glass on its own, in
+detail*: 19 slides over the same ground as `docs/demo/lg-demo.mp4`. How it is wired to both reflectors and why that is a
+session rather than screen-scraping; what each view holds and the transport it came over; the prefix table, and the same
+tenant asked of the reflectors' table (116 paths) and of the routers' own tables (1167) one above the other; the path
+router by router; one prefix in every view at once; the history and the time slider; "when did this prefix go away?"; a
+live `show` on pe1; and the API and `/metrics` underneath. Rebuild with
+`~/cat8000v-ipsec/webapp/.venv/bin/python docs/build_lg_deck.py`.
+
 [docs/srv6-workflows.pptx](docs/srv6-workflows.pptx) ([PDF](docs/srv6-workflows.pdf)) — *the portal and the looking glass,
 screenshot by screenshot*: 19 slides in two halves. **Provisioning a tenant** — the testbed, the tenants page with the PEs'
 live state beside the model, the add-tenant wizard step by step (identity → allocation → review, including the site the
@@ -569,10 +578,10 @@ allocator refuses because pe4 has no free ports), a real run with its resume, an
 BGP session rather than screen-scraping, what each view holds and the transport it came over, the prefix table, the path
 router by router, one prefix in every view at once, the time slider, and the live query. Every screenshot is a real capture
 of the running lab (`docs/deck_screenshots.py`, which starts nothing: the wizard is opened, walked and cancelled). Rebuild
-with `~/cat8000v-ipsec/webapp/.venv/bin/python docs/build_deck.py` (that venv has python-pptx and Playwright) — the same
-layout description also writes
-`srv6-workflows-preview.html`, and `docs/build_deck_pdf.py` prints that preview to the PDF (this host has no LibreOffice
-to convert the deck itself, which is why the preview exists at all).
+with `~/cat8000v-ipsec/webapp/.venv/bin/python docs/build_deck.py` (that venv has python-pptx and Playwright). Both
+decks are written against the layout description in `docs/decklib.py`, which renders each of them twice: as the `.pptx`
+and as an HTML replica at the same coordinates, which `docs/build_deck_pdf.py <deck>` then prints to the PDF — this host
+has no LibreOffice to convert a deck itself, which is why the previews exist at all.
 
 ## Walkthrough
 [docs/srv6-walkthrough.md](docs/srv6-walkthrough.md) ([PDF](docs/srv6-walkthrough.pdf)) — *SRv6 L3VPN, shown on real boxes*: the
