@@ -559,6 +559,19 @@ Every run lands in `results/<timestamp>/` — `report.html`, `log.html`, `output
 routing tables of every node (RIB per VRF, kernel SRv6 routes, BGP VPNv4, IS-IS SRv6, BFD). **The results are committed
 to the repository** with each change, so the history shows what passed on which version of the lab.
 
+## Executive overview (slides)
+[docs/srv6-workflows.pptx](docs/srv6-workflows.pptx) ([PDF](docs/srv6-workflows.pdf)) — *the portal and the looking glass,
+screenshot by screenshot*: 19 slides in two halves. **Provisioning a tenant** — the testbed, the tenants page with the PEs'
+live state beside the model, the add-tenant wizard step by step (identity → allocation → review, including the site the
+allocator refuses because pe4 has no free ports), a real run with its resume, and steering. **The looking glass** — why a
+BGP session rather than screen-scraping, what each view holds and the transport it came over, the prefix table, the path
+router by router, one prefix in every view at once, the time slider, and the live query. Every screenshot is a real capture
+of the running lab (`docs/deck_screenshots.py`, which starts nothing: the wizard is opened, walked and cancelled). Rebuild
+with `~/cat8000v-ipsec/webapp/.venv/bin/python docs/build_deck.py` (that venv has python-pptx and Playwright) — the same
+layout description also writes
+`srv6-workflows-preview.html`, and `docs/build_deck_pdf.py` prints that preview to the PDF (this host has no LibreOffice
+to convert the deck itself, which is why the preview exists at all).
+
 ## Walkthrough
 [docs/srv6-walkthrough.md](docs/srv6-walkthrough.md) ([PDF](docs/srv6-walkthrough.pdf)) — *SRv6 L3VPN, shown on real boxes*: the
 underlay, the SIDs in the kernel, the BGP Prefix-SID attribute, a packet walk with captures on the P router, uSID
