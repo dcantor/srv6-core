@@ -17,6 +17,11 @@ Everything the UI shows comes from these endpoints, so anything the page can do 
   GET  /api/path?prefix=&vrf=&from=      the hops a packet to that prefix crosses, from a chosen vantage point
                                          (`at=<epoch>`: the path as it was then, replayed from the history)
   POST /api/query {device, command}      a live `show` on a router — the classic looking-glass button
+  GET  /api/capture/links                every link and the ends a packet capture can run on
+  POST /api/capture {device, interface,  a packet capture on one end of a link (tcpdump over SSH, bounded):
+        packets, seconds, snaplen,       decoded packets, and an id to download the pcap
+        preset | filter}
+  GET  /api/captures                     the recent captures;  GET /api/capture/<id>.pcap  one of them, for Wireshark
   GET  /metrics                          Prometheus exposition of the same numbers
 """
 import json, re, subprocess, time
@@ -24,6 +29,7 @@ from pathlib import Path
 from flask import Flask, Response, jsonify, request, send_from_directory
 
 import paths as paths_mod
+from capture import Captures, PRESETS
 
 STATIC = Path(__file__).resolve().parent / "static"
 SHOW_OK = re.compile(r"^show [a-zA-Z0-9 ._:/\[\]-]{0,200}$")      # a looking glass runs `show` commands and nothing else
@@ -35,6 +41,7 @@ def create_app(cfg, store, collector):
     app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 0     # the page is redeployed with the lab: always revalidate it
     started = time.time()
     devices = {d["name"]: d for d in cfg["devices"]}
+    caps = Captures(cfg, devices, lambda dev, command, timeout: _run_on_device(cfg, dev, command, "raw", timeout))
 
     def meta():
         vrfs = sorted({v for v in (cfg.get("service", {}).get("tenants") or {})} | {"default"})
@@ -241,6 +248,39 @@ def create_app(cfg, store, collector):
             return jsonify({"device": device, "command": command, "error": f"{e.__class__.__name__}: {e}"}), 502
         return jsonify({"device": device, "command": command, "output": out, "seconds": round(time.time() - t0, 2)})
 
+    @app.get("/api/capture/links")
+    def api_capture_links():
+        return jsonify({"links": [{**l, "ends": caps.ends(l)} for l in caps.links], "presets": PRESETS})
+
+    @app.post("/api/capture")
+    def api_capture():
+        body = request.get_json(silent=True) or {}
+        try:
+            return jsonify(caps.start(body))
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 400
+        except RuntimeError as e:
+            return jsonify({"error": str(e)}), 409
+        except Exception as e:                                   # noqa: BLE001 — SSH or the router: report it
+            return jsonify({"error": f"{e.__class__.__name__}: {e}"}), 502
+
+    @app.get("/api/captures")
+    def api_captures():
+        return jsonify(caps.list())
+
+    @app.get("/api/capture/<cid>.pcap")
+    def api_capture_pcap(cid):
+        c = caps.get(cid)
+        if not c:
+            return jsonify({"error": "no such capture (the newest 30 are kept)"}), 404
+        return Response(c["pcap"], mimetype="application/vnd.tcpdump.pcap",
+                        headers={"Content-Disposition": f'attachment; filename="{caps.filename(c["meta"])}"'})
+
+    @app.get("/api/capture/<cid>")
+    def api_capture_get(cid):
+        c = caps.get(cid)
+        return (jsonify(c["meta"]), 200) if c else (jsonify({"error": "no such capture"}), 404)
+
     @app.get("/metrics")
     def metrics():
         L = {"lab": cfg["lab"], "node": cfg["node"]}
@@ -281,7 +321,7 @@ def _m(name, value, labels):
     return f"{name}{{{lab}}} {value}"
 
 
-def _run_on_device(cfg, dev, command, kind):
+def _run_on_device(cfg, dev, command, kind, timeout=90):
     """A live command on a router, over SSH. `show` goes to vtysh (FRR's view); ping / traceroute run as op-mode."""
     import paramiko
     ssh = cfg["ssh"]
@@ -298,7 +338,7 @@ def _run_on_device(cfg, dev, command, kind):
             # there (ping's own -I only binds the source device, and traceroute's -I means something else entirely)
             pre = f"sudo ip vrf exec {vrf} " if vrf else ""
             cmd = pre + (f"ping -c {count} -w {int(count) + 5} {target}" if tool == "ping" else f"traceroute -w 1 -q 1 -m 12 {target}")
-        _, out, err = c.exec_command(cmd, timeout=90)
+        _, out, err = c.exec_command(cmd, timeout=timeout)
         text = out.read().decode(errors="replace") + err.read().decode(errors="replace")
         out.channel.recv_exit_status()
         return text

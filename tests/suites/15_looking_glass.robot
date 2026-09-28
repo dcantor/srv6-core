@@ -194,6 +194,24 @@ A live query reaches the router and refuses anything that is not a show, a ping 
     ${nodev}=    Http Post    ${LG_URL}/api/query    device=nowhere    command=show bgp summary
     Should Be Equal As Integers    ${nodev}[status]    400    msg=the looking glass accepted an unknown device
 
+A packet capture on a link catches its traffic, decodes it and hands over the pcap, and refuses anything outside the model
+    [Documentation]    Clicking a link on the map runs tcpdump on one of its ends over SSH, bounded; here a PE's core link,
+    ...                pinging its far end, keeping only pings.
+    ${links}=    Lg    /api/capture/links
+    ${link}=    Evaluate    next(l for l in $links["links"] if any(e["device"] == "${PES}[0]" for e in l["ends"]) and not l["tenant"])
+    ${end}=    Evaluate    next(e for e in $link["ends"] if e["device"] == "${PES}[0]")
+    ${r}=    Http Post    ${LG_URL}/api/capture    timeout=120    device=${end}[device]    interface=${end}[interface]
+    ...    packets=${10}    seconds=${15}    preset=icmp    ping_peer=${True}
+    Should Be Equal As Integers    ${r}[status]    200    msg=the capture failed: ${r}[json]
+    Should Be True    ${r}[json][count] >= 2    msg=the pings across ${end}[device] ${end}[interface] were not captured
+    Should Be True    any("echo request" in p["info"] for p in $r["json"]["packets"])    msg=no echo request among the packets
+    ${pcap}=    Evaluate    requests.get("${LG_URL}/api/capture/${r}[json][id].pcap", timeout=30).content    modules=requests
+    Should Be True    $pcap[:4] == bytes.fromhex("d4c3b2a1")    msg=the download is not a pcap file
+    ${bad}=    Http Post    ${LG_URL}/api/capture    device=${end}[device]    interface=eth99
+    Should Be Equal As Integers    ${bad}[status]    400    msg=a capture was accepted on an interface that is not in the model
+    ${inj}=    Http Post    ${LG_URL}/api/capture    device=${end}[device]    interface=${end}[interface]    filter=icmp; reboot
+    Should Be Equal As Integers    ${inj}[status]    400    msg=a filter outside the allowed alphabet was accepted
+
 A prefix that goes away is recorded as withdrawn, and the table can still be read as it was before
     ${lan}=    Flap Lan
     ${site}=    Set Variable    ${SITES}[${FLAP_TENANT}][${NODES}[${FLAP_CE}][dc]]

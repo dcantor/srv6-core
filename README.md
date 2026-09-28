@@ -294,6 +294,25 @@ where Prometheus scrapes them for the dashboard's **BGP looking glass** row and 
 | Routers | every box it reads: identity, which transports it was read through, when, how many RIB / BGP / VPN entries it holds and its IS-IS adjacencies — and a second table of what each one holds, by family and VRF |
 | Sessions | the collector's BGP sessions and the health of every collection |
 | Live query | a `show` command straight on a router (or a ping from it) — the classic looking-glass button; only `show …`, `ping` and `traceroute`, only on the lab's devices |
+| Packet capture | **click any link on a map** (the Overview's or a prefix's path): `tcpdump` runs on one end of that link and the packets come back decoded — an SRv6 packet shows its segment routing header and, underneath, the tenant's own packet — with the `.pcap` to download for Wireshark |
+
+**Packet capture on any link.** Every link on the map is clickable. The capture runs `tcpdump` on the router at one
+end of the link (you choose which, when both ends are routers; a host's or the collector's link is captured at its
+router), over SSH as the live query does:
+
+- **What to keep:** everything; data only (no BFD, BGP, IS-IS or neighbour discovery); SRv6-encapsulated tenant
+  traffic (`ip6[6] == 4, 41 or 43`: IPv4 or IPv6 inside, or a segment routing header); pings; BGP; BFD; IS-IS; or a
+  pcap filter of your own.
+- **Bounds:** 1–1000 packets, 1–60 seconds, 64–1600 bytes per packet. One capture at a time per router. Only the
+  model's own link interfaces can be named, and a filter may use only a small, safe alphabet.
+- **Ping the far end** while capturing (5 pings, from the port's VRF if it has one), so a quiet link still shows
+  something. A core link carries tenant traffic only while someone sends it.
+- **The result:** one row per packet (time, protocol, source, destination, and for SRv6 the tenant packet inside);
+  click a row for everything tcpdump decoded. The `.pcap` downloads for Wireshark. The last 30 captures are kept in
+  memory on the looking glass.
+
+`POST /api/capture {device, interface, packets, seconds, snaplen, preset | filter, ping_peer}`,
+`GET /api/capture/links`, `GET /api/captures` and `GET /api/capture/<id>.pcap`.
 
 Every router carries `service https api` for this (rendered by `tools/render.py` like the rest of its configuration,
 key `srv6core-lab-looking-glass`, reachable only from the looking glass and the lab host through `allow-client`), so
@@ -322,6 +341,7 @@ render the same `frr.conf` and the same `lgd.json`.
 ![Every router, and how each part of it was read](docs/screenshots/lg-routers.png)
 ![A prefix with its core, per-PE and RIB views](docs/screenshots/lg-prefix.png)
 ![The same prefix, dragged back in time](docs/screenshots/lg-timetravel.png)
+![A packet capture on a core link: pings, then SRv6-encapsulated tenant traffic](docs/screenshots/lg-capture.png)
 
 A 3½-minute walkthrough of all of it is `docs/demo/lg-demo.mp4` (see [Demo](#demo)); the same ground as slides is
 [docs/looking-glass.pptx](docs/looking-glass.pptx) ([PDF](docs/looking-glass.pdf)).
@@ -538,7 +558,7 @@ rendered line is on the routers — suite 09 asserts both plus the model itself.
 invisible to REST reads (verify through GraphQL), VRF prefixes go through `vrf-prefix-assignments`, GraphQL returns
 choice fields upper-cased, and new custom fields need a Nautobot restart before GraphQL sees them.
 
-## Tests (`./lab.sh test`, 100 cases)
+## Tests (`./lab.sh test`, 101 cases)
 | Suite | Checks |
 |---|---|
 | 01 management | every node on the OOB network with SSH, host names, host LAN addresses, MTU 9000 on all core links, config saved |
@@ -550,7 +570,7 @@ choice fields upper-cased, and new custom fields need a Nautobot restart before 
 | 08 failover | BFD up on all 24 adjacencies; silent cut of p2–pe3 with a live 0.2 s ping: pe3 moves every tenant route to p3 within seconds, BFD reports Down, ≤ 10 packets lost across cut and repair (measured: 4); all BFD sessions and adjacencies back afterwards |
 | 09 nautobot | every device/link/address/VRF/RD/peering in Nautobot matches the inventory; Nautobot's rendering == lab.conf's; every rendered line present on the routers |
 | 10 throughput | iperf3 dc1 → dc3: TCP above the floor, UDP at 20 Mbit/s with no loss; **the core carries 100 Mbit/s host to host** — UDP at a 100 Mbit/s offered rate for 10 s with < 5 % loss and < 5 ms jitter and TCP ≥ 90 Mbit/s, dc1→dc3 in tenant-a and dc4→dc2 in tenant-b (measured 0.1–2.4 % loss, 98–127 Mbit/s TCP); steered (uSID and uncompressed) within half of the shortest path |
-| 15 looking glass | the collector's sessions Established at both reflectors with **nothing announced back**; every router read, each part of it through the transport that can express it (its API for the RIB / its own VPN table / IS-IS, SSH for the per-VRF BGP tables), the RIB carrying the SRv6 encapsulation the router really installed and the two VPN views agreeing on RD and next hop; **the drawn path crossing the P router the ingress PE actually forwards through**, and a steered prefix drawn along the segment list the policy installed (added and removed by the test); **the table and the path read back at a chosen moment** — the instant before a policy was applied and the instant after it, from the history alone; it holds exactly the prefixes the reflectors hold, once per reflector; every tenant LAN carries its RD, route target, the originating PE's loopback as next hop and a SID out of that PE's locator; no prefix appears in two VRFs; every per-VRF view matches the router it was polled from and none is stale; the filters (VRF, RD, origin AS, free text) hold; a live query reaches the router and a configuration command is refused; **a LAN withdrawn at the CE is recorded as a withdraw and the moment before it still shows the path** (restored in the teardown); `/metrics` and the portal's `/api/sd`; the VM's `frr.conf` and `lgd.json` are what the model renders |
+| 15 looking glass | the collector's sessions Established at both reflectors with **nothing announced back**; every router read, each part of it through the transport that can express it (its API for the RIB / its own VPN table / IS-IS, SSH for the per-VRF BGP tables), the RIB carrying the SRv6 encapsulation the router really installed and the two VPN views agreeing on RD and next hop; **the drawn path crossing the P router the ingress PE actually forwards through**, and a steered prefix drawn along the segment list the policy installed (added and removed by the test); **the table and the path read back at a chosen moment** — the instant before a policy was applied and the instant after it, from the history alone; it holds exactly the prefixes the reflectors hold, once per reflector; every tenant LAN carries its RD, route target, the originating PE's loopback as next hop and a SID out of that PE's locator; no prefix appears in two VRFs; every per-VRF view matches the router it was polled from and none is stale; the filters (VRF, RD, origin AS, free text) hold; a live query reaches the router and a configuration command is refused; **a packet capture on a PE's core link catches the pings sent across it and hands back a real pcap**, and refuses an interface outside the model or an unsafe filter; **a LAN withdrawn at the CE is recorded as a withdraw and the moment before it still shows the path** (restored in the teardown); `/metrics` and the portal's `/api/sd`; the VM's `frr.conf` and `lgd.json` are what the model renders |
 | 11 monitoring | node-exporter + frr-exporter on every VyOS node (every PE BGP session Established per the exporter), node-exporter on every host, the portal's `/api/sd` lists every exporter and `/metrics` reports every tenant up / core fully adjacent; Prometheus scrapes all 31 lab targets, the alert rules are loaded and none fires, VictoriaMetrics holds the remote-written series **and the Telegraf series every node pushes** (tags, freshness, no FRR daemon down), every node's syslog is in VictoriaLogs, the log-derived alert rules are healthy and a live BGP reset raises one, sFlow samples from every P router show the encapsulated flow of a ping burst, Grafana serves the provisioned dashboards with the annotation layers |
 | 12 interconnect | the IPsec headends as tenant-a CEs: PE↔headend eBGP with the right AS, headend + branch LANs on every PE with a SID from the attaching PE's locator and under its RD at the reflectors, absent from tenant-b, dc host ↔ branch pings both ways, the path dc → PE → core → headend → IPsec tunnel → branch, SRv6 encapsulation on p2 (skipped without `EXT_NODES`) |
 | 13 dual-stack | per VRF an Established IPv6 eBGP session with the CE announcing its IPv6 LAN; every IPv6 LAN at both reflectors under the right RD and on every PE once per reflector; **one End.DT46 per VRF** with the same SID and label on the IPv4 and the IPv6 route; SRv6 encap routes for every remote IPv6 LAN in the right VRF only; the 8×7 IPv6 host matrix (in-tenant ok, cross-tenant none); IPv6-in-IPv6 on p2 towards the same SID |
