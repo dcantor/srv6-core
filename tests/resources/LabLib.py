@@ -210,6 +210,38 @@ class LabLib:
         except ValueError: return {"status": r.status_code, "json": {"text": r.text}}
 
     @keyword
+    def lg_path_capture(self, lg, prefix, vrf, vantage, seconds=12, timeout=90):
+        """Capture along a prefix's path as the looking glass page does: a point on every link of the path (at its router
+        end, the upstream one where both are), pings on the access links and SRv6 in the core, five pings from the first
+        router to the destination host. Returns the finished group: {ping_result, captures: [... with packets]}."""
+        meta = requests.get(f"{lg}/api/meta", timeout=30).json()
+        path = requests.get(f"{lg}/api/path", params={"prefix": prefix, "vrf": vrf, "from": vantage}, timeout=60).json()
+        nodes, links, devs = [h["node"] for h in path["hops"]], meta["topology"]["links"], set(meta["devices"])
+        def between(a, b):
+            c = [l for l in links if {l["a"], l["b"]} == {a, b}]
+            return next((l for l in c if l.get("tenant") == vrf), c[0] if c else None)
+        points = []
+        for a, b in zip(nodes, nodes[1:]):
+            l = between(a, b); dev = a if a in devs else (b if b in devs else None)
+            if l and dev:
+                points.append({"device": dev, "interface": l["a_port"] if l["a"] == dev else l["b_port"],
+                               "preset": "icmp" if l.get("tenant") else "srv6"})
+        last = nodes[-1]; ll = next(l for l in links if last in (l["a"], l["b"]))
+        target = (ll["a_ip"] if ll["a"] == last else ll["b_ip"]).split("/")[0]
+        first = next(n for n in nodes if n in devs)
+        r = requests.post(f"{lg}/api/capture/path", json={"points": points, "seconds": seconds, "packets": 100,
+                          "ping": {"device": first, "vrf": vrf, "target": target}}, timeout=30)
+        if r.status_code != 200:
+            raise AssertionError(f"the path capture did not start: {r.status_code} {r.text}")
+        gid, end = r.json()["id"], time.time() + timeout
+        while time.time() < end:
+            time.sleep(2)
+            g = requests.get(f"{lg}/api/capture/path/{gid}", timeout=30).json()
+            if all(c["status"] not in ("running", "starting") for c in g["captures"]) and g.get("ping_result"):
+                return g
+        raise AssertionError(f"the path capture did not finish in {timeout} s")
+
+    @keyword
     def logsql_rows(self, base, query, timeout=30):
         """VictoriaLogs LogsQL query -> list of dicts (the answer is newline-delimited JSON, one row per line)."""
         r = requests.get(f"{base}/select/logsql/query", params={"query": query}, timeout=timeout); r.raise_for_status()

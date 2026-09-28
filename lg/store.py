@@ -19,6 +19,8 @@ past moment is therefore the last event of each path at or before that moment �
 """
 import json, sqlite3, threading, time
 
+VOLATILE = {"last_update"}          # a timestamp the router refreshes: a difference in it alone is not a change
+
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS path (
   id INTEGER PRIMARY KEY,
@@ -266,6 +268,65 @@ class Store:
             d["as_of"] = r["event_ts"]; d["alive"] = True
             out.append(d)
         return sorted(out, key=lambda d: (d["prefix"], d["vrf"] or "", d["source"]))
+
+    def diff(self, t1, t2, source=None, vrf=None, prefix=None, afi=None, safi=None, limit=5000):
+        """What changed between two moments: every path with an event in (t1, t2], as it stood at each end.
+
+        added   – absent (never seen, or withdrawn) at t1, present at t2
+        removed – present at t1, absent at t2
+        changed – present at both, with different attributes: {field: [at t1, at t2]}
+        flapped – present at both with the same attributes (ignoring VOLATILE ones), but it moved in between
+        `events` is how many announce / change / withdraw events the path had in between."""
+        t1, t2 = sorted((float(t1), float(t2)))
+        where, args = ["e.ts > ?", "e.ts <= ?"], [t1, t2]
+        for col, v in (("source", source), ("vrf", vrf), ("prefix", prefix), ("afi", afi), ("safi", safi)):
+            if v not in (None, "", "all"):
+                where.append(f"p.{col} = ?"); args.append(v)
+        c = self.conn()
+        moved = c.execute("SELECT e.path_id, COUNT(*) AS n FROM event e JOIN path p ON p.id = e.path_id WHERE "
+                          + " AND ".join(where) + " GROUP BY e.path_id LIMIT ?", args + [int(limit) + 1]).fetchall()
+        truncated = len(moved) > limit
+        ids = {r["path_id"]: r["n"] for r in moved[:limit]}
+        if not ids:
+            return {"from": t1, "to": t2, "items": [], "counts": {}, "truncated": False}
+
+        def last_before(ts):
+            out = {}
+            q = ",".join("?" * len(ids))
+            for r in c.execute(f"SELECT e.path_id, e.kind, e.attrs FROM event e JOIN (SELECT path_id, MAX(id) AS mid FROM event"
+                               f" WHERE ts <= ? AND path_id IN ({q}) GROUP BY path_id) l ON e.id = l.mid", [ts] + list(ids)):
+                out[r["path_id"]] = None if r["kind"] == "withdraw" else (json.loads(r["attrs"]) if r["attrs"] else {})
+            return out
+        a, b = last_before(t1), last_before(t2)
+        rows = {r["id"]: self._row(r) for r in c.execute(f"SELECT * FROM path WHERE id IN ({','.join('?' * len(ids))})", list(ids))}
+        items, counts = [], {}
+        for pid, n in ids.items():
+            before, after = a.get(pid), b.get(pid)
+            if before is None and after is None:
+                kind = "flapped"                      # appeared and went away again within the window
+            elif before is None:
+                kind = "added"
+            elif after is None:
+                kind = "removed"
+            elif {k: v for k, v in before.items() if k not in VOLATILE} != {k: v for k, v in after.items() if k not in VOLATILE}:
+                kind = "changed"
+            else:
+                kind = "flapped"
+            r = rows[pid]
+            fields = {}
+            if kind == "changed":
+                for k in sorted(set(before) | set(after)):
+                    if k not in VOLATILE and before.get(k) != after.get(k):
+                        fields[k] = [before.get(k), after.get(k)]
+            items.append({"kind": kind, "events": n, "prefix": r["prefix"], "vrf": r["vrf"], "rd": r["rd"], "source": r["source"],
+                          "via": r["via"], "afi": r["afi"], "safi": r["safi"], "peer_name": r["peer_name"], "nexthop": r["nexthop"],
+                          "origin_node": r["origin_node"], "changes": fields,
+                          "before": before if kind in ("removed", "changed") else None,
+                          "after": after if kind in ("added", "changed") else None})
+            counts[kind] = counts.get(kind, 0) + 1
+        order = {"added": 0, "removed": 1, "changed": 2, "flapped": 3}
+        items.sort(key=lambda i: (order[i["kind"]], i["prefix"], i["vrf"] or "", i["source"]))
+        return {"from": t1, "to": t2, "items": items, "counts": counts, "truncated": truncated}
 
     def series(self, metric, since=None, until=None, source=None, step=None):
         where, args = ["metric = ?"], [metric]

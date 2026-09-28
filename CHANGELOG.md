@@ -10,6 +10,29 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 The current version is in [`VERSION`](VERSION), and in git as a `v<version>` tag.
 
+## [1.2.0] — 2026-09-28
+
+### Added
+- **Live packet capture.** A capture on a link streams its packets into the page while it runs, and **Stop** ends it
+  early.
+  - Behind it, `tcpdump` writes the capture, `tee` keeps the pcap, and a second `tcpdump -l` decodes line by line.
+  - API: `POST /api/capture` with `stream: true`, `GET /api/capture/<id>?since=N`, `POST /api/capture/<id>/stop`.
+- **Capture along a path.** On a prefix's path, **Capture along this path** captures on every link at once and can
+  send five tenant pings along it from the first router, in the tenant's VRF.
+  - The **journey grid** follows each echo request and reply hop by hop. It shows plain ICMP on the access links and
+    the SRv6-encapsulated packet in the core, with a gap where a packet did not get through.
+  - Each point has its own pcap.
+  - API: `POST /api/capture/path`, `GET /api/capture/path/<id>`.
+- **Compare two moments.** A new **Compare** page lists every path that moved between two times in a view or VRF,
+  from the history: added, removed, changed (field by field, down to a single next hop's SID or label) or flapped.
+  - API: `GET /api/diff`.
+- **Tests:** two new cases in `15_looking_glass` (streaming with Stop, and a path capture). The withdraw test now also
+  checks Compare. 103 cases in all.
+
+### Changed
+- One capture at a time per router **port** (it was per router), so a path can capture both sides of a CE.
+- The last 60 captures are kept (was 30).
+
 ## [1.1.0] — 2026-09-28
 
 ### Added
@@ -43,5 +66,6 @@ The lab as it stood at `a1ef950`, before this changelog:
 - CI;
 - the decks and videos.
 
+[1.2.0]: https://github.com/dcantor/srv6-core/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/dcantor/srv6-core/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/dcantor/srv6-core/releases/tag/v1.0.0

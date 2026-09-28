@@ -72,6 +72,13 @@
   #cap-res tr.pk { cursor:pointer } #cap-res tr.det td { background:var(--row) } #cap-res tr.det pre { margin:0; font-size:11.5px; white-space:pre-wrap }
   .pill.srv6 { background:var(--warn-bg); color:var(--warn) } .pill.ctl { background:var(--pill) } .pill.icmp { background:var(--ok-bg); color:var(--ok) }
   .capbar { height:6px; border-radius:3px; background:var(--row); overflow:hidden; margin:8px 0 } .capbar i { display:block; height:100%; background:var(--accent); width:0; transition:width .9s linear }
+  #pcap-grid td.hit { color:var(--ok); cursor:pointer } #pcap-grid td.miss { color:var(--bad) } #pcap-grid td.quiet { color:var(--muted) }
+  #pcap-grid th.pt { white-space:normal; min-width:92px; font-size:11px } #pcap-grid td { font-family:ui-monospace, Menlo, Consolas, monospace; font-size:11.5px }
+  .ptchips { display:flex; flex-wrap:wrap; gap:6px; margin:8px 0 } .ptchip { border:1px solid var(--line); border-radius:8px; padding:4px 9px; font-size:12px }
+  .cmp-kind { min-width:76px; text-align:center }
+  .pill.added { background:var(--ok-bg); color:var(--ok) } .pill.removed { background:var(--bad-bg); color:var(--bad) }
+  .pill.changed { background:var(--warn-bg); color:var(--warn) } .pill.flapped { background:var(--pill) }
+  .diffl { font-family:ui-monospace, Menlo, Consolas, monospace; font-size:11.5px; white-space:normal } .diffl del { color:var(--bad) } .diffl ins { color:var(--ok); text-decoration:none }
   .hops { display:flex; flex-wrap:wrap; align-items:stretch; gap:6px; margin-top:12px }
   .hop { border:1px solid var(--line); border-radius:8px; padding:7px 10px; min-width:150px; max-width:260px; background:var(--card) }
   .hop .n { font-weight:600; font-size:12.5px } .hop .w { font-size:12px; color:var(--ink); margin-top:2px }
@@ -86,6 +93,7 @@
     <a href="#overview" data-view="overview" class="on">Overview</a>
     <a href="#prefixes" data-view="prefixes">Prefixes</a>
     <a href="#history" data-view="history">History</a>
+    <a href="#compare" data-view="compare">Compare</a>
     <a href="#routers" data-view="routers">Routers</a>
     <a href="#peers" data-view="peers">Sessions</a>
     <a href="#query" data-view="query">Live query</a>
@@ -200,6 +208,26 @@
       <tbody id="rt-holds"></tbody></table></div></div>
 </section>
 
+<section id="v-compare" class="view">
+  <div class="card"><h2>Compare two moments <small>every path that moved in between, as it stood at each end — from the history, not from the routers</small></h2>
+    <div class="row">
+      <div><label for="cmp-from">From</label><input id="cmp-from" type="datetime-local" step="1"></div>
+      <div><label for="cmp-to">To</label><input id="cmp-to" type="datetime-local" step="1"></div>
+      <div><label for="cmp-source">View</label><select id="cmp-source"></select></div>
+      <div><label for="cmp-vrf">VRF</label><select id="cmp-vrf"></select></div>
+      <div><label for="cmp-prefix">Prefix</label><input id="cmp-prefix" placeholder="any, or 172.20.3.0/24"></div>
+      <div style="flex:0"><button class="primary" id="cmp-go">Compare</button></div>
+    </div>
+    <div class="hint" style="margin-top:8px">Quick: <a class="link" data-back="900">last 15 min</a> · <a class="link" data-back="3600">1 hour</a> ·
+      <a class="link" data-back="21600">6 hours</a> · <a class="link" data-back="86400">24 hours</a> · <a class="link" data-back="604800">7 days</a></div>
+  </div>
+  <div class="kpis" id="cmp-kpis"></div>
+  <div class="card" id="cmp-card" style="display:none"><h2>What changed <small id="cmp-sub"></small>
+      <span style="float:right" class="hint" id="cmp-filters"></span></h2>
+    <div class="scroll" style="max-height:65vh"><table><thead><tr><th>What</th><th>Prefix</th><th>VRF</th><th>View</th><th>Next hop / from</th><th>Difference</th><th>Events</th></tr></thead>
+      <tbody id="cmp-rows"></tbody></table></div></div>
+</section>
+
 <section id="v-query" class="view">
   <div class="card"><h2>Live query <small>a `show` command straight on a router, or a ping from it</small></h2>
     <div class="row">
@@ -246,6 +274,7 @@ function route() {
   if (name === 'routers') loadRouters();
   if (name === 'peers') loadPeers();
   if (name === 'query') loadQuery();
+  if (name === 'compare') openCompare();
 }
 addEventListener('hashchange', route);
 
@@ -414,7 +443,7 @@ function adjacencyState(l) {
 function topoClick(n) { if ((META.nodes[n] || {}).role) { location.hash = '#prefixes'; setTimeout(() => { $('#f-source').value = META.sources.includes(n) ? n : ''; loadPrefixes(); }, 50); } }
 
 /* ---- the path of one prefix ------------------------------------------ */
-let PP_PREFIX = null, PP_VRF = null;
+let PP_PREFIX = null, PP_VRF = null, LAST_PATH = null;
 async function showPath(prefix, vrf, from, target, at) {
   PP_PREFIX = prefix; PP_VRF = vrf || null;
   const into = target || 'pp-body';
@@ -433,7 +462,8 @@ async function showPath(prefix, vrf, from, target, at) {
       · RD ${esc(d.rd || '—')} · ${esc(d.route_target || '')} · egress <b>${esc(d.egress || '?')}</b>
       ${d.sid ? `· SID <span class="mono">${esc(d.sid)}</span>` : ''}
       ${d.steered ? '<span class="pill warn">steered</span>' : '<span class="pill ok">IGP shortest path</span>'}
-      ${d.at ? `<span class="pill past">as it was at ${esc(fmtTime(d.at))}</span>` : ''}</div>
+      ${d.at ? `<span class="pill past">as it was at ${esc(fmtTime(d.at))}</span>` : ''}
+      <button style="margin-left:8px" onclick="openPathCapture()" ${d.at ? 'disabled title="a capture needs the path as it is now"' : ''}>Capture along this path</button></div>
     <div class="hint">who said so: the route and its attributes from ${viaPill((d.sources || {}).control_plane)},
       what ${esc(d.vantage)} actually forwards out of from ${viaPill((d.sources || {}).forwarding)}</div>
     <div id="path-topo"></div>
@@ -441,6 +471,7 @@ async function showPath(prefix, vrf, from, target, at) {
     ${(d.notes || []).map(n => `<p class="hint">${esc(n)}</p>`).join('')}
     ${d.live && d.live.raw ? `<p class="hint mono">${esc(d.vantage)}: ${esc(d.live.raw)}</p>` : ''}`;
   drawTopology(el.querySelector('#path-topo'), { path: d.hops.map(h => h.node) });
+  LAST_PATH = d;
 }
 function closePath() { $('#pf-path-card').style.display = 'none'; PP_PREFIX = null; }
 
@@ -721,7 +752,7 @@ boot();
     <div><label for="cap-s">Seconds (at most)</label><input id="cap-s" type="number" min="1" max="60" value="10"></div>
     <div><label for="cap-snap">Bytes per packet</label><input id="cap-snap" type="number" min="64" max="1600" value="256"></div>
     <div class="w"><label class="chk"><input type="checkbox" id="cap-ping"> Ping the far end 5 times while capturing</label></div>
-    <div style="min-width:0;display:flex;gap:8px"><button class="primary" id="cap-go">Start capture</button><button id="cap-close">Close</button></div>
+    <div style="min-width:0;display:flex;gap:8px"><button class="primary" id="cap-go">Start capture</button><button id="cap-stop" hidden>Stop</button><button id="cap-close">Close</button></div>
   </div>
   <div class="capbar" id="cap-bar" hidden><i></i></div>
   <p class="hint" id="cap-status"></p>
@@ -751,38 +782,65 @@ function openCapture(i) {
 $('#cap-preset').addEventListener('change', () => { $('#cap-filter-box').hidden = $('#cap-preset').value !== 'custom'; });
 $('#cap-close').addEventListener('click', () => $('#cap-dlg').close());
 const protoPill = p => `<span class="pill ${/^SRv6/.test(p) ? 'srv6' : /ICMP/.test(p) && !/ND/.test(p) ? 'icmp' : /BFD|BGP|IS-IS|ND/.test(p) ? 'ctl' : ''}">${esc(p)}</span>`;
+const capRow = p => `<tr class="pk" data-no="${p.no}"><td>${p.no}</td><td class="mono">${esc((p.time || '').slice(11))}</td><td>${protoPill(p.proto)}</td>
+  <td class="mono">${esc(p.src || '—')}</td><td class="mono">${esc(p.dst || '—')}</td><td class="info">${esc(p.info || '')}</td></tr>
+  <tr class="det" data-for="${p.no}" hidden><td colspan="6"><pre>${esc(p.summary + (p.detail ? '\n' + p.detail : ''))}</pre></td></tr>`;
+const capTable = rows => `<div class="scroll" style="max-height:52vh" id="cap-scroll"><table><thead><tr><th>#</th><th>Time</th><th>Protocol</th><th>Source</th><th>Destination</th><th>Info</th></tr></thead>
+  <tbody id="cap-rows">${rows}</tbody></table></div><p class="hint">Click a packet for everything tcpdump decoded.</p>`;
+$('#cap-res').addEventListener('click', e => {           // one listener for rows that keep arriving
+  const tr = e.target.closest('tr.pk'); if (!tr) return;
+  const d = $('#cap-res').querySelector(`tr.det[data-for="${tr.dataset.no}"]`); if (d) d.hidden = !d.hidden;
+});
+let CAP_ID = null;
+$('#cap-stop').addEventListener('click', async () => {
+  if (!CAP_ID) return; $('#cap-stop').disabled = true;
+  try { await api(`/api/capture/${CAP_ID}/stop`, { method: 'POST' }); } catch (e) { }
+});
 $('#cap-go').addEventListener('click', async () => {
   const ends = JSON.parse($('#cap-end').dataset.ends || '[]'), end = ends[+$('#cap-end').value];
   if (!end) return;
   const preset = $('#cap-preset').value, secs = Math.max(1, Math.min(60, +$('#cap-s').value || 10));
-  const body = { device: end.device, interface: end.interface, packets: +$('#cap-n').value || 100, seconds: secs,
+  const body = { device: end.device, interface: end.interface, packets: +$('#cap-n').value || 100, seconds: secs, stream: true,
     snaplen: +$('#cap-snap').value || 256, ping_peer: $('#cap-ping').checked, ...(preset === 'custom' ? { filter: $('#cap-filter').value } : { preset }) };
-  $('#cap-go').disabled = true; $('#cap-res').innerHTML = '';
+  $('#cap-go').disabled = true; $('#cap-res').innerHTML = ''; $('#cap-stop').hidden = false; $('#cap-stop').disabled = false;
   const t0 = Date.now(), bar = $('#cap-bar'); bar.hidden = false; bar.firstElementChild.style.width = '0';
   clearInterval(CAP_TIMER);
-  CAP_TIMER = setInterval(() => { const e = (Date.now() - t0) / 1000;
-    bar.firstElementChild.style.width = Math.min(100, 100 * e / secs) + '%';
-    $('#cap-status').textContent = e < secs ? `capturing on ${end.device} ${end.interface}… ${Math.ceil(secs - e)} s left (it stops early once it has the packets)` : 'collecting the capture from the router…'; }, 250);
+  CAP_TIMER = setInterval(() => bar.firstElementChild.style.width = Math.min(100, 100 * (Date.now() - t0) / 1000 / secs) + '%', 250);
+  let pkts = [], r;
   try {
-    const r = await api('/api/capture', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+    r = await api('/api/capture', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+    CAP_ID = r.id;
+    while (true) {                                           // the packets, as they are decoded on the router
+      await new Promise(res => setTimeout(res, 700));
+      const since = Math.max(0, pkts.length - 1);
+      r = await api(`/api/capture/${CAP_ID}?since=${since}`);
+      pkts = pkts.slice(0, since).concat(r.packets);
+      const left = Math.max(0, Math.ceil(secs - (Date.now() - t0) / 1000));
+      if (r.status === 'running' || r.status === 'starting') {
+        $('#cap-status').textContent = `capturing on ${end.device} ${end.interface}… ${pkts.length} packet${pkts.length === 1 ? '' : 's'} so far · ${left} s left (Stop ends it now)`;
+        const sc = $('#cap-scroll'), atEnd = !sc || sc.scrollTop + sc.clientHeight >= sc.scrollHeight - 30;
+        if (pkts.length) {
+          if (!$('#cap-rows')) $('#cap-res').innerHTML = capTable('');
+          $('#cap-rows').innerHTML = pkts.map(capRow).join('');
+          if (atEnd && $('#cap-scroll')) $('#cap-scroll').scrollTop = $('#cap-scroll').scrollHeight;
+        }
+        continue;
+      }
+      break;
+    }
+    if (r.status === 'error') throw new Error(r.error);
     const dl = `/api/capture/${r.id}.pcap`;
-    $('#cap-status').innerHTML = `<b>${r.count}</b> packet${r.count === 1 ? '' : 's'} on ${esc(r.device)} ${esc(r.interface)} in ${r.took} s
+    $('#cap-status').innerHTML = `<b>${r.count}</b> packet${r.count === 1 ? '' : 's'} on ${esc(r.device)} ${esc(r.interface)} in ${r.took} s${r.status === 'stopped' ? ' (stopped)' : ''}
       ${r.filter ? `· filter <span class="mono">${esc(r.filter)}</span>` : ''}${r.ping_peer ? ` · pinged ${esc(r.peer_ip)}` : ''}
       · <a class="link" href="${dl}" download>Download .pcap</a> <span class="hint">(open it in Wireshark)</span>`;
-    $('#cap-res').innerHTML = r.count ? `<div class="scroll" style="max-height:52vh"><table><thead><tr><th>#</th><th>Time</th><th>Protocol</th><th>Source</th><th>Destination</th><th>Info</th></tr></thead><tbody>${
-      r.packets.map(p => `<tr class="pk" data-no="${p.no}"><td>${p.no}</td><td class="mono">${esc(p.time.slice(11))}</td><td>${protoPill(p.proto)}</td>
-        <td class="mono">${esc(p.src || '—')}</td><td class="mono">${esc(p.dst || '—')}</td><td class="info">${esc(p.info || '')}</td></tr>
-        <tr class="det" data-for="${p.no}" hidden><td colspan="6"><pre>${esc(p.summary + (p.detail ? '\n' + p.detail : ''))}</pre></td></tr>`).join('')}</tbody></table></div>
-      <p class="hint">Click a packet for everything tcpdump decoded.</p>`
-      : `<p class="hint">Nothing matched in ${r.seconds} s. A core link carries tenant traffic only while someone sends it: tick
-         <b>Ping the far end</b>, or send a tenant ping from <a class="link" href="#query" onclick="document.getElementById('cap-dlg').close()">Live query</a> while this captures.</p>`;
-    $('#cap-res').querySelectorAll('tr.pk').forEach(tr => tr.addEventListener('click', () => {
-      const d = $('#cap-res').querySelector(`tr.det[data-for="${tr.dataset.no}"]`); d.hidden = !d.hidden; }));
+    $('#cap-res').innerHTML = pkts.length ? capTable(pkts.map(capRow).join(''))
+      : `<p class="hint">Nothing matched in ${r.took} s. A core link carries tenant traffic only while someone sends it: tick
+         <b>Ping the far end</b>, capture along a prefix's path, or send a tenant ping from <a class="link" href="#query" onclick="document.getElementById('cap-dlg').close()">Live query</a> while this captures.</p>`;
     loadRecentCaptures();
   } catch (e) {
     $('#cap-status').innerHTML = `<span class="msg">${esc(e.message)}</span>`;
   } finally {
-    clearInterval(CAP_TIMER); bar.hidden = true; $('#cap-go').disabled = false;
+    clearInterval(CAP_TIMER); bar.hidden = true; $('#cap-go').disabled = false; $('#cap-stop').hidden = true; CAP_ID = null;
   }
 });
 async function loadRecentCaptures() {
@@ -792,6 +850,185 @@ async function loadRecentCaptures() {
       <span class="mono">${esc(c.device)} ${esc(c.interface)}</span> → ${esc(c.peer)} · ${c.count} packets ${c.filter ? '· ' + esc(c.preset || 'custom') : ''}
       · <a class="link" href="/api/capture/${c.id}.pcap" download>pcap</a>`).join('<br>') : 'none yet';
   } catch (e) { $('#cap-recent').textContent = ''; }
+}
+</script>
+
+<dialog class="cap" id="pcap-dlg" aria-labelledby="pcap-title">
+  <h2 id="pcap-title">Capture along the path</h2>
+  <div class="linkd" id="pcap-sub"></div>
+  <div class="scroll" style="max-height:26vh"><table><thead><tr><th></th><th>Hop</th><th>Captured at</th><th>Keep</th></tr></thead><tbody id="pcap-points"></tbody></table></div>
+  <div class="caprow" style="margin-top:10px">
+    <div><label for="pcap-s">Seconds (at most)</label><input id="pcap-s" type="number" min="1" max="60" value="15"></div>
+    <div><label for="pcap-n">Packets per point</label><input id="pcap-n" type="number" min="1" max="1000" value="100"></div>
+    <div class="w"><label class="chk"><input type="checkbox" id="pcap-ping" checked> <span id="pcap-ping-l">Send 5 pings along the path</span></label></div>
+    <div style="min-width:0;display:flex;gap:8px"><button class="primary" id="pcap-go">Start</button><button id="pcap-stop" hidden>Stop</button><button id="pcap-close">Close</button></div>
+  </div>
+  <div class="capbar" id="pcap-bar" hidden><i></i></div>
+  <p class="hint" id="pcap-status"></p>
+  <div class="ptchips" id="pcap-chips"></div>
+  <div id="pcap-res"></div>
+  <pre class="out" id="pcap-detail" hidden></pre>
+</dialog>
+<script>
+/* ---- capture along a path ------------------------------------------------------------------------------------------
+   One capture on every link of the path the page just drew, all at once, and five tenant pings sent along it from the
+   first router in the tenant's VRF. The journey grid follows each ping hop by hop; the routers' clocks are not in step to
+   the millisecond, so the grid orders by hop, not by timestamp. */
+let PCAP = null, PCAP_TIMER = null;
+const linkBetween = (a, b, vrf) => { const c = (META.topology.links || []).filter(l => (l.a === a && l.b === b) || (l.a === b && l.b === a));
+  return c.find(l => l.tenant === vrf) || c.find(l => !l.tenant) || c[0]; };
+function openPathCapture() {
+  const d = LAST_PATH; if (!d) return;
+  const nodes = d.hops.map(h => h.node), pts = [];
+  nodes.slice(0, -1).forEach((a, i) => {
+    const b = nodes[i + 1], l = linkBetween(a, b, d.vrf); if (!l) return;
+    const dev = META.devices.includes(a) ? a : (META.devices.includes(b) ? b : null); if (!dev) return;
+    pts.push({ hop: i + 1, a, b, device: dev, interface: l.a === dev ? l.a_port : l.b_port, tenant: l.tenant,
+               preset: l.tenant ? 'icmp' : 'srv6' });
+  });
+  const first = nodes.find(n => META.devices.includes(n));
+  const last = nodes[nodes.length - 1], ll = (META.topology.links || []).find(l => l.a === last || l.b === last);
+  const target = ll ? ((ll.a === last ? ll.a_ip : ll.b_ip) || '').split('/')[0] : '';
+  PCAP = { d, pts, ping: first && target ? { device: first, vrf: d.vrf, target } : null };
+  $('#pcap-title').textContent = `Capture along the path to ${d.prefix}`;
+  $('#pcap-sub').innerHTML = `${esc(nodes.join(' → '))} · ${esc(d.vrf || '')}${d.sid ? ' · SID <span class="mono">' + esc(d.sid) + '</span>' : ''}`;
+  const sel = p => `<select data-pt="${p.hop}" style="width:auto">${[['icmp', 'pings'], ['srv6', 'SRv6-encapsulated'], ['data', 'data only'], ['all', 'everything']]
+    .map(([v, t]) => `<option value="${v}"${v === p.preset ? ' selected' : ''}>${t}</option>`).join('')}</select>`;
+  $('#pcap-points').innerHTML = pts.map(p => `<tr><td><input type="checkbox" data-on="${p.hop}" checked style="width:auto"></td>
+    <td>${p.hop}. ${esc(p.a)} → ${esc(p.b)}</td><td class="mono">${esc(p.device)} ${esc(p.interface)}</td><td>${sel(p)}</td></tr>`).join('');
+  $('#pcap-ping').disabled = !PCAP.ping;
+  $('#pcap-ping-l').textContent = PCAP.ping ? `Send 5 pings from ${PCAP.ping.device} (VRF ${PCAP.ping.vrf}) to ${PCAP.ping.target}, the destination host` : 'no destination host to ping';
+  ['pcap-status', 'pcap-chips', 'pcap-res'].forEach(x => $('#' + x).innerHTML = ''); $('#pcap-detail').hidden = true;
+  $('#pcap-dlg').showModal();
+}
+$('#pcap-close').addEventListener('click', () => $('#pcap-dlg').close());
+$('#pcap-dlg').addEventListener('close', () => { if (PCAP && PCAP.gid && PCAP.running) stopPath(); });
+async function stopPath() {
+  if (!PCAP || !PCAP.ids) return; $('#pcap-stop').disabled = true;
+  await Promise.all(PCAP.ids.map(id => api(`/api/capture/${id}/stop`, { method: 'POST' }).catch(() => null)));
+}
+$('#pcap-stop').addEventListener('click', stopPath);
+const PING_RE = /echo (request|reply), id (\d+), seq (\d+)/;
+function journey(caps) {
+  const rows = {}, order = [];
+  caps.forEach((c, ci) => c.packets.forEach(p => {
+    const m = PING_RE.exec(p.info || '') || PING_RE.exec(p.detail || '') || PING_RE.exec(p.summary || ''); if (!m) return;
+    const k = `${m[3].padStart(5, '0')} ${m[1] === 'request' ? 0 : 1}`;
+    if (!rows[k]) { rows[k] = { seq: +m[3], kind: m[1], id: m[2], at: {} }; order.push(k); }
+    rows[k].at[ci] = rows[k].at[ci] || p;
+  }));
+  return order.sort().map(k => rows[k]);
+}
+function renderPath(g) {
+  const caps = g.captures;
+  $('#pcap-chips').innerHTML = caps.map((c, i) => `<span class="ptchip">${PCAP.sent[i].hop}. <span class="mono">${esc(c.device)} ${esc(c.interface)}</span>
+    · <b>${c.count}</b> · ${esc(c.status)}${['done', 'stopped'].includes(c.status) ? ` · <a class="link" href="/api/capture/${c.id}.pcap" download>pcap</a>` : ''}${c.error ? ' · <span class="msg">' + esc(c.error) + '</span>' : ''}</span>`).join('');
+  const rows = journey(caps);
+  const head = `<tr><th>Ping</th>${caps.map((c, i) => `<th class="pt">${PCAP.sent[i].hop}. ${esc(PCAP.sent[i].a)} → ${esc(PCAP.sent[i].b)}<br><span class="hint mono">${esc(c.device)} ${esc(c.interface)}</span></th>`).join('')}</tr>`;
+  const body = rows.map((r, ri) => `<tr><td>${r.kind === 'request' ? 'request →' : '← reply'} ${r.seq}</td>${caps.map((c, ci) => {
+      const p = r.at[ci];
+      if (p) return `<td class="hit" data-r="${ri}" data-c="${ci}" title="${esc(p.proto)}">✓ ${esc((p.time || '').slice(17, 23))}<br><span class="hint">${esc(/^SRv6/.test(p.proto) ? 'SRv6' : p.proto)}</span></td>`;
+      const quiet = !c.count && PCAP.ping && c.device === PCAP.ping.device && PCAP.sent[ci].a !== PCAP.ping.device;
+      return `<td class="${quiet ? 'quiet' : 'miss'}">${quiet ? 'before the pings' : '—'}</td>`; }).join('')}</tr>`).join('');
+  $('#pcap-res').innerHTML = rows.length ? `<h3 style="font-size:13px;margin:8px 0 4px">The journey of each ping <span class="hint">— by hop, left to right; the times are each router's own clock</span></h3>
+    <div class="scroll" style="max-height:40vh"><table id="pcap-grid"><thead>${head}</thead><tbody>${body}</tbody></table></div>
+    <p class="hint">Click a ✓ for that packet as the router saw it. A — is a hop the packet did not reach, or did not come back through.</p>`
+    : `<p class="hint">No pings seen yet.${PCAP.ping ? '' : ' Send a tenant ping from Live query while this captures.'}</p>`;
+  $('#pcap-res').querySelectorAll('td.hit').forEach(td => td.addEventListener('click', () => {
+    const p = rows[+td.dataset.r].at[+td.dataset.c], c = caps[+td.dataset.c];
+    $('#pcap-detail').hidden = false; $('#pcap-detail').textContent = `${c.device} ${c.interface} — ${p.time}\n${p.summary}${p.detail ? '\n' + p.detail : ''}`;
+  }));
+}
+$('#pcap-go').addEventListener('click', async () => {
+  const on = new Set([...$('#pcap-points').querySelectorAll('input[data-on]')].filter(x => x.checked).map(x => +x.dataset.on));
+  const presets = Object.fromEntries([...$('#pcap-points').querySelectorAll('select[data-pt]')].map(x => [+x.dataset.pt, x.value]));
+  PCAP.sent = PCAP.pts.filter(p => on.has(p.hop)).map(p => ({ ...p, preset: presets[p.hop] }));
+  if (!PCAP.sent.length) { $('#pcap-status').textContent = 'Tick at least one point to capture on.'; return; }
+  const secs = Math.max(1, Math.min(60, +$('#pcap-s').value || 15));
+  const body = { points: PCAP.sent.map(p => ({ device: p.device, interface: p.interface, preset: p.preset })), seconds: secs,
+                 packets: +$('#pcap-n').value || 100, ...(PCAP.ping && $('#pcap-ping').checked ? { ping: PCAP.ping } : {}) };
+  $('#pcap-go').disabled = true; $('#pcap-stop').hidden = false; $('#pcap-stop').disabled = false; $('#pcap-detail').hidden = true;
+  const t0 = Date.now(), bar = $('#pcap-bar'); bar.hidden = false;
+  clearInterval(PCAP_TIMER); PCAP_TIMER = setInterval(() => bar.firstElementChild.style.width = Math.min(100, 100 * (Date.now() - t0) / 1000 / secs) + '%', 250);
+  try {
+    const g0 = await api('/api/capture/path', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+    PCAP.gid = g0.id; PCAP.ids = g0.captures; PCAP.running = true;
+    let g;
+    while (true) {
+      await new Promise(res => setTimeout(res, 900));
+      g = await api(`/api/capture/path/${PCAP.gid}`);
+      renderPath(g);
+      const live = g.captures.filter(c => ['running', 'starting'].includes(c.status)).length;
+      $('#pcap-status').textContent = live ? `capturing on ${live} point${live === 1 ? '' : 's'}… ${Math.max(0, Math.ceil(secs - (Date.now() - t0) / 1000))} s left`
+        : `done${g.ping_result ? ' · ping: ' + g.ping_result.split('\n').slice(-2).join(' · ') : ''}`;
+      if (!live) break;
+    }
+  } catch (e) {
+    $('#pcap-status').innerHTML = `<span class="msg">${esc(e.message)}</span>`;
+  } finally {
+    PCAP.running = false; clearInterval(PCAP_TIMER); bar.hidden = true; $('#pcap-go').disabled = false; $('#pcap-stop').hidden = true;
+  }
+});
+$('#cap-dlg').addEventListener('close', () => { if (CAP_ID) api(`/api/capture/${CAP_ID}/stop`, { method: 'POST' }).catch(() => null); });
+
+/* ---- compare two moments --------------------------------------------------------------------------------------------- */
+const toLocalInput = t => { const d = new Date(t * 1000), z = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}T${z(d.getHours())}:${z(d.getMinutes())}:${z(d.getSeconds())}`; };
+let CMP = { items: [], hide: new Set() };
+function openCompare() {
+  if (!$('#cmp-source').options.length) {
+    $('#cmp-source').innerHTML = META.sources.map(s => `<option value="${esc(s)}">${esc(s === 'collector' ? 'collector (the core’s VPN table)' : s)}</option>`).join('') + '<option value="">every view</option>';
+    $('#cmp-vrf').innerHTML = '<option value="">every VRF</option>' + META.vrfs.map(v => `<option>${esc(v)}</option>`).join('');
+    const now = Math.floor(Date.now() / 1000); $('#cmp-from').value = toLocalInput(now - 3600); $('#cmp-to').value = toLocalInput(now);
+  }
+}
+$$('#v-compare [data-back]').forEach(a => a.addEventListener('click', () => {
+  const now = Math.floor(Date.now() / 1000); $('#cmp-from').value = toLocalInput(now - +a.dataset.back); $('#cmp-to').value = toLocalInput(now); runCompare();
+}));
+$('#cmp-go').addEventListener('click', runCompare);
+const short = v => v == null ? '∅' : (typeof v === 'object' ? JSON.stringify(v) : String(v));
+/* a nested attribute (a RIB entry's next hops, a community list) compared leaf by leaf: only what differs, by its path */
+function flat(v, pre = '', out = {}) {
+  if (v && typeof v === 'object') { const ks = Object.keys(v); if (!ks.length) out[pre] = Array.isArray(v) ? '[]' : '{}';
+    ks.forEach(k => flat(v[k], Array.isArray(v) ? `${pre}[${k}]` : (pre ? `${pre}.${k}` : k), out)); }
+  else out[pre] = v;
+  return out;
+}
+function leafDiff(field, a, b) {
+  if (!(a && typeof a === 'object') && !(b && typeof b === 'object')) return [[field, a, b]];
+  const A = flat(a ?? {}), B = flat(b ?? {}), keys = [...new Set([...Object.keys(A), ...Object.keys(B)])].filter(k => A[k] !== B[k]);
+  return keys.map(k => [`${field}${k.startsWith('[') ? '' : '.'}${k}`, A[k], B[k]]);
+}
+async function runCompare() {
+  const t1 = Date.parse($('#cmp-from').value) / 1000, t2 = Date.parse($('#cmp-to').value) / 1000;
+  if (!(t1 && t2)) return;
+  const q = new URLSearchParams({ from: t1, to: t2 });
+  if ($('#cmp-source').value) q.set('source', $('#cmp-source').value);
+  if ($('#cmp-vrf').value) q.set('vrf', $('#cmp-vrf').value);
+  if ($('#cmp-prefix').value.trim()) q.set('prefix', $('#cmp-prefix').value.trim());
+  $('#cmp-kpis').innerHTML = '<p class="hint">comparing…</p>';
+  let d; try { d = await api('/api/diff?' + q); } catch (e) { $('#cmp-kpis').innerHTML = `<p class="msg">${esc(e.message)}</p>`; return; }
+  CMP.items = d.items; CMP.d = d;
+  const c = d.counts, kinds = ['added', 'removed', 'changed', 'flapped'];
+  $('#cmp-kpis').innerHTML = kinds.map(k => `<div class="kpi"><div class="n">${c[k] || 0}</div><div class="l">${k === 'flapped' ? 'moved and came back the same' : k}</div></div>`).join('')
+    + `<div class="kpi"><div class="n">${d.items.reduce((a, i) => a + i.events, 0)}</div><div class="l">events in between</div></div>`;
+  $('#cmp-sub').textContent = `${fmtTime(d.from)} → ${fmtTime(d.to)}${d.truncated ? ' · the first 5000 paths only' : ''}`;
+  $('#cmp-filters').innerHTML = kinds.map(k => `<label class="chk" style="display:inline-flex;margin-left:10px"><input type="checkbox" data-k="${k}" ${CMP.hide.has(k) ? '' : 'checked'} style="width:auto"> ${k}</label>`).join('');
+  $('#cmp-filters').querySelectorAll('input').forEach(x => x.addEventListener('change', () => { x.checked ? CMP.hide.delete(x.dataset.k) : CMP.hide.add(x.dataset.k); drawCompare(); }));
+  $('#cmp-card').style.display = ''; drawCompare();
+}
+function drawCompare() {
+  const rows = CMP.items.filter(i => !CMP.hide.has(i.kind));
+  $('#cmp-rows').innerHTML = rows.length ? rows.slice(0, 2000).map(i => {
+    const leaves = i.kind === 'changed' ? Object.entries(i.changes).flatMap(([k, [a, b]]) => leafDiff(k, a, b)) : [];
+    const diff = i.kind === 'changed' ? leaves.slice(0, 8).map(([k, a, b]) => `<div><span class="hint">${esc(k)}</span> <del>${esc(short(a))}</del> → <ins>${esc(short(b))}</ins></div>`).join('')
+        + (leaves.length > 8 ? `<div class="hint">and ${leaves.length - 8} more</div>` : '')
+      : i.kind === 'added' ? `<div><ins>appeared</ins>${i.after && i.after.as_path != null ? ' · AS path ' + esc(short(i.after.as_path)) : ''}</div>`
+      : i.kind === 'removed' ? `<div><del>gone</del></div>` : `<div class="hint">different in between, the same at both ends</div>`;
+    return `<tr><td class="cmp-kind"><span class="pill ${i.kind}">${i.kind}</span></td><td>${prefixLink(i.prefix)}</td><td>${esc(i.vrf || '—')}</td>
+      <td class="mono">${esc(i.source)} · ${esc(i.afi)} ${esc(i.safi)}${i.rd ? ' · ' + esc(i.rd) : ''}</td><td class="mono">${esc(i.nexthop || i.origin_node || '—')}${i.peer_name ? ' · ' + esc(i.peer_name) : ''}</td>
+      <td class="diffl">${diff}</td><td>${i.events}</td></tr>`; }).join('')
+    : `<tr><td colspan="7" class="hint">Nothing ${CMP.items.length ? 'of the kinds shown ' : ''}changed between the two moments.</td></tr>`;
 }
 </script>
 </body></html>

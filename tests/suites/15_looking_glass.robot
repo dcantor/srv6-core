@@ -33,6 +33,17 @@ Lg
     ${d}=    Http Get    ${LG_URL}${path}    &{params}
     RETURN    ${d}
 
+Capture Has Packets While Running
+    [Arguments]    ${id}
+    ${v}=    Lg    /api/capture/${id}
+    Should Be Equal    ${v}[status]    running
+    Should Be True    ${v}[count] > 0    msg=no packets have arrived yet
+
+Capture Has Ended
+    [Arguments]    ${id}
+    ${v}=    Lg    /api/capture/${id}
+    Should Not Contain    ${{["running", "starting"]}}    ${v}[status]
+
 Flap Lan
     [Documentation]    The LAN of ${FLAP_CE} in ${FLAP_TENANT} — the prefix this suite withdraws and brings back.
     ${lan}=    Set Variable    ${SITES}[${FLAP_TENANT}][${NODES}[${FLAP_CE}][dc]][lan]
@@ -212,6 +223,39 @@ A packet capture on a link catches its traffic, decodes it and hands over the pc
     ${inj}=    Http Post    ${LG_URL}/api/capture    device=${end}[device]    interface=${end}[interface]    filter=icmp; reboot
     Should Be Equal As Integers    ${inj}[status]    400    msg=a filter outside the allowed alphabet was accepted
 
+A live capture streams its packets while it runs, stops on request, and still hands over the pcap
+    ${links}=    Lg    /api/capture/links
+    ${link}=    Evaluate    next(l for l in $links["links"] if any(e["device"] == "${PES}[0]" for e in l["ends"]) and not l["tenant"])
+    ${end}=    Evaluate    next(e for e in $link["ends"] if e["device"] == "${PES}[0]")
+    ${r}=    Http Post    ${LG_URL}/api/capture    device=${end}[device]    interface=${end}[interface]    packets=${1000}
+    ...    seconds=${40}    preset=all    stream=${True}
+    Should Be Equal As Integers    ${r}[status]    200    msg=the capture did not start: ${r}[json]
+    ${id}=    Set Variable    ${r}[json][id]
+    Wait Until Keyword Succeeds    20 s    1 s    Capture Has Packets While Running    ${id}
+    ${stop}=    Http Post    ${LG_URL}/api/capture/${id}/stop
+    Should Be Equal As Integers    ${stop}[status]    200
+    Wait Until Keyword Succeeds    30 s    1 s    Capture Has Ended    ${id}
+    ${v}=    Lg    /api/capture/${id}
+    Should Be Equal    ${v}[status]    stopped    msg=Stop did not end the capture
+    Should Be True    ${v}[took] < 30    msg=the capture ran on after Stop (${v}[took] s of a 40 s capture)
+    ${pcap}=    Evaluate    requests.get("${LG_URL}/api/capture/${id}.pcap", timeout=30).content    modules=requests
+    Should Be True    $pcap[:4] == bytes.fromhex("d4c3b2a1") and len($pcap) > 24    msg=the stopped capture's pcap is empty
+
+A capture along a prefix's path sees each ping at every hop: plain on the access links, SRv6-encapsulated in the core
+    ${lan}=    Set Variable    ${SITES}[${TENANTS}[0]][${NODES}[${CES}[2]][dc]][lan]
+    ${g}=    Lg Path Capture    ${LG_URL}    ${lan}    ${TENANTS}[0]    ${CES}[0]
+    Should Contain    ${g}[ping_result]    0% packet loss    msg=the pings along the path failed: ${g}[ping_result]
+    FOR    ${c}    IN    @{g}[captures]
+        Continue For Loop If    $c["peer"].endswith("-h1") and $c["device"] == "${CES}[0]"    # the pings start at this CE
+        ${pings}=    Evaluate    [p for p in $c["packets"] if "echo request" in (p["info"] or "")]
+        Should Not Be Empty    ${pings}    msg=${c}[device] ${c}[interface] did not see the pings
+        IF    $c["tenant"] is None
+            Should Be True    all(p["proto"].startswith("SRv6") for p in $pings)    msg=${c}[device] ${c}[interface] is a core link but the pings were not encapsulated
+        ELSE
+            Should Be True    all(p["proto"] == "ICMP" for p in $pings)    msg=${c}[device] ${c}[interface] is an access link but the pings were encapsulated
+        END
+    END
+
 A prefix that goes away is recorded as withdrawn, and the table can still be read as it was before
     ${lan}=    Flap Lan
     ${site}=    Set Variable    ${SITES}[${FLAP_TENANT}][${NODES}[${FLAP_CE}][dc]]
@@ -228,10 +272,18 @@ A prefix that goes away is recorded as withdrawn, and the table can still be rea
     ${then}=    Lg    /api/state    at=${t0}    prefix=${lan}    source=collector
     Should Not Be Empty    ${then}[paths]    msg=the state before the withdraw no longer shows ${lan}
     Should Be Equal    ${then}[paths][0][nexthop]    ${LOOPBACK}[${site}[pe]]
+    # Compare: from just before the change to now, the collector's path for the LAN is gone
+    ${t1}=    Evaluate    ${t0} - 1
+    ${gone}=    Lg    /api/diff    from=${t1}    source=collector    prefix=${lan}
+    Should Be True    any(i["kind"] == "removed" and i["vrf"] == "${FLAP_TENANT}" for i in $gone["items"])    msg=Compare does not show ${lan} removed
     Restore Ce Session
     Wait Until Keyword Succeeds    120 s    10 s    Prefix Should Be Back    ${lan}    ${FLAP_TENANT}
     ${back}=    Lg    /api/history    prefix=${lan}    kind=announce    limit=20
     Should Be True    ${back}[events][0][ts] > ${ev}[events][0][ts]    msg=the prefix came back but no announce was recorded
+    # ...and across the whole flap it moved and came back (the same attributes, or changed ones), with events in between
+    ${round}=    Lg    /api/diff    from=${t1}    source=collector    prefix=${lan}
+    Should Be True    $round["items"] and all(i["kind"] in ("flapped", "changed") and i["events"] >= 2 for i in $round["items"] if i["vrf"] == "${FLAP_TENANT}")
+    ...    msg=Compare across the flap: ${round}[counts]
 
 Every router is read, and each part of it through the transport that can express it
     ${d}=    Lg    /api/routers

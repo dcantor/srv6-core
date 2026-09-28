@@ -18,10 +18,16 @@ Everything the UI shows comes from these endpoints, so anything the page can do 
                                          (`at=<epoch>`: the path as it was then, replayed from the history)
   POST /api/query {device, command}      a live `show` on a router — the classic looking-glass button
   GET  /api/capture/links                every link and the ends a packet capture can run on
-  POST /api/capture {device, interface,  a packet capture on one end of a link (tcpdump over SSH, bounded):
-        packets, seconds, snaplen,       decoded packets, and an id to download the pcap
-        preset | filter}
+  POST /api/capture {device, interface,  a packet capture on one end of a link (tcpdump over SSH, bounded); with
+        packets, seconds, snaplen,       `stream: true` it returns at once and GET /api/capture/<id>?since=N hands over
+        preset | filter, ping_peer,      the packets as they arrive; POST /api/capture/<id>/stop ends it early
+        stream}
+  POST /api/capture/path {points: [{device, interface, preset}], seconds, packets, ping: {device, vrf, target}}
+                                         a capture on every link of a path at once, and pings along it;
+                                         GET /api/capture/path/<id> reads them all
   GET  /api/captures                     the recent captures;  GET /api/capture/<id>.pcap  one of them, for Wireshark
+  GET  /api/diff?from=&to=&source=&vrf=  what changed between two moments: added, removed, changed (field by field),
+                                         flapped — every path with an event in between, as it stood at each end
   GET  /metrics                          Prometheus exposition of the same numbers
 """
 import json, re, subprocess, time
@@ -41,7 +47,7 @@ def create_app(cfg, store, collector):
     app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 0     # the page is redeployed with the lab: always revalidate it
     started = time.time()
     devices = {d["name"]: d for d in cfg["devices"]}
-    caps = Captures(cfg, devices, lambda dev, command, timeout: _run_on_device(cfg, dev, command, "raw", timeout))
+    caps = Captures(cfg, devices)
 
     def meta():
         vrfs = sorted({v for v in (cfg.get("service", {}).get("tenants") or {})} | {"default"})
@@ -256,7 +262,7 @@ def create_app(cfg, store, collector):
     def api_capture():
         body = request.get_json(silent=True) or {}
         try:
-            return jsonify(caps.start(body))
+            return jsonify(caps.start(body, wait=not body.get("stream")))
         except ValueError as e:
             return jsonify({"error": str(e)}), 400
         except RuntimeError as e:
@@ -278,8 +284,45 @@ def create_app(cfg, store, collector):
 
     @app.get("/api/capture/<cid>")
     def api_capture_get(cid):
-        c = caps.get(cid)
-        return (jsonify(c["meta"]), 200) if c else (jsonify({"error": "no such capture"}), 404)
+        since = request.args.get("since")
+        v = caps.view(cid, since=int(since) if since not in (None, "") else None)
+        return (jsonify(v), 200) if v else (jsonify({"error": "no such capture"}), 404)
+
+    @app.post("/api/capture/<cid>/stop")
+    def api_capture_stop(cid):
+        try:
+            return jsonify({"id": cid, "status": caps.stop(cid)})
+        except KeyError:
+            return jsonify({"error": "no such capture"}), 404
+        except Exception as e:                                   # noqa: BLE001
+            return jsonify({"error": f"{e.__class__.__name__}: {e}"}), 502
+
+    @app.post("/api/capture/path")
+    def api_capture_path():
+        try:
+            return jsonify(caps.start_path(request.get_json(silent=True) or {}))
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 400
+        except RuntimeError as e:
+            return jsonify({"error": str(e)}), 409
+
+    @app.get("/api/capture/path/<gid>")
+    def api_capture_path_get(gid):
+        g = caps.group(gid)
+        if not g:
+            return jsonify({"error": "no such path capture"}), 404
+        since = request.args.get("since")
+        return jsonify({**g, "captures": [caps.view(c, since=int(since) if since else None) for c in g["captures"]]})
+
+    @app.get("/api/diff")
+    def api_diff():
+        g = request.args
+        try:
+            t1, t2 = float(g["from"]), float(g.get("to", time.time()))
+        except (KeyError, ValueError):
+            return jsonify({"error": "from (and optionally to) are epoch seconds"}), 400
+        return jsonify(store.diff(t1, t2, source=g.get("source"), vrf=g.get("vrf"), prefix=g.get("prefix"),
+                                  afi=g.get("afi"), safi=g.get("safi")))
 
     @app.get("/metrics")
     def metrics():
