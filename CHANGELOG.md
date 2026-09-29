@@ -10,6 +10,23 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 The current version is in [`VERSION`](VERSION), and in git as a `v<version>` tag.
 
+## [1.5.0] — 2026-09-29
+
+### Added
+- **The SRv6 Lab Guide** (`docs/srv6-lab-guide.pdf`, 26 pages), a starting point for readers new to SRv6.
+  - **Part 1:** SRv6 from first principles, with six diagrams: segment routing, the SID and this lab's bit layout,
+    behaviours, the SRH, IS-IS versus BGP, uSID shifting, L3VPN, a comparison with MPLS, and a glossary.
+  - **Part 2:** a tour of the lab: the topology and addressing, then every view of the portal and the looking glass,
+    Nautobot, monitoring, and the tests and CI.
+  - **Part 3:** a hands-on packet walk with live output, then steering with uSID and failover.
+  - Built by `docs/build_lab_guide.py`: two passes, so the contents page has page numbers. The screenshots come from
+    `docs/guide_screenshots.py`.
+- **Looking glass themes.** The same Default / Apple picker as the portal, with its own headline on the Overview page.
+
+### Changed
+- The walkthrough captures (`docs/walkthrough/`) were re-taken from the lab, and `docs/srv6-walkthrough.pdf` was rebuilt
+  from them.
+
 ## [1.4.0] — 2026-09-28
 
 ### Added

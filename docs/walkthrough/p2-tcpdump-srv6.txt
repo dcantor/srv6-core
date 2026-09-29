@@ -1,8 +1,8 @@
-03:51:50.938838 IP6 (hlim 62, next-header Routing (43) payload length: 108) fd00:a::1 > fd00:c:3:e002::: RT6 (len=2, type=4, segleft=0, last-entry=0, flags=0x0, tag=0, [0]fd00:c:3:e002::) IP (tos 0x0, ttl 63, id 62838, offset 0, flags [DF], proto ICMP (1), length 84)
-    172.20.1.2 > 172.20.3.2: ICMP echo request, id 120, seq 0, length 64
-03:51:51.438946 IP6 (hlim 62, next-header Routing (43) payload length: 108) fd00:a::1 > fd00:c:3:e002::: RT6 (len=2, type=4, segleft=0, last-entry=0, flags=0x0, tag=0, [0]fd00:c:3:e002::) IP (tos 0x0, ttl 63, id 62916, offset 0, flags [DF], proto ICMP (1), length 84)
-    172.20.1.2 > 172.20.3.2: ICMP echo request, id 120, seq 1, length 64
-03:51:51.939130 IP6 (hlim 62, next-header Routing (43) payload length: 108) fd00:a::1 > fd00:c:3:e002::: RT6 (len=2, type=4, segleft=0, last-entry=0, flags=0x0, tag=0, [0]fd00:c:3:e002::) IP (tos 0x0, ttl 63, id 63185, offset 0, flags [DF], proto ICMP (1), length 84)
-    172.20.1.2 > 172.20.3.2: ICMP echo request, id 120, seq 2, length 64
-03:51:52.439279 IP6 (hlim 62, next-header Routing (43) payload length: 108) fd00:a::1 > fd00:c:3:e002::: RT6 (len=2, type=4, segleft=0, last-entry=0, flags=0x0, tag=0, [0]fd00:c:3:e002::) IP (tos 0x0, ttl 63, id 63234, offset 0, flags [DF], proto ICMP (1), length 84)
-    172.20.1.2 > 172.20.3.2: ICMP echo request, id 120, seq 3, length 64
+12:15:03.387621 IP6 (hlim 62, next-header Routing (43) payload length: 108) fd00:a::1 > fd00:c:3:e001::: RT6 (len=2, type=4, segleft=0, last-entry=0, flags=0x0, tag=0, [0]fd00:c:3:e001::) IP (tos 0x0, ttl 63, id 40595, offset 0, flags [DF], proto ICMP (1), length 84)
+    172.20.1.2 > 172.20.3.2: ICMP echo request, id 103, seq 0, length 64
+12:15:03.887745 IP6 (hlim 62, next-header Routing (43) payload length: 108) fd00:a::1 > fd00:c:3:e001::: RT6 (len=2, type=4, segleft=0, last-entry=0, flags=0x0, tag=0, [0]fd00:c:3:e001::) IP (tos 0x0, ttl 63, id 40650, offset 0, flags [DF], proto ICMP (1), length 84)
+    172.20.1.2 > 172.20.3.2: ICMP echo request, id 103, seq 1, length 64
+12:15:04.387867 IP6 (hlim 62, next-header Routing (43) payload length: 108) fd00:a::1 > fd00:c:3:e001::: RT6 (len=2, type=4, segleft=0, last-entry=0, flags=0x0, tag=0, [0]fd00:c:3:e001::) IP (tos 0x0, ttl 63, id 40929, offset 0, flags [DF], proto ICMP (1), length 84)
+    172.20.1.2 > 172.20.3.2: ICMP echo request, id 103, seq 2, length 64
+12:15:04.887947 IP6 (hlim 62, next-header Routing (43) payload length: 108) fd00:a::1 > fd00:c:3:e001::: RT6 (len=2, type=4, segleft=0, last-entry=0, flags=0x0, tag=0, [0]fd00:c:3:e001::) IP (tos 0x0, ttl 63, id 41188, offset 0, flags [DF], proto ICMP (1), length 84)
+    172.20.1.2 > 172.20.3.2: ICMP echo request, id 103, seq 3, length 64

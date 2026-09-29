@@ -1,0 +1,729 @@
+<!DOCTYPE html><html><head><meta charset='utf-8'><title>SRv6 Lab Guide — SRv6 from first principles, a tour of the lab, and a walkthrough</title><style>
+:root { --ink:#0f172a; --muted:#475569; --line:#dbe3ec; --accent:#c2410c; --blue:#1d4ed8; --soft:#f5f7fa }
+* { box-sizing:border-box }
+body { font:10.5pt/1.55 "Inter", -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; color:var(--ink); margin:0 }
+h2 { font-size:17pt; line-height:1.25; margin:26px 0 10px; color:var(--ink); page-break-after:avoid; break-after:avoid }
+h3 { font-size:12pt; margin:18px 0 6px; color:var(--blue); page-break-after:avoid }
+p { margin:6px 0 9px } a { color:var(--blue); text-decoration:none }
+pre { background:#0f172a; color:#e2e8f0; border-radius:6px; padding:9px 11px; font:7.3pt/1.42 "JetBrains Mono", Menlo, Consolas, monospace;
+      white-space:pre-wrap; word-break:break-all; page-break-inside:avoid; break-inside:avoid; margin:8px 0 12px }
+code { font:9pt "JetBrains Mono", Menlo, Consolas, monospace; background:#eef2f7; padding:0 3px; border-radius:3px } pre code { background:none; padding:0; font-size:inherit; color:inherit }
+table { border-collapse:collapse; width:100%; font-size:9pt; margin:8px 0 14px; page-break-inside:avoid; break-inside:avoid }
+th, td { border-bottom:1px solid var(--line); padding:5px 7px; text-align:left; vertical-align:top } th { background:var(--soft); font-weight:600; color:var(--muted); font-size:8.5pt }
+ul, ol { margin:6px 0 10px; padding-left:22px } li { margin:3px 0 }
+figure { margin:12px 0 16px; page-break-inside:avoid; break-inside:avoid } figure svg { width:100%; height:auto; display:block }
+figcaption { font-size:8.5pt; color:var(--muted); margin-top:5px; font-style:italic }
+figure.shot img { max-width:100%; max-height:125mm; width:auto; margin:0 auto; border:1px solid var(--line); border-radius:6px; display:block }
+.callout { border-radius:8px; padding:10px 13px; margin:12px 0; font-size:9.5pt; page-break-inside:avoid; break-inside:avoid }
+.callout.note { background:#eff6ff; border-left:4px solid var(--blue) } .callout.tip { background:#fff7ed; border-left:4px solid var(--accent) }
+.cover { height:254mm; display:flex; flex-direction:column; justify-content:center; page-break-after:always; border-radius:14px;
+         background:linear-gradient(160deg, #0b1020 0%, #1e293b 62%, #7c2d12 140%); color:#f8fafc; margin:0; padding:0 16mm }
+.cover .kicker { text-transform:uppercase; letter-spacing:.18em; font-size:9pt; color:#fdba74; font-weight:600 }
+.cover .title { font-size:34pt; line-height:1.1; margin:14px 0 14px; font-weight:700; color:#fff }
+.cover .subtitle { font-size:13pt; color:#cbd5e1; max-width:150mm; line-height:1.45 }
+.cover .parts { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin:34px 0 26px }
+.cover .parts div { background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.14); border-radius:10px; padding:12px 13px }
+.cover .parts b { display:block; color:#fdba74; font-size:9pt; text-transform:uppercase; letter-spacing:.1em }
+.cover .parts span { display:block; font-size:12pt; font-weight:600; margin:3px 0 5px; color:#fff } .cover .parts small { color:#cbd5e1; font-size:8.5pt; line-height:1.4 }
+.cover .meta { color:#94a3b8; font-size:9pt }
+.toc-page { page-break-after:always } .toc-page h2 { margin-top:0 }
+.toc-part { font-weight:700; color:var(--accent); margin:14px 0 4px; font-size:10pt; text-transform:uppercase; letter-spacing:.06em }
+.toc-row { display:flex; color:var(--ink); padding:3px 0; font-size:10.5pt } .toc-row i { flex:1; border-bottom:1px dotted #cbd5e1; margin:0 0 5px 8px }
+.toc-row b { font-weight:400; color:var(--muted); min-width:18px; text-align:right }
+.part-banner { page-break-before:always; break-before:page; background:linear-gradient(120deg,#0b1020,#1e293b); color:#fff; border-radius:10px; padding:20px 22px;
+               font-size:22pt; font-weight:700; margin:0 0 6px }
+.part-banner span { display:block; font-size:9pt; letter-spacing:.18em; text-transform:uppercase; color:#fdba74; margin-bottom:2px }
+@page { size:A4; margin:16mm 14mm 18mm }
+</style></head><body><div class="cover">
+<div class="kicker">srv6-core lab · guide</div>
+<h1 class="title">SRv6, from first principles<br>to a working network</h1>
+<p class="subtitle">What Segment Routing over IPv6 is, how it carries VPNs across a provider core, and a guided tour of a lab where every piece of it runs on real routers.</p>
+<div class="parts">
+<div><b>Part 1</b><span>SRv6 in plain terms</span><small>The idea, the SID, the headers, uSID, the control plane, L3VPN — no prior SRv6 knowledge assumed.</small></div>
+<div><b>Part 2</b><span>A tour of the lab</span><small>The topology and every tool around it: the portal, the looking glass, Nautobot, monitoring, tests.</small></div>
+<div><b>Part 3</b><span>Walk a packet through it</span><small>Hands-on: from a ping on a tenant host, through every table and header, to steering it by hand.</small></div>
+</div>
+<div class="meta">Lab version 1.5.0 · 29 September 2026 · outputs captured from the running lab</div>
+</div>
+<div class="toc-page"><h2 class="notoc">Contents</h2><div id="toc"><div class="toc-part">Part 1 — SRv6 in plain terms</div><a class="toc-row" href="#s1" ><span>1. The problem SRv6 solves</span><i></i><b>3</b></a><a class="toc-row" href="#s2" ><span>2. Segment routing: put the route in the packet</span><i></i><b>3</b></a><a class="toc-row" href="#s3" ><span>3. The SID: an address that is an instruction</span><i></i><b>4</b></a><a class="toc-row" href="#s4" ><span>4. How the segments travel: the headers</span><i></i><b>5</b></a><a class="toc-row" href="#s5" ><span>5. Who tells whom: the control plane</span><i></i><b>5</b></a><a class="toc-row" href="#s6" ><span>6. uSID: many segments in one address</span><i></i><b>5</b></a><a class="toc-row" href="#s7" ><span>7. Putting it together: an SRv6 L3VPN</span><i></i><b>6</b></a><a class="toc-row" href="#s8" ><span>8. SRv6 compared with MPLS</span><i></i><b>7</b></a><a class="toc-row" href="#s9" ><span>9. Glossary</span><i></i><b>7</b></a><div class="toc-part">Part 2 — A tour of the lab</div><a class="toc-row" href="#s10" ><span>10. What is in the box</span><i></i><b>8</b></a><a class="toc-row" href="#s11" ><span>11. Stop 1 — the provisioning portal</span><i></i><b>9</b></a><a class="toc-row" href="#s12" ><span>12. Stop 2 — the BGP looking glass</span><i></i><b>15</b></a><a class="toc-row" href="#s13" ><span>13. Stop 3 — Nautobot, the source of truth</span><i></i><b>18</b></a><a class="toc-row" href="#s14" ><span>14. Stop 4 — monitoring and alerting</span><i></i><b>20</b></a><a class="toc-row" href="#s15" ><span>15. Stop 5 — tests and CI</span><i></i><b>20</b></a><div class="toc-part">Part 3 — Walk a packet through it</div><a class="toc-row" href="#s16" ><span>16. Before you start</span><i></i><b>21</b></a><a class="toc-row" href="#s17" ><span>17. Step 1 — the customer&#x27;s view</span><i></i><b>21</b></a><a class="toc-row" href="#s18" ><span>18. Step 2 — the underlay: IS-IS and the locators</span><i></i><b>22</b></a><a class="toc-row" href="#s19" ><span>19. Step 3 — the instructions pe1 will carry out</span><i></i><b>22</b></a><a class="toc-row" href="#s20" ><span>20. Step 4 — BGP: which SID leads to which customer</span><i></i><b>23</b></a><a class="toc-row" href="#s21" ><span>21. Step 5 — the VRF: where encapsulation is decided</span><i></i><b>23</b></a><a class="toc-row" href="#s22" ><span>22. Step 6 — on the wire in the core</span><i></i><b>24</b></a><a class="toc-row" href="#s23" ><span>23. Step 7 — delivery at pe3</span><i></i><b>25</b></a><a class="toc-row" href="#s24" ><span>24. Step 8 — choose the path yourself</span><i></i><b>25</b></a><a class="toc-row" href="#s25" ><span>25. Step 9 — break something</span><i></i><b>26</b></a><a class="toc-row" href="#s26" ><span>26. Where to go next</span><i></i><b>26</b></a></div>
+<div class="callout note"><b>How to read this guide.</b> Part 1 stands on its own: read it first if SRv6 is new to you. Part 2 is a tour you can follow with the lab open in a browser. Part 3 is a walkthrough to do at a terminal; every output in it was captured from the running lab when this guide was built, so what you see on your screen should look the same, apart from times, counters and the function part of a SID (which the routers choose for themselves). The deeper companion, <i>SRv6 L3VPN, shown on real boxes</i> (<code>docs/srv6-walkthrough.pdf</code>), goes further into every table.</div>
+</div>
+<div class="part-banner"><span>Part 1</span>SRv6 in plain terms</div>
+<h2 id="s1">1. The problem SRv6 solves</h2>
+<p>An ordinary IP router makes one decision per packet: <em>where is the destination, and which neighbour is closest to it?</em> Every router on the way makes that same decision again, independently, from its own routing table. That is simple and robust, and it is also all it can do. A service provider needs more:</p>
+<ul>
+<li><strong>Separation.</strong> Many customers share one core, often with the same private addresses (two customers can both use <code>10.0.0.0/8</code>). Their traffic must never mix.</li>
+<li><strong>Choice of path.</strong> Sometimes the shortest path is not the one you want — it is congested, too expensive, or you need two flows kept on separate links.</li>
+<li><strong>Fast recovery.</strong> When a link fails, traffic should move in milliseconds, not in the seconds a routing protocol takes to reconverge.</li>
+</ul>
+<p>For twenty years the answer was <strong>MPLS</strong>: put a small <em>label</em> in front of the packet and let every router forward on the label instead of the address. Labels mark which customer a packet belongs to (the VPN label) and which path it takes (the transport label). It works well, but it is a second forwarding plane next to IP, with its own signalling protocols (LDP, RSVP-TE) that every router must run and keep in step.</p>
+<p><strong>SRv6 does the same jobs with nothing but IPv6.</strong> The instructions that MPLS encoded as labels become IPv6 addresses. A router that only understands IPv6 can carry an SRv6 packet without knowing anything about it — and the routers that <em>do</em> need to act on it find the instruction in the destination address, where they look anyway.</p>
+<h2 id="s2">2. Segment routing: put the route in the packet</h2>
+<p><em>Segment routing</em> turns routing around. Instead of every router deciding the path on its own, the router where a packet <strong>enters</strong> the network decides, and writes the plan into the packet as an ordered list of instructions — <strong>segments</strong>. The routers along the way just execute the next instruction. They keep no per-flow or per-path state: all the state travels with the packet.</p>
+<figure><svg viewBox="0 0 900 250" xmlns="http://www.w3.org/2000/svg" font-family="Helvetica, Arial, sans-serif" font-size="13">
+<defs><marker id="ar1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0L10,5L0,10z" fill="#475569"/></marker></defs>
+<text x="20" y="24" font-weight="700" fill="#0f172a">Hop-by-hop routing</text>
+<text x="20" y="42" fill="#64748b" font-size="12">every router decides again, from its own table</text>
+<g font-size="12"><rect x="20" y="58" width="80" height="36" rx="8" fill="#e2e8f0"/><text x="60" y="81" text-anchor="middle">A</text>
+<rect x="170" y="58" width="80" height="36" rx="8" fill="#e2e8f0"/><text x="210" y="81" text-anchor="middle">R1 ?</text>
+<rect x="320" y="58" width="80" height="36" rx="8" fill="#e2e8f0"/><text x="360" y="81" text-anchor="middle">R2 ?</text>
+<rect x="470" y="58" width="80" height="36" rx="8" fill="#e2e8f0"/><text x="510" y="81" text-anchor="middle">B</text></g>
+<path d="M100,76H168M250,76H318M400,76H468" stroke="#475569" stroke-width="2" marker-end="url(#ar1)"/>
+<text x="600" y="72" fill="#334155">Packet: "to B" — and nothing else.</text><text x="600" y="90" fill="#334155">The path is whatever each table says.</text>
+<text x="20" y="140" font-weight="700" fill="#0f172a">Segment routing</text>
+<text x="20" y="158" fill="#64748b" font-size="12">the entry router writes the plan; the others execute it</text>
+<g font-size="12"><rect x="20" y="174" width="80" height="36" rx="8" fill="#fed7aa"/><text x="60" y="197" text-anchor="middle">A (entry)</text>
+<rect x="170" y="174" width="80" height="36" rx="8" fill="#e2e8f0"/><text x="210" y="197" text-anchor="middle">R1</text>
+<rect x="320" y="174" width="80" height="36" rx="8" fill="#e2e8f0"/><text x="360" y="197" text-anchor="middle">R2</text>
+<rect x="470" y="174" width="80" height="36" rx="8" fill="#e2e8f0"/><text x="510" y="197" text-anchor="middle">B</text></g>
+<path d="M100,192H168M250,192H318M400,192H468" stroke="#c2410c" stroke-width="2.5" marker-end="url(#ar1)"/>
+<rect x="590" y="166" width="290" height="58" rx="8" fill="#fff7ed" stroke="#fdba74"/>
+<text x="604" y="188" fill="#9a3412" font-weight="700">Packet carries: [ go via R2 , deliver at B ]</text>
+<text x="604" y="208" fill="#9a3412">each router pops the next instruction</text>
+</svg><figcaption>Figure 1 — the same network, two ways of deciding the path. In segment routing the path is a property of the packet, not of the routers.</figcaption></figure>
+<p>Think of it as a travel itinerary handed to a courier at the depot: <em>&quot;to the Leeds hub, then the Manchester hub, then deliver to 12 High Street, office 4.&quot;</em> The hubs do not need to know about the parcel in advance; they read the next line of the itinerary.</p>
+<p>Segment routing exists in two flavours: <strong>SR-MPLS</strong>, where each segment is an MPLS label, and <strong>SRv6</strong>, where each segment is an IPv6 address. This lab runs SRv6.</p>
+<h2 id="s3">3. The SID: an address that is an instruction</h2>
+<p>In SRv6 each segment is called a <strong>SID</strong> (Segment Identifier), and a SID <em>is</em> a 128-bit IPv6 address. What makes an address a SID is only that some router has been told: <em>&quot;when a packet arrives addressed to this, do the following.&quot;</em> That &quot;following&quot; is the SID's <strong>behaviour</strong>.</p>
+<p>To keep this orderly, every SRv6 router owns a <strong>locator</strong> — a block of addresses announced into the routing protocol like any prefix, so the whole network knows how to reach it. The router then carves its SIDs out of its own locator. A SID therefore has two halves: the <strong>locator</strong> says <em>which router</em>, the <strong>function</strong> says <em>what to do there</em>.</p>
+<figure><svg viewBox="0 0 900 190" xmlns="http://www.w3.org/2000/svg" font-family="Helvetica, Arial, sans-serif" font-size="13">
+<text x="20" y="22" font-weight="700" fill="#0f172a">A SID in this lab (format usid-f3216): 128 bits</text>
+<g font-family="Menlo, Consolas, monospace" font-size="15" text-anchor="middle">
+<rect x="20" y="40" width="250" height="52" fill="#dbeafe" stroke="#1d4ed8"/><text x="145" y="72">fd00:c</text>
+<rect x="270" y="40" width="130" height="52" fill="#dcfce7" stroke="#15803d"/><text x="335" y="72">3</text>
+<rect x="400" y="40" width="130" height="52" fill="#fef3c7" stroke="#b45309"/><text x="465" y="72">e001</text>
+<rect x="530" y="40" width="350" height="52" fill="#f1f5f9" stroke="#94a3b8"/><text x="705" y="72">:: (zeros)</text></g>
+<g font-size="12" text-anchor="middle" fill="#334155">
+<text x="145" y="112" font-weight="700">Block · 32 bits</text><text x="145" y="128">shared by every node (fd00:c::/32)</text>
+<text x="335" y="112" font-weight="700">Node · 16 bits</text><text x="335" y="128">which router: 3 = pe3</text>
+<text x="465" y="112" font-weight="700">Function · 16 bits</text><text x="465" y="128">what to do there</text>
+<text x="705" y="112" font-weight="700">Unused here</text><text x="705" y="128">room for more micro-SIDs (§6)</text></g>
+<path d="M20,150H530" stroke="#1d4ed8" stroke-width="2"/><text x="275" y="170" text-anchor="middle" fill="#1d4ed8" font-weight="700">pe3's locator fd00:c:3::/48 — announced by IS-IS, reachable from everywhere</text>
+</svg><figcaption>Figure 2 — the SID fd00:c:3:e001:: read as an instruction: "go to pe3, and there apply function e001" (in this lab: hand the packet to one tenant's routing table).</figcaption></figure>
+<p>Because the locator is an ordinary routed prefix, <strong>a router that is not the SID's owner simply forwards the packet towards the locator</strong>, exactly as it would forward any IPv6 packet. Only the owner looks at the function. This is the property everything else rests on.</p>
+<h3>The behaviours you meet in this lab</h3>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Name in the lab</th>
+<th>What the owner does with the packet</th>
+<th>Used for</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>End</strong></td>
+<td>uN</td>
+<td>&quot;I was a waypoint&quot;: move on to the next segment and forward</td>
+<td>a node on a chosen path</td>
+</tr>
+<tr>
+<td><strong>End.X</strong></td>
+<td>uA</td>
+<td>move on, and send out of <em>this particular</em> link</td>
+<td>a link on a chosen path; fast reroute</td>
+</tr>
+<tr>
+<td><strong>End.DT4 / DT6 / DT46</strong></td>
+<td>uDT46</td>
+<td>remove the SRv6 wrapping and look the inner packet up in a given VRF</td>
+<td>the end of a VPN: deliver to the customer</td>
+</tr>
+<tr>
+<td><strong>H.Encaps</strong></td>
+<td>(the PE's encapsulation)</td>
+<td>wrap a customer packet in a new IPv6 header with a segment list</td>
+<td>the start of a VPN or a steered path</td>
+</tr>
+</tbody>
+</table>
+<p>The names come from RFC 8986 (<em>SRv6 Network Programming</em>). The &quot;u&quot; names are the micro-SID (uSID) versions of the same behaviours (section 6).</p>
+<h2 id="s4">4. How the segments travel: the headers</h2>
+<p>When a customer packet enters the core, the entry router (here a PE) does not touch it. It puts it, whole, inside a new IPv6 packet — <strong>encapsulation</strong>. The outer header's <em>destination address</em> is the first SID. If more than one segment is needed, the rest go into an IPv6 extension header built for the purpose, the <strong>Segment Routing Header (SRH</strong>, RFC 8754), with a counter, <em>Segments Left</em>, that says which segment is next.</p>
+<figure><svg viewBox="0 0 900 250" xmlns="http://www.w3.org/2000/svg" font-family="Helvetica, Arial, sans-serif" font-size="13">
+<g font-size="12">
+<rect x="20" y="30" width="280" height="150" rx="6" fill="#dbeafe" stroke="#1d4ed8"/>
+<text x="34" y="54" font-weight="700" fill="#1e3a8a">Outer IPv6 header</text>
+<text x="34" y="80" fill="#1e3a8a">source  fd00:a::1   (pe1's loopback)</text>
+<text x="34" y="102" fill="#1e3a8a">destination = the active SID</text>
+<text x="34" y="124" fill="#1e3a8a" font-family="Menlo, Consolas, monospace">fd00:c:3:e001::</text>
+<text x="34" y="150" fill="#1e3a8a">next header: 43 (Routing)</text>
+<rect x="310" y="30" width="260" height="150" rx="6" fill="#fef3c7" stroke="#b45309"/>
+<text x="324" y="54" font-weight="700" fill="#78350f">SRH (routing type 4)</text>
+<text x="324" y="80" fill="#78350f">Segments Left = 0</text>
+<text x="324" y="102" fill="#78350f">Segment list:</text>
+<text x="324" y="124" fill="#78350f" font-family="Menlo, Consolas, monospace">[0] fd00:c:3:e001::</text>
+<text x="324" y="150" fill="#78350f">(one entry: the last segment)</text>
+<rect x="580" y="30" width="300" height="150" rx="6" fill="#dcfce7" stroke="#15803d"/>
+<text x="594" y="54" font-weight="700" fill="#14532d">The customer's packet, untouched</text>
+<text x="594" y="80" fill="#14532d">IPv4  172.20.1.2 → 172.20.3.2</text>
+<text x="594" y="102" fill="#14532d">ICMP echo request</text>
+<text x="594" y="130" fill="#14532d">(could as well be IPv6, or</text><text x="594" y="148" fill="#14532d">overlap another customer's addresses)</text></g>
+<text x="20" y="210" fill="#334155">What a transit router reads: only the outer destination — an IPv6 address inside pe3's locator. It routes it like any other.</text>
+<text x="20" y="232" fill="#334155">What pe3 reads: the destination is its own SID with behaviour End.DT46 → strip the outer header and the SRH, deliver the inner packet.</text>
+</svg><figcaption>Figure 3 — an SRv6 VPN packet as it crosses this lab's core (you will see exactly this in the p2 capture in Part 3).</figcaption></figure>
+<p>Two consequences are worth holding on to:</p>
+<ol>
+<li><strong>The core does not need to understand the customer.</strong> The inner packet can be IPv4 or IPv6, and two customers can use the same addresses: they are inside different envelopes, addressed to different SIDs.</li>
+<li><strong>The overhead is one IPv6 header (40 bytes) plus the SRH</strong> (8 bytes + 16 per segment). That is why the core links in this lab run an MTU of 9000: a full 1500-byte customer packet must still fit after wrapping.</li>
+</ol>
+<h2 id="s5">5. Who tells whom: the control plane</h2>
+<p>Routers still need to <em>learn</em> the SIDs. SRv6 reuses the protocols a provider runs anyway, with small extensions — no LDP, no RSVP.</p>
+<figure><svg viewBox="0 0 900 270" xmlns="http://www.w3.org/2000/svg" font-family="Helvetica, Arial, sans-serif" font-size="12">
+<defs><marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0L10,5L0,10z" fill="#7c3aed"/></marker>
+<marker id="ar3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0L10,5L0,10z" fill="#0e7490"/></marker></defs>
+<rect x="20" y="20" width="410" height="230" rx="10" fill="#ecfeff" stroke="#0e7490"/>
+<text x="36" y="44" font-weight="700" font-size="14" fill="#155e75">IS-IS (the IGP) — "where is everyone?"</text>
+<text x="36" y="68" fill="#155e75">Every PE and P router floods its locator,</text><text x="36" y="86" fill="#155e75">its End (uN) and End.X (uA) SIDs, and its links.</text>
+<g><rect x="60" y="110" width="70" height="30" rx="6" fill="#fff" stroke="#0e7490"/><text x="95" y="130" text-anchor="middle">pe1</text>
+<rect x="190" y="110" width="70" height="30" rx="6" fill="#fff" stroke="#0e7490"/><text x="225" y="130" text-anchor="middle">p2</text>
+<rect x="320" y="110" width="70" height="30" rx="6" fill="#fff" stroke="#0e7490"/><text x="355" y="130" text-anchor="middle">pe3</text></g>
+<path d="M318,125H262M188,125H132" stroke="#0e7490" stroke-width="2" marker-end="url(#ar3)"/>
+<text x="36" y="172" fill="#155e75">Result: every router has a route to</text><text x="36" y="190" fill="#155e75" font-family="Menlo, Consolas, monospace">fd00:c:3::/48 → via p2</text>
+<text x="36" y="218" fill="#155e75">— the same as any IPv6 prefix. p2 needs</text><text x="36" y="236" fill="#155e75">nothing more to carry VPN traffic.</text>
+<rect x="470" y="20" width="410" height="230" rx="10" fill="#f5f3ff" stroke="#7c3aed"/>
+<text x="486" y="44" font-weight="700" font-size="14" fill="#5b21b6">BGP (VPN routes) — "who has which customer prefix?"</text>
+<text x="486" y="68" fill="#5b21b6">pe3 learns 172.20.3.0/24 from its customer and</text><text x="486" y="86" fill="#5b21b6">advertises it with its End.DT46 SID attached.</text>
+<g><rect x="510" y="110" width="70" height="30" rx="6" fill="#fff" stroke="#7c3aed"/><text x="545" y="130" text-anchor="middle">pe3</text>
+<rect x="640" y="110" width="90" height="30" rx="6" fill="#fff" stroke="#7c3aed"/><text x="685" y="130" text-anchor="middle">p1 / p3 (RR)</text>
+<rect x="790" y="110" width="70" height="30" rx="6" fill="#fff" stroke="#7c3aed"/><text x="825" y="130" text-anchor="middle">pe1</text></g>
+<path d="M582,125H638M732,125H788" stroke="#7c3aed" stroke-width="2" marker-end="url(#ar2)"/>
+<text x="486" y="172" fill="#5b21b6">Result: pe1 installs, in the customer's VRF,</text><text x="486" y="190" fill="#5b21b6" font-family="Menlo, Consolas, monospace">172.20.3.0/24 → encap SID fd00:c:3:e0..::</text>
+<text x="486" y="218" fill="#5b21b6">Route reflectors spread the routes so the PEs</text><text x="486" y="236" fill="#5b21b6">need not all peer with each other.</text>
+</svg><figcaption>Figure 4 — two protocols, two questions. IS-IS makes the SIDs reachable; BGP says which SID leads to which customer prefix.</figcaption></figure>
+<h2 id="s6">6. uSID: many segments in one address</h2>
+<p>A 128-bit SID per segment is generous. A three-hop path would need three full addresses in the SRH — 48 bytes of segments per packet. <strong>Micro-SIDs (uSID</strong>, standardised as compressed SIDs in RFC 9800) pack several instructions into one address. In this lab each router's identity is only 16 bits (the <em>node</em> field), so after the 32-bit block there is room for up to <strong>six</strong> 16-bit micro-SIDs in one 128-bit address.</p>
+<p>Each router that owns the next micro-SID does one simple thing: <strong>shift the rest of the address left by 16 bits</strong> and forward it again. The address itself becomes the itinerary.</p>
+<figure><svg viewBox="0 0 900 260" xmlns="http://www.w3.org/2000/svg" font-family="Helvetica, Arial, sans-serif" font-size="12">
+<g font-family="Menlo, Consolas, monospace" font-size="14">
+<text x="20" y="40" fill="#334155" font-family="Helvetica, Arial, sans-serif" font-weight="700">leaves pe1</text>
+<rect x="160" y="22" width="140" height="28" fill="#dbeafe"/><text x="230" y="41" text-anchor="middle">fd00:c</text>
+<rect x="300" y="22" width="60" height="28" fill="#fed7aa"/><text x="330" y="41" text-anchor="middle">11</text>
+<rect x="360" y="22" width="60" height="28" fill="#e9d5ff"/><text x="390" y="41" text-anchor="middle">13</text>
+<rect x="420" y="22" width="60" height="28" fill="#dcfce7"/><text x="450" y="41" text-anchor="middle">3</text>
+<rect x="480" y="22" width="60" height="28" fill="#fef3c7"/><text x="510" y="41" text-anchor="middle">e00x</text>
+<rect x="540" y="22" width="120" height="28" fill="#f1f5f9"/><text x="600" y="41" text-anchor="middle">::</text>
+<text x="20" y="108" fill="#334155" font-family="Helvetica, Arial, sans-serif" font-weight="700">p1 (owner of 11)</text>
+<rect x="160" y="90" width="140" height="28" fill="#dbeafe"/><text x="230" y="109" text-anchor="middle">fd00:c</text>
+<rect x="300" y="90" width="60" height="28" fill="#e9d5ff"/><text x="330" y="109" text-anchor="middle">13</text>
+<rect x="360" y="90" width="60" height="28" fill="#dcfce7"/><text x="390" y="109" text-anchor="middle">3</text>
+<rect x="420" y="90" width="60" height="28" fill="#fef3c7"/><text x="450" y="109" text-anchor="middle">e00x</text>
+<rect x="480" y="90" width="180" height="28" fill="#f1f5f9"/><text x="570" y="109" text-anchor="middle">::</text>
+<text x="20" y="176" fill="#334155" font-family="Helvetica, Arial, sans-serif" font-weight="700">p3 (owner of 13)</text>
+<rect x="160" y="158" width="140" height="28" fill="#dbeafe"/><text x="230" y="177" text-anchor="middle">fd00:c</text>
+<rect x="300" y="158" width="60" height="28" fill="#dcfce7"/><text x="330" y="177" text-anchor="middle">3</text>
+<rect x="360" y="158" width="60" height="28" fill="#fef3c7"/><text x="390" y="177" text-anchor="middle">e00x</text>
+<rect x="420" y="158" width="240" height="28" fill="#f1f5f9"/><text x="540" y="177" text-anchor="middle">::</text>
+<text x="20" y="236" fill="#334155" font-family="Helvetica, Arial, sans-serif" font-weight="700">pe3 (owner of 3)</text></g>
+<text x="160" y="236" fill="#14532d" font-size="13">fd00:c:3:e00x:: is pe3's End.DT46 SID → decapsulate, deliver into the tenant's VRF</text>
+<g fill="#64748b" font-size="12"><text x="690" y="41">the whole path, one address</text><text x="690" y="109">shifted left 16 bits</text><text x="690" y="177">shifted again</text></g>
+<path d="M330,54 L330,86" stroke="#c2410c" stroke-width="1.5" stroke-dasharray="3 3"/><path d="M330,122 L330,154" stroke="#c2410c" stroke-width="1.5" stroke-dasharray="3 3"/>
+</svg><figcaption>Figure 5 — the steered path pe1 → p1 → p3 → pe3 as a single uSID "carrier" (Part 3, step 8, shows these three addresses on the wire).</figcaption></figure>
+<p>The SRH shrinks from three segments to one, and only the destination address changes hop by hop — which is what every router's hardware already rewrites cheaply. In this lab the kernel calls this the <em>NEXT-C-SID</em> flavour of End; the lab's steering tool can also install the classic uncompressed three-segment list, so you can compare the two.</p>
+<h2 id="s7">7. Putting it together: an SRv6 L3VPN</h2>
+<p>A <strong>Layer-3 VPN</strong> gives each customer (a <em>tenant</em>) its own private routing domain across the shared core. The building blocks:</p>
+<table>
+<thead>
+<tr>
+<th>Piece</th>
+<th>What it is</th>
+<th>In this lab</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>VRF</strong></td>
+<td>a separate routing table on the PE for one customer</td>
+<td><code>tenant-a</code> (table 100), <code>tenant-b</code> (table 200) on every PE and CE</td>
+</tr>
+<tr>
+<td><strong>Attachment circuit</strong></td>
+<td>the link from the customer's router (CE) into that VRF</td>
+<td><code>172.16.n.0/30</code> (tenant-a), <code>172.18.n.0/30</code> (tenant-b)</td>
+</tr>
+<tr>
+<td><strong>RD</strong> (route distinguisher)</td>
+<td>a prefix that keeps overlapping customer routes apart inside BGP</td>
+<td><code>65000:10n</code>, <code>65000:20n</code></td>
+</tr>
+<tr>
+<td><strong>RT</strong> (route target)</td>
+<td>a tag saying which VRFs import a route — the actual membership</td>
+<td><code>65000:100</code>, <code>65000:200</code></td>
+</tr>
+<tr>
+<td><strong>Service SID</strong></td>
+<td>the End.DT46 SID that leads into that VRF on that PE</td>
+<td>one per tenant per PE, allocated by BGP</td>
+</tr>
+</tbody>
+</table>
+<figure><svg viewBox="0 0 900 230" xmlns="http://www.w3.org/2000/svg" font-family="Helvetica, Arial, sans-serif" font-size="12">
+<defs><marker id="ar4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0L10,5L0,10z" fill="#475569"/></marker></defs>
+<g text-anchor="middle">
+<rect x="10" y="40" width="90" height="40" rx="8" fill="#dcfce7"/><text x="55" y="58">dc1-h1</text><text x="55" y="73" font-size="10">172.20.1.2</text>
+<rect x="130" y="40" width="80" height="40" rx="8" fill="#e2e8f0"/><text x="170" y="64">ce1</text>
+<rect x="240" y="40" width="110" height="40" rx="8" fill="#fed7aa"/><text x="295" y="58">pe1</text><text x="295" y="73" font-size="10">VRF tenant-a</text>
+<rect x="390" y="40" width="110" height="40" rx="8" fill="#dbeafe"/><text x="445" y="58">p2</text><text x="445" y="73" font-size="10">plain IPv6</text>
+<rect x="540" y="40" width="110" height="40" rx="8" fill="#fed7aa"/><text x="595" y="58">pe3</text><text x="595" y="73" font-size="10">End.DT46</text>
+<rect x="680" y="40" width="80" height="40" rx="8" fill="#e2e8f0"/><text x="720" y="64">ce3</text>
+<rect x="790" y="40" width="100" height="40" rx="8" fill="#dcfce7"/><text x="840" y="58">dc3-h1</text><text x="840" y="73" font-size="10">172.20.3.2</text></g>
+<path d="M100,60H128M210,60H238M350,60H388M500,60H538M650,60H678M760,60H788" stroke="#475569" stroke-width="2" marker-end="url(#ar4)"/>
+<g font-size="11" fill="#334155">
+<rect x="10" y="110" width="200" height="54" rx="6" fill="#f0fdf4" stroke="#86efac"/><text x="20" y="130">IPv4 only:</text><text x="20" y="148" font-family="Menlo, Consolas, monospace">172.20.1.2 → 172.20.3.2</text>
+<rect x="240" y="110" width="410" height="54" rx="6" fill="#eff6ff" stroke="#93c5fd"/><text x="250" y="130">IPv6 fd00:a::1 → fd00:c:3:e00x:: + SRH, carrying the IPv4 packet</text><text x="250" y="148">p2 routes on the outer destination (pe3's locator) and nothing else</text>
+<rect x="680" y="110" width="210" height="54" rx="6" fill="#f0fdf4" stroke="#86efac"/><text x="690" y="130">IPv4 only again:</text><text x="690" y="148" font-family="Menlo, Consolas, monospace">172.20.1.2 → 172.20.3.2</text></g>
+<text x="10" y="200" fill="#334155" font-size="12">A tenant-b packet takes the same core path in a different envelope: pe3's <tspan font-style="italic">other</tspan> End.DT46 SID, which leads into VRF tenant-b.</text>
+<text x="10" y="218" fill="#334155" font-size="12">No tenant-a route exists in any tenant-b table, so the two can never reach each other — not even at the same site.</text>
+</svg><figcaption>Figure 6 — one ping across the lab, and what the packet looks like on each stretch.</figcaption></figure>
+<h2 id="s8">8. SRv6 compared with MPLS</h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>MPLS L3VPN</th>
+<th>SRv6 L3VPN (this lab)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Forwarding in the core</td>
+<td>on labels; every core router must run MPLS</td>
+<td>on IPv6 addresses; the core only needs IPv6 routing</td>
+</tr>
+<tr>
+<td>Transport signalling</td>
+<td>LDP or RSVP-TE on every router</td>
+<td>none — IS-IS announces locators</td>
+</tr>
+<tr>
+<td>Customer identity</td>
+<td>a VPN label from BGP</td>
+<td>a service SID from BGP (End.DT4/DT6/DT46)</td>
+</tr>
+<tr>
+<td>Choosing a path</td>
+<td>RSVP-TE tunnels (state on every hop) or SR-MPLS</td>
+<td>a segment list in the packet; no state in the core</td>
+</tr>
+<tr>
+<td>Header cost</td>
+<td>4 bytes per label</td>
+<td>40-byte IPv6 header + SRH (uSID keeps it small)</td>
+</tr>
+<tr>
+<td>Troubleshooting</td>
+<td>label tables, <code>show mpls</code></td>
+<td>ordinary IPv6 tools: ping, traceroute, tcpdump see the SIDs</td>
+</tr>
+</tbody>
+</table>
+<h2 id="s9">9. Glossary</h2>
+<table>
+<thead>
+<tr>
+<th>Term</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>SID</strong></td>
+<td>Segment Identifier — an IPv6 address that names an instruction on one router</td>
+</tr>
+<tr>
+<td><strong>Locator</strong></td>
+<td>the part of a SID that says which router; announced by IS-IS (<code>fd00:c:3::/48</code> = pe3)</td>
+</tr>
+<tr>
+<td><strong>Function</strong></td>
+<td>the part of a SID that says what to do there (<code>e001</code>)</td>
+</tr>
+<tr>
+<td><strong>Behaviour</strong></td>
+<td>the standard action behind a function: End, End.X, End.DT46 … (RFC 8986)</td>
+</tr>
+<tr>
+<td><strong>SRH</strong></td>
+<td>Segment Routing Header — the IPv6 extension header that holds the segment list (RFC 8754)</td>
+</tr>
+<tr>
+<td><strong>uSID / C-SID</strong></td>
+<td>micro-SID: 16-bit instructions packed several to an address, consumed by shifting (RFC 9800)</td>
+</tr>
+<tr>
+<td><strong>uN / uA / uDT46</strong></td>
+<td>the micro-SID forms of End, End.X and End.DT46</td>
+</tr>
+<tr>
+<td><strong>PE / P / CE</strong></td>
+<td>Provider Edge (has the customer VRFs), Provider core router (only IPv6), Customer Edge (the customer's router)</td>
+</tr>
+<tr>
+<td><strong>VRF</strong></td>
+<td>a separate routing table for one customer on a PE or CE</td>
+</tr>
+<tr>
+<td><strong>RD / RT</strong></td>
+<td>Route Distinguisher (keeps routes apart in BGP) / Route Target (decides which VRFs import a route)</td>
+</tr>
+<tr>
+<td><strong>RR</strong></td>
+<td>Route Reflector — a BGP router that relays VPN routes so PEs need not all peer with each other</td>
+</tr>
+<tr>
+<td><strong>Encapsulation</strong></td>
+<td>wrapping the customer's packet in a new IPv6 header (H.Encaps)</td>
+</tr>
+</tbody>
+</table>
+<div class="part-banner"><span>Part 2</span>A tour of the lab</div>
+<h2 id="s10">10. What is in the box</h2>
+<p>The lab is a small service-provider network, simulated on one Linux host with KVM. Every router is a real <strong>VyOS</strong> router (FRR inside) running its production software; every customer host is a real <strong>Alpine Linux</strong> VM.</p>
+<figure class="shot"><img src="topology.png" alt="The srv6-core topology, generated from lab.conf" /><figcaption>The srv6-core topology, generated from lab.conf</figcaption></figure>
+<table>
+<thead>
+<tr>
+<th>Role</th>
+<th>Nodes</th>
+<th>What they do</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>P routers</td>
+<td>p1, p2, p3</td>
+<td>the core triangle: IS-IS, SRv6, plain IPv6 forwarding. <strong>p1 and p3</strong> are also BGP route reflectors; <strong>p2</strong> runs no BGP at all</td>
+</tr>
+<tr>
+<td>PE routers</td>
+<td>pe1 – pe4</td>
+<td>one per data centre: the tenant VRFs, the eBGP sessions to the CEs, SRv6 encapsulation and decapsulation</td>
+</tr>
+<tr>
+<td>CE routers</td>
+<td>ce1 – ce4</td>
+<td>the customer side of each site: one VRF per tenant, a LAN per tenant, ten extra loopbacks for tenant-a</td>
+</tr>
+<tr>
+<td>Hosts</td>
+<td>dc<em>n</em>-h1 (tenant-a), dc<em>n</em>-h2 (tenant-b)</td>
+<td>Alpine Linux with ping, traceroute, iperf3, tcpdump — the &quot;customers&quot;</td>
+</tr>
+<tr>
+<td>fw-inet</td>
+<td>one firewall on pe4</td>
+<td>a CE of every tenant that gives each site a NAT'd way out to the internet</td>
+</tr>
+<tr>
+<td>lg</td>
+<td>the looking glass</td>
+<td>a passive BGP route collector with history, packet capture and path tracing</td>
+</tr>
+<tr>
+<td>NMS</td>
+<td>Prometheus, VictoriaMetrics, Grafana, Gitea</td>
+<td>monitoring, alerting, the CI runner's Git mirror</td>
+</tr>
+</tbody>
+</table>
+<p>pe1 and pe2 hang off p1 and p2; pe3 and pe4 off p2 and p3. So every west↔east path crosses <strong>p2</strong> by default — a fact the tests and the steering examples use.</p>
+<h3>Addressing at a glance</h3>
+<table>
+<thead>
+<tr>
+<th>What</th>
+<th>Range</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Loopbacks (core)</td>
+<td><code>fd00:a::/48</code></td>
+<td>pe1 <code>fd00:a::1</code>, p2 <code>fd00:a::12</code></td>
+</tr>
+<tr>
+<td>Core links</td>
+<td><code>fd00:b:0:&lt;ab&gt;::/64</code></td>
+<td>p2–pe1 <code>fd00:b:0:201::/64</code></td>
+</tr>
+<tr>
+<td>SRv6 locators</td>
+<td><code>fd00:c:&lt;node&gt;::/48</code> from block <code>fd00:c::/32</code></td>
+<td>pe3 <code>fd00:c:3::/48</code>, p1 <code>fd00:c:11::/48</code></td>
+</tr>
+<tr>
+<td>tenant-a</td>
+<td>circuits <code>172.16.n.0/30</code>, LANs <code>172.20.n.0/24</code></td>
+<td>dc3-h1 = <code>172.20.3.2</code></td>
+</tr>
+<tr>
+<td>tenant-b</td>
+<td>circuits <code>172.18.n.0/30</code>, LANs <code>172.21.n.0/24</code></td>
+<td>dc3-h2 = <code>172.21.3.2</code></td>
+</tr>
+<tr>
+<td>IPv6 twins</td>
+<td><code>172.X.Y.0</code> ↔ <code>fd00:X:Y::/64</code></td>
+<td>LAN <code>172.20.1.0/24</code> ↔ <code>fd00:20:1::/64</code></td>
+</tr>
+<tr>
+<td>Management (OOB)</td>
+<td><code>10.3.0.0/24</code></td>
+<td>pe1 <code>10.3.0.11</code>, dc1-h1 <code>10.3.0.41</code></td>
+</tr>
+</tbody>
+</table>
+<h3>Driving it</h3>
+<pre><code>./lab.sh up          # start every VM (about six minutes from cold)
+./lab.sh status      # every node and link with its addresses
+./lab.sh ssh pe1     # a router (vyos / vyos); hosts are lab / lab
+./lab.sh verify      # adjacencies, SIDs, VPN routes, the host ping matrix
+./lab.sh test        # the Robot Framework suites
+./lab.sh down        # shut everything down; configurations are saved
+</code></pre>
+<h2 id="s11">11. Stop 1 — the provisioning portal</h2>
+<p>The portal (<code>http://&lt;lab-host&gt;:8091</code>) is where tenants are created, changed and watched. Everything it does goes through the same steps an engineer would take — edit <code>lab.conf</code>, render configurations, push them over SSH, update Nautobot, verify, test — as a <strong>run</strong> you can follow line by line.</p>
+<p><strong>Tenants.</strong> One card per tenant with every site: the PE port, route distinguisher, attachment circuit, CE ports, LAN and host, joined with live state read from the routers — the eBGP session to the CE, how many routes the VRF holds, how many of them go through SRv6, and the tenant's End.DT46 SID on that PE.</p>
+<figure class="shot"><img src="screenshots/guide-portal-tenants.png" alt="The Tenants view: every site with its live state" /><figcaption>The Tenants view: every site with its live state</figcaption></figure>
+<p><strong>Topology.</strong> The same network drawn live, hosts coloured by whether they answer. <strong>Add tenant</strong> opens a three-step wizard that suggests everything (letter, table, route target, ports, addresses, hosts), re-validates it against the running lab, and deploys it as a run.</p>
+<figure class="shot"><img src="screenshots/portal-wizard-sites.png" alt="Adding a tenant: the per-site allocation step" /><figcaption>Adding a tenant: the per-site allocation step</figcaption></figure>
+<p><strong>Steering — on the map.</strong> Pin a tenant prefix on a PE to a path through chosen P routers. <strong>Preview</strong> draws the path before it is applied: the dashed grey line is the IGP shortest path, the coloured one the path the policy would take. After <strong>Apply</strong>, <strong>Measure delay</strong> pings both from the PE inside the tenant's VRF.</p>
+<figure class="shot"><img src="screenshots/guide-portal-steering-map.png" alt="A steering preview: pe1 → p1 → p3 → pe3 beside the IGP path via p2" /><figcaption>A steering preview: pe1 → p1 → p3 → pe3 beside the IGP path via p2</figcaption></figure>
+<p><strong>SLA.</strong> Every minute each tenant host pings every other site of its tenant, and each pair is graded against delay and loss targets. The matrix shows the last probe; a pair's history is one click away. A pair that changes state is annotated in Grafana, and alert rules fire on the same numbers.</p>
+<figure class="shot"><img src="screenshots/guide-portal-sla.png" alt="The SLA matrix: every pair of every tenant's sites" /><figcaption>The SLA matrix: every pair of every tenant's sites</figcaption></figure>
+<figure class="shot"><img src="screenshots/guide-portal-sla-chart.png" alt="One pair's delay and loss over time" /><figcaption>One pair's delay and loss over time</figcaption></figure>
+<p><strong>Capacity.</strong> How many more tenants fit — at every data centre and at each one — and which limit runs out first: PE or CE ports, tenant letters, address blocks, firewall circuits, host memory.</p>
+<figure class="shot"><img src="screenshots/guide-portal-capacity.png" alt="Capacity: room to grow, and the limit that binds first" /><figcaption>Capacity: room to grow, and the limit that binds first</figcaption></figure>
+<p><strong>Backups.</strong> The whole lab state in one checksummed file (<code>lab.conf</code>, the steering policies, every router's configuration). A restore first shows its plan — tenants to add or remove, steering to put back — and then runs like any other change.</p>
+<figure class="shot"><img src="screenshots/guide-portal-backups.png" alt="A backup and its restore plan" /><figcaption>A backup and its restore plan</figcaption></figure>
+<p><strong>Runs.</strong> Every change as steps with a streamed log and, at the end, the Robot Framework report. A failed run can be resumed from the step that failed.</p>
+<figure class="shot"><img src="screenshots/guide-portal-runs.png" alt="A run: steps, log and test results" /><figcaption>A run: steps, log and test results</figcaption></figure>
+<div class="callout tip"><b>Themes.</b> The picker in the portal's header switches between the default layout and an Apple-style theme; ☾ / ☀ switches dark and light in either. The looking glass has the same picker.</div>
+<h2 id="s12">12. Stop 2 — the BGP looking glass</h2>
+<p>The looking glass (<code>http://10.3.0.70:8080</code>) is a <strong>passive route collector</strong> inside the core. It peers with both route reflectors, receives every VPN route and announces nothing. It also reads each router's own tables over the router API. Everything it sees is kept as history, so you can ask what the network looked like at any moment.</p>
+<p><strong>Overview.</strong> The collector's sessions, the size of the VPN table, recent churn, and the topology — click any link to capture its packets.</p>
+<figure class="shot"><img src="screenshots/guide-lg-overview.png" alt="The looking glass overview" /><figcaption>The looking glass overview</figcaption></figure>
+<p><strong>Prefixes.</strong> Every VPN prefix with its route distinguisher, route target, next hop and the SRv6 SID it points to, filterable by VRF, RD, origin AS or free text.</p>
+<figure class="shot"><img src="screenshots/guide-lg-prefixes.png" alt="Every VPN prefix and its SRv6 attributes" /><figcaption>Every VPN prefix and its SRv6 attributes</figcaption></figure>
+<p><strong>Path.</strong> For one prefix, the path a packet really takes: from the ingress PE's VRF, through the P router the PE actually forwards through, to the egress PE and its SID — read from the routers, not guessed.</p>
+<figure class="shot"><img src="screenshots/guide-lg-path.png" alt="The path to 172.20.3.0/24, hop by hop" /><figcaption>The path to 172.20.3.0/24, hop by hop</figcaption></figure>
+<p><strong>History and Compare.</strong> Every announce, change and withdraw, with a time slider that shows any table as it was. Compare lists every path that moved between two moments, down to a single next hop's SID.</p>
+<figure class="shot"><img src="screenshots/guide-lg-history.png" alt="History: what changed, and when" /><figcaption>History: what changed, and when</figcaption></figure>
+<p><strong>Packet capture.</strong> Click any link on the map to capture on it — live, streamed into the page — or capture along a prefix's whole path at once and watch each ping hop by hop: plain IPv4 on the access links, SRv6-encapsulated in the core.</p>
+<figure class="shot"><img src="screenshots/lg-path-capture.png" alt="A capture along a path: every ping at every hop" /><figcaption>A capture along a path: every ping at every hop</figcaption></figure>
+<h2 id="s13">13. Stop 3 — Nautobot, the source of truth</h2>
+<p>Nautobot holds the lab as a model: devices, interfaces, cables, IP addresses, VRFs with their RDs and RTs, BGP peerings. It is seeded from <code>lab.conf</code>, and the lab checks itself against it both ways — the configuration Nautobot would render must equal the one <code>lab.conf</code> renders, and every line must be present on the routers.</p>
+<figure class="shot"><img src="screenshots/nautobot-pe1.png" alt="pe1 in Nautobot" /><figcaption>pe1 in Nautobot</figcaption></figure>
+<figure class="shot"><img src="screenshots/nautobot-vrf.png" alt="The tenant VRFs, with route distinguishers and route targets" /><figcaption>The tenant VRFs, with route distinguishers and route targets</figcaption></figure>
+<h2 id="s14">14. Stop 4 — monitoring and alerting</h2>
+<p>The NMS VM runs <strong>Prometheus</strong> (scraping node-exporter and frr-exporter on every router, node-exporter on every host, and the portal's own <code>/metrics</code>), <strong>VictoriaMetrics</strong> for longer retention, <strong>VictoriaLogs</strong> for every router's syslog, and <strong>Grafana</strong> for dashboards. Alert rules cover the things an operator cares about: a host or a CE session down, an IS-IS or BFD adjacency missing, a VPN session down, a tenant outside its SLA, failed tests, and a notice when there is no room left for another tenant. Portal runs, steering changes and SLA state changes all appear as annotations on every dashboard.</p>
+<h2 id="s15">15. Stop 5 — tests and CI</h2>
+<p><code>./lab.sh test</code> runs sixteen Robot Framework suites — 109 checks — against the live lab: management, the underlay, SRv6, the VPNs, end to end reachability, route-reflector redundancy, steering, failover (a link cut with BFD: 4 packets lost), Nautobot, throughput, monitoring, dual-stack, internet breakout, the looking glass and the portal's operations features. Before and after, every router's configuration and routing tables are saved; the difference must be empty. Each push to GitHub is mirrored to a local Gitea whose runner validates the configurations and runs the suites.</p>
+<div class="part-banner"><span>Part 3</span>Walk a packet through it</div>
+<h2 id="s16">16. Before you start</h2>
+<p>Open two terminals on the lab host. Everything below uses <code>./lab.sh ssh &lt;node&gt;</code> to log in (VyOS routers: <code>vyos</code>/<code>vyos</code>; hosts: <code>lab</code>/<code>lab</code>). On a VyOS router, <code>pe1&gt;</code> marks the operational CLI (<code>show …</code>) and <code>pe1$</code> the Linux shell underneath (<code>ip …</code>, <code>tcpdump</code>), where the SRv6 forwarding actually happens, where the SRv6 forwarding actually happens. We follow one ping from <strong>dc1-h1</strong> (tenant-a, data centre 1) to <strong>dc3-h1</strong> (tenant-a, data centre 3).</p>
+<h2 id="s17">17. Step 1 — the customer's view</h2>
+<p>On dc1-h1 the world is small: an address on its LAN and a default route to its CE.</p>
+<pre><code>dc1-h1$ ip -br addr; ip route
+lo               UNKNOWN        127.0.0.1/8 ::1/128 
+eth0             UP             10.3.0.41/24 fe80::5054:ff:fec6:c00/64 
+eth1             UP             172.20.1.2/24 fd00:20:1::2/64 fe80::5054:ff:fec6:c01/64 
+default via 172.20.1.1 dev eth1 
+10.0.0.0/8 via 10.3.0.1 dev eth0 
+10.3.0.0/24 dev eth0 proto kernel scope link src 10.3.0.41 
+172.20.1.0/24 dev eth1 proto kernel scope link src 172.20.1.2
+</code></pre>
+<p>It reaches the tenant-a host in data centre 3…</p>
+<pre><code>dc1-h1$ ping -c 3 172.20.3.2
+PING 172.20.3.2 (172.20.3.2): 56 data bytes
+64 bytes from 172.20.3.2: seq=0 ttl=42 time=1.970 ms
+64 bytes from 172.20.3.2: seq=1 ttl=42 time=1.966 ms
+64 bytes from 172.20.3.2: seq=2 ttl=42 time=2.039 ms
+
+--- 172.20.3.2 ping statistics ---
+3 packets transmitted, 3 packets received, 0% packet loss
+round-trip min/avg/max = 1.966/1.991/2.039 ms
+</code></pre>
+<p>…and <strong>cannot</strong> reach the tenant-b host in its own data centre, one hop away on the same CE:</p>
+<pre><code>dc1-h1$ ping -c 2 172.21.1.2
+PING 172.21.1.2 (172.21.1.2): 56 data bytes
+
+--- 172.21.1.2 ping statistics ---
+2 packets transmitted, 0 packets received, 100% packet loss
+</code></pre>
+<p>The traceroute shows the customer never sees the core: the hop between the two PEs is invisible (<code>*</code>), because inside the core the packet is inside an IPv6 envelope.</p>
+<pre><code>dc1-h1$ traceroute -n 172.20.3.2
+traceroute to 172.20.3.2 (172.20.3.2), 30 hops max, 46 byte packets
+ 1  172.20.1.1  0.004 ms
+ 2  *
+ 3  172.16.3.2  1.728 ms
+ 4  172.20.3.2  1.709 ms
+</code></pre>
+<h2 id="s18">18. Step 2 — the underlay: IS-IS and the locators</h2>
+<p>On pe1, IS-IS has two neighbours — the P routers it is cabled to:</p>
+<pre><code>pe1&gt; show isis neighbor
+Area VyOS:
+ System Id           Interface   L  State         Holdtime SNPA
+ p1                  eth1        2  Up            29       2020.2020.2020
+ p2                  eth2        2  Up            28       2020.2020.2020
+</code></pre>
+<p>pe1 owns one locator, and it is up:</p>
+<pre><code>pe1&gt; show segment-routing srv6 locator
+Locator:
+Name                 ID      Prefix                   Status
+-------------------- ------- ------------------------ -------
+main                       1 fd00:c:1::/48            Up
+</code></pre>
+<p>Through IS-IS, pe1 has learnt every other router's locator as an ordinary IPv6 route. pe3's <code>fd00:c:3::/48</code> goes via p2 (the <code>fe80::…603</code> neighbour on eth2) — the IGP shortest path:</p>
+<pre><code>pe1$ vtysh -c 'show ipv6 route isis' | grep fd00:c: | head -12
+I&gt;* fd00:c:1::/48 [115/0] is directly connected, dum0, seg6local uN, weight 1, 00:37:38
+I&gt;* fd00:c:1:e002::/64 [115/0] is directly connected, eth2, seg6local uA nh6 fe80::5054:ff:fec6:603, eth2, weight 1, 00:37:38
+I&gt;* fd00:c:1:e003::/64 [115/0] is directly connected, eth1, seg6local uA nh6 fe80::5054:ff:fec6:503, eth1, weight 1, 00:37:38
+I&gt;* fd00:c:2::/48 [115/20] via fe80::5054:ff:fec6:503, eth1, weight 1, 00:37:11
+I&gt;* fd00:c:2::1/128 [115/30] via fe80::5054:ff:fec6:503, eth1, weight 1, 00:37:11
+I&gt;* fd00:c:3::/48 [115/20] via fe80::5054:ff:fec6:603, eth2, weight 1, 00:37:12
+I&gt;* fd00:c:3::1/128 [115/30] via fe80::5054:ff:fec6:603, eth2, weight 1, 00:37:12
+I&gt;* fd00:c:4::/48 [115/20] via fe80::5054:ff:fec6:603, eth2, weight 1, 00:37:12
+I&gt;* fd00:c:4::1/128 [115/30] via fe80::5054:ff:fec6:603, eth2, weight 1, 00:37:12
+I&gt;* fd00:c:11::/48 [115/10] via fe80::5054:ff:fec6:503, eth1, weight 1, 00:37:37
+I&gt;* fd00:c:11::1/128 [115/20] via fe80::5054:ff:fec6:503, eth1, weight 1, 00:37:37
+I&gt;* fd00:c:12::/48 [115/10] via fe80::5054:ff:fec6:603, eth2, weight 1, 00:37:37
+</code></pre>
+<h2 id="s19">19. Step 3 — the instructions pe1 will carry out</h2>
+<p>The kernel's table of local SIDs is where behaviours become real. On pe1: the node SID (End, <em>uN</em>) on the whole locator, one End.X (<em>uA</em>) per core link, and one End.DT46 per tenant VRF:</p>
+<pre><code>pe1$ ip -6 route show | grep seg6local
+fd00:c:1:e000:: nhid 45  encap seg6local action End.DT46 vrftable tenant-b dev tenant-b proto bgp metric 20 pref medium
+fd00:c:1:e001:: nhid 39  encap seg6local action End.DT46 vrftable tenant-a dev tenant-a proto bgp metric 20 pref medium
+fd00:c:1:e002::/64 nhid 42  encap seg6local action End.X nh6 fe80::5054:ff:fec6:603 oif eth2 flavors next-csid lblen 32 nflen 16 dev eth2 proto isis metric 20 pref medium
+fd00:c:1:e003::/64 nhid 43  encap seg6local action End.X nh6 fe80::5054:ff:fec6:503 oif eth1 flavors next-csid lblen 32 nflen 16 dev eth1 proto isis metric 20 pref medium
+fd00:c:1::/48 nhid 37  encap seg6local action End flavors next-csid lblen 32 nflen 16 dev dum0 proto isis metric 20 pref medium
+</code></pre>
+<div class="callout note"><b>Read it as a sentence.</b> "<code>fd00:c:1:e00x:: … action End.DT46 vrftable tenant-a</code>" means: <i>a packet addressed to this SID is to be unwrapped and looked up in tenant-a's table.</i> The function values (<code>e000</code>, <code>e001</code> …) are chosen by FRR when the SIDs are allocated, so they can differ between your lab and this guide.</div>
+<h2 id="s20">20. Step 4 — BGP: which SID leads to which customer</h2>
+<p>pe3 learnt <code>172.20.3.0/24</code> from ce3, allocated an End.DT46 SID for tenant-a, and advertised both to the route reflectors. pe1 receives the route twice (once from each reflector), tagged with route target <code>65000:100</code> — which is why only VRF tenant-a imports it:</p>
+<pre><code>pe1&gt; show bgp ipv4 vpn 172.20.3.0/24
+BGP routing table entry for 65000:103:172.20.3.0/24, version 2
+not allocated
+Paths: (2 available, best #1)
+  Not advertised to any peer
+  65003
+    0.0.0.0 (metric 20) from fd00:a::11 (10.255.0.3)
+      Origin IGP, metric 0, localpref 100, valid, internal, multipath, best (Neighbor IP)
+      Extended Community: RT:65000:100
+      Originator: 10.255.0.3, Cluster list: 10.255.0.11 
+      Remote labels: 917520
+      Remote SID: fd00:c:3::, sid structure=[32 16 16 0 16 48]
+      Last update: Tue Sep 29 11:37:16 2026
+  65003
+    0.0.0.0 (metric 20) from fd00:a::13 (10.255.0.3)
+      Origin IGP, metric 0, localpref 100, valid, internal, multipath
+      Extended Community: RT:65000:100
+      Originator: 10.255.0.3, Cluster list: 10.255.0.13 
+      Remote labels: 917520
+      Remote SID: fd00:c:3::, sid structure=[32 16 16 0 16 48]
+      Last update: Tue Sep 29 11:37:16 2026
+</code></pre>
+<p>The &quot;Remote SID&quot; line and the &quot;Remote labels&quot; value together make the full SID: BGP sends the locator part in the SID field and the function in the label field (&quot;transposition&quot;), which saves space when many routes share a locator.</p>
+<h2 id="s21">21. Step 5 — the VRF: where encapsulation is decided</h2>
+<p>pe1's tenant-a table now says, for <code>172.20.3.0/24</code>: <em>wrap it in SRv6, one segment, pe3's tenant-a SID, out towards p2.</em> Local sites go straight to the CE; remote ones all have an <code>encap seg6</code> instruction:</p>
+<pre><code>pe1$ ip route show vrf tenant-a
+default nhid 105  encap seg6 mode encap segs 1 [ fd00:c:4:e001:: ] via inet6 fe80::5054:ff:fec6:603 dev eth2 proto bgp metric 20 
+127.0.0.0/8 dev tenant-a proto kernel scope link src 127.0.0.1 
+172.16.1.0/30 dev eth3 proto kernel scope link src 172.16.1.1 
+172.16.2.0/30 nhid 97 proto bgp metric 20 
+	nexthop  encap seg6 mode encap segs 1 [ fd00:c:2:e001:: ] via inet6 fe80::5054:ff:fec6:503 dev eth1 weight 1 
+	nexthop  encap seg6 mode encap segs 1 [ fd00:c:2:e001:: ] via inet6 fe80::5054:ff:fec6:603 dev eth2 weight 1 
+172.16.3.0/30 nhid 102  encap seg6 mode encap segs 1 [ fd00:c:3:e001:: ] via inet6 fe80::5054:ff:fec6:603 dev eth2 proto bgp metric 20 
+172.16.4.0/30 nhid 105  encap seg6 mode encap segs 1 [ fd00:c:4:e001:: ] via inet6 fe80::5054:ff:fec6:603 dev eth2 proto bgp metric 20 
+172.16.5.0/30 nhid 105  encap seg6 mode encap segs 1 [ fd00:c:4:e001:: ] via inet6 fe80::5054:ff:fec6:603 dev eth2 proto bgp metric 20 
+172.20.1.0/24 nhid 79 via 172.16.1.2 dev eth3 proto bgp metric 20 
+172.20.2.0/24 nhid 97 proto bgp metric 20 
+	nexthop  encap seg6 mode encap segs 1 [ fd00:c:2:e001:: ] via inet6 fe80::5054:ff:fec6:503 dev eth1 weight 1 
+	nexthop  encap seg6 mode encap segs 1 [ fd00:c:2:e001:: ] via inet6 fe80::5054:ff:fec6:603 dev eth2 weight 1 
+172.20.3.0/24 nhid 102  encap seg6 mode encap segs 1 [ fd00:c:3:e001:: ] via inet6 fe80::5054:ff:fec6:603 dev eth2 proto bgp metric 20 
+172.20.4.0/24 nhid 105  encap seg6 mode encap segs 1 [ fd00:c:4:e001:: ] via inet6 fe80::5054:ff:fec6:603 dev eth2 proto bgp metric 20 
+172.24.1.1 nhid 79 via 172.16.1.2 dev eth3 proto bgp metric 20 
+172.24.1.2 nhid 79 via 172.16.1.2 dev eth3 proto bgp metric 20 
+172.24.1.3 nhid 79 via 172.16.1.2 dev eth3 proto bgp metric 20 
+172.24.1.4 nhid 79 via 172.16.1.2 dev eth3 proto bgp metric 20 
+172.24.1.5 nhid 79 via 172.16.1.2 dev eth3 proto bgp metric 20 
+172.24.1.6 nhid 79 via 172.16.1.2 dev eth3 proto bgp metric 20 
+172.24.1.7 nhid 79 via 172.16.1.2 dev eth3 proto bgp metric 20 
+… (53 more lines)
+</code></pre>
+<h2 id="s22">22. Step 6 — on the wire in the core</h2>
+<p>Capture on p2 while dc1-h1 pings. Each packet is an IPv6 packet from pe1's loopback to pe3's SID, with a one-entry SRH (<code>RT6 … type=4</code>), and the customer's IPv4 packet inside it:</p>
+<pre><code>p2$ sudo tcpdump -ni eth5 -c 4 -vv 'ip6 and dst net fd00:c:3::/48'     # eth5 = the link to pe3
+12:15:03.387621 IP6 (hlim 62, next-header Routing (43) payload length: 108) fd00:a::1 &gt; fd00:c:3:e001::: RT6 (len=2, type=4, segleft=0, last-entry=0, flags=0x0, tag=0, [0]fd00:c:3:e001::) IP (tos 0x0, ttl 63, id 40595, offset 0, flags [DF], proto ICMP (1), length 84)
+    172.20.1.2 &gt; 172.20.3.2: ICMP echo request, id 103, seq 0, length 64
+12:15:03.887745 IP6 (hlim 62, next-header Routing (43) payload length: 108) fd00:a::1 &gt; fd00:c:3:e001::: RT6 (len=2, type=4, segleft=0, last-entry=0, flags=0x0, tag=0, [0]fd00:c:3:e001::) IP (tos 0x0, ttl 63, id 40650, offset 0, flags [DF], proto ICMP (1), length 84)
+    172.20.1.2 &gt; 172.20.3.2: ICMP echo request, id 103, seq 1, length 64
+12:15:04.387867 IP6 (hlim 62, next-header Routing (43) payload length: 108) fd00:a::1 &gt; fd00:c:3:e001::: RT6 (len=2, type=4, segleft=0, last-entry=0, flags=0x0, tag=0, [0]fd00:c:3:e001::) IP (tos 0x0, ttl 63, id 40929, offset 0, flags [DF], proto ICMP (1), length 84)
+    172.20.1.2 &gt; 172.20.3.2: ICMP echo request, id 103, seq 2, length 64
+12:15:04.887947 IP6 (hlim 62, next-header Routing (43) payload length: 108) fd00:a::1 &gt; fd00:c:3:e001::: RT6 (len=2, type=4, segleft=0, last-entry=0, flags=0x0, tag=0, [0]fd00:c:3:e001::) IP (tos 0x0, ttl 63, id 41188, offset 0, flags [DF], proto ICMP (1), length 84)
+    172.20.1.2 &gt; 172.20.3.2: ICMP echo request, id 103, seq 3, length 64
+</code></pre>
+<p>And p2 has no idea who the customers are. It has no VRFs, and its IPv4 table holds only the management network:</p>
+<pre><code>p2$ ip route show vrf tenant-a; ip vrf show
+Error: argument &quot;tenant-a&quot; is wrong: Invalid VRF
+
+Name              Table
+-----------------------
+No VRF has been configured
+p2$ ip route show      # IPv4
+10.0.0.0/8 nhid 23 via 10.3.0.1 dev eth0 proto static metric 20 
+10.3.0.0/24 dev eth0 proto kernel scope link src 10.3.0.22
+</code></pre>
+<p>That is the whole point of SRv6: the core carries VPN traffic with nothing but IPv6 routing.</p>
+<h2 id="s23">23. Step 7 — delivery at pe3</h2>
+<p>pe3's SID table has the matching End.DT46 entries. A packet addressed to the tenant-a one is unwrapped and handed to VRF tenant-a, which knows <code>172.20.3.0/24</code> is behind ce3:</p>
+<pre><code>pe3$ ip -6 route show | grep End.DT4
+fd00:c:3:e000:: nhid 45  encap seg6local action End.DT46 vrftable tenant-b dev tenant-b proto bgp metric 20 pref medium
+fd00:c:3:e001:: nhid 39  encap seg6local action End.DT46 vrftable tenant-a dev tenant-a proto bgp metric 20 pref medium
+</code></pre>
+<h2 id="s24">24. Step 8 — choose the path yourself</h2>
+<p>By default everything west↔east crosses p2. Pin tenant-b's traffic from pe1 to <code>172.21.3.0/24</code> onto the long way round, p1 → p3 → pe3. The steering tool builds a single uSID carrier from the path:</p>
+<pre><code>$ ./lab.sh steer add pe1 tenant-b 172.21.3.0/24 p1 p3
+pe1: tenant-b 172.21.3.0/24 -&gt; p1 -&gt; p3 -&gt; pe3  segments fd00:c:11:13:3:e000::  (out eth1)  [uSID: one compressed segment]
+172.21.3.0/24 nhid 142  encap seg6 mode encap segs 1 [ fd00:c:11:13:3:e000:: ] dev eth1 proto static metric 20
+</code></pre>
+<p>Now capture on p1 and then on p3 while dc1-h2 pings dc3-h2. Watch the destination address shrink by one micro-SID at each hop — exactly Figure 5:</p>
+<pre><code>p1$ sudo tcpdump -ni eth2 -c 2 -vv 'ip6 and dst net fd00:c::/32'   # leaving p1 towards p3: its own 11 consumed
+12:16:19.500122 IP6 (hlim 62, next-header Routing (43) payload length: 108) fd00:a::1 &gt; fd00:c:13:3:e000::: RT6 (len=2, type=4, segleft=0, last-entry=0, flags=0x0, tag=0, [0]fd00:c:11:13:3:e000::) IP (tos 0x0, ttl 63, id 63968, offset 0, flags [DF], proto ICMP (1), length 84)
+    172.21.1.2 &gt; 172.21.3.2: ICMP echo request, id 100, seq 0, length 64
+12:16:20.001520 IP6 (hlim 62, next-header Routing (43) payload length: 108) fd00:a::1 &gt; fd00:c:13:3:e000::: RT6 (len=2, type=4, segleft=0, last-entry=0, flags=0x0, tag=0, [0]fd00:c:11:13:3:e000::) IP (tos 0x0, ttl 63, id 64088, offset 0, flags [DF], proto ICMP (1), length 84)
+    172.21.1.2 &gt; 172.21.3.2: ICMP echo request, id 100, seq 1, length 64
+</code></pre>
+<pre><code>p3$ sudo tcpdump -ni eth3 -c 2 -vv 'ip6 and dst net fd00:c::/32'   # leaving p3 towards pe3: only pe3's SID is left
+12:16:23.624088 IP6 (hlim 63, next-header Routing (43) payload length: 108) fd00:a::3 &gt; fd00:c:4:e000::: RT6 (len=2, type=4, segleft=0, last-entry=0, flags=0x0, tag=0, [0]fd00:c:4:e000::) IP (tos 0x0, ttl 63, id 52453, offset 0, flags [none], proto ICMP (1), length 84)
+    172.21.3.2 &gt; 172.21.4.2: ICMP echo reply, id 101, seq 0, length 64
+12:16:23.624885 IP6 (hlim 61, next-header Routing (43) payload length: 108) fd00:a::1 &gt; fd00:c:3:e000::: RT6 (len=2, type=4, segleft=0, last-entry=0, flags=0x0, tag=0, [0]fd00:c:11:13:3:e000::) IP (tos 0x0, ttl 63, id 64832, offset 0, flags [DF], proto ICMP (1), length 84)
+    172.21.1.2 &gt; 172.21.3.2: ICMP echo request, id 102, seq 0, length 64
+</code></pre>
+<p>The reply still takes the shortest path back through p2: steering is per direction. Remove the policy and traffic returns to the IGP path:</p>
+<pre><code>$ ./lab.sh steer del pe1 tenant-b 172.21.3.0/24
+pe1: tenant-b 172.21.3.0/24 back on the IGP shortest path
+172.21.3.0/24 nhid 113  encap seg6 mode encap segs 1 [ fd00:c:3:e000:: ] via inet6 fe80::5054:ff:fec6:603 dev eth2 proto bgp metric 20
+</code></pre>
+<div class="callout tip"><b>Same thing, in the portal.</b> In the portal's Steering view, choose pe1, tenant-b, 172.21.3.0/24, via <code>p1 p3</code>, and press <b>Preview</b> to see the path on the map; <b>Apply</b> installs it; <b>Measure delay</b> compares it with the IGP path (the long way is roughly one millisecond longer).</div>
+<h2 id="s25">25. Step 9 — break something</h2>
+<p>Every core adjacency runs <strong>BFD</strong>, which notices a dead neighbour in under a second (the links are tunnels that never lose carrier, so without BFD it would take IS-IS's 30-second hold time):</p>
+<pre><code>pe1&gt; show bfd peers brief
+Session count: 2
+SessionId  LocalAddress                             PeerAddress                             Status          Profile             
+=========  ============                             ===========                             ======          =======             
+2026629426 fe80::5054:ff:fec6:101                   fe80::5054:ff:fec6:503                  up              -                   
+3077310471 fe80::5054:ff:fec6:102                   fe80::5054:ff:fec6:603                  up              -
+</code></pre>
+<p>Suite 08 (<code>./lab.sh test suites/08_failover.robot</code>) cuts the p2–pe3 link silently while a ping runs every 0.2 s: pe3's routes move to p3 within a second, about four packets are lost, and everything comes back when the link is restored. Try it, and watch the looking glass's History view and the SLA matrix while it happens.</p>
+<h2 id="s26">26. Where to go next</h2>
+<ul>
+<li><strong>Exercises.</strong> <code>docs/session/exercises.md</code> has break-and-fix exercises for the lab.</li>
+<li><strong>The deep dive.</strong> <code>docs/srv6-walkthrough.pdf</code> goes table by table through dual-stack (End.DT46 for IPv6), the internet breakout, the Linux quirk the PEs work around, and more.</li>
+<li><strong>Add a tenant</strong> from the portal and follow the run — then find its new SIDs on the PEs, its routes in the looking glass, and its sites in the SLA matrix.</li>
+<li><strong>Standards.</strong> RFC 8402 (Segment Routing architecture), RFC 8754 (the SRH), RFC 8986 (SRv6 network programming — the behaviours), RFC 9252 (BGP services over SRv6 — the L3VPN), RFC 9352 (IS-IS extensions for SRv6), RFC 9800 (compressed SIDs — uSID).</li>
+</ul>
+</body></html>

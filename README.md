@@ -220,6 +220,8 @@ The run engine (steps, streamed log, resume, Robot reports) comes from the share
   system SF font, a light grey page with white rounded tiles, blue pill buttons, and a large centred headline on the
   Tenants view. It lays out for phone width too.
 
+The looking glass has the same picker, remembered separately, with the same two themes.
+
 A theme is a set of CSS rules under `html[data-skin=…]` in `webapp/static/index.html`, so adding one is a single block of
 variables and overrides.
 
@@ -674,6 +676,16 @@ and as an HTML replica at the same coordinates, which `docs/build_deck_pdf.py <d
 has no LibreOffice to convert a deck itself, which is why the previews exist at all.
 
 ## Walkthrough
+**Start here if SRv6 is new to you:** [docs/srv6-lab-guide.pdf](docs/srv6-lab-guide.pdf) — *SRv6, from first principles to a
+working network*. It has three parts:
+- SRv6 in plain terms, with diagrams: the SID, the SRH, uSID, IS-IS and BGP, L3VPN, a comparison with MPLS, and a glossary.
+- A tour of the lab and every tool around it, with screenshots.
+- A hands-on packet walk from a tenant host through every table and header, then steering it by hand.
+
+It is built from `docs/srv6-lab-guide.md` by `docs/build_lab_guide.py`, with the same live captures as the walkthrough
+below and screenshots from `docs/guide_screenshots.py`.
+
+The deeper companion:
 [docs/srv6-walkthrough.md](docs/srv6-walkthrough.md) ([PDF](docs/srv6-walkthrough.pdf)) — *SRv6 L3VPN, shown on real boxes*: the
 underlay, the SIDs in the kernel, the BGP Prefix-SID attribute, a packet walk with captures on the P router, uSID
 shift-and-forward seen hop by hop on a steered path, and how the lab is operated. Every output is captured from the

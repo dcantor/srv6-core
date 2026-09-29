@@ -97,9 +97,9 @@ vyos@pe1:~$ ip -6 route show | grep seg6local
 {{pe1-seg6local}}
 ```
 
-`fd00:c:1:e000:: … End.DT46 vrftable tenant-a` is the **uDT46** SID: "decapsulate, then route the packet inside —
+`fd00:c:1:e001:: … End.DT46 vrftable tenant-a` is the **uDT46** SID: "decapsulate, then route the packet inside —
 IPv4 or IPv6 — in VRF tenant-a". One SID per VRF serves both families; it is what the remote PEs will put on packets
-for dc1's tenant-a LANs. The function value (`e000`) is allocated by FRR at run time, which is why the tests and tools
+for dc1's tenant-a LANs. The function value (`e001`) is allocated by FRR at run time, which is why the tests and tools
 read it back rather than assume it.
 
 BFD watches each adjacency so a silent link failure is detected in under a second:
@@ -152,7 +152,7 @@ Three things to read off this:
 1. **`Remote SID: fd00:c:3::, sid structure=[32 16 16 0 16 48]`** — the BGP Prefix-SID attribute. The locator is pe3's,
    the structure says "32-bit block, 16-bit node, 16-bit function, transposition of 16 bits at offset 48". The function
    bits were *transposed* into the label field (`Remote labels: 917504` = `0xE000` << 4), a standard trick to keep the
-   SID attribute compact; the receiver reassembles `fd00:c:3:e000::`.
+   SID attribute compact; the receiver reassembles `fd00:c:3:e001::`.
 2. **`RT:65000:100`** — the route target; only VRFs importing 65000:100 (tenant-a) get this route. tenant-b never sees it.
 3. **`Originator: 10.255.0.3, Cluster list: 10.255.0.11`** / `10.255.0.13` — two copies, one via each reflector, so
    losing p1 loses nothing (test suite 06 proves it).
@@ -174,7 +174,7 @@ vyos@pe1:~$ ip route show vrf tenant-a
 {{pe1-route-vrf}}
 ```
 
-`172.20.3.0/24 … encap seg6 mode encap segs 1 [ fd00:c:3:e000:: ] via fe80::… dev eth2` — one segment, out eth2 towards
+`172.20.3.0/24 … encap seg6 mode encap segs 1 [ fd00:c:3:e001:: ] via fe80::… dev eth2` — one segment, out eth2 towards
 p2 (the shortest path to pe3). `172.20.2.0/24` has **two** next hops because pe2 is equidistant via p1 and p2: ECMP for
 free, from the IGP.
 
@@ -209,7 +209,7 @@ lab@dc1-h1:~$ ping -c 3 172.20.3.2
 ```
  dc1-h1 ─── ce1 ─── pe1 ══════ p2 ══════ pe3 ─── ce3 ─── dc3-h1
           IPv4      │ encap                │ decap     IPv4
-                    │ IPv6 fd00:a::1 → fd00:c:3:e000::
+                    │ IPv6 fd00:a::1 → fd00:c:3:e001::
                     │ (no SRH: one segment = the destination)
                     └───────── plain IPv6 forwarding on p2 ─────────┘
 ```
@@ -218,10 +218,10 @@ Step by step:
 
 1. **ce1** routes `172.20.3.0/24` to pe1 over the VRF's eBGP session (plain IPv4).
 2. **pe1** looks the destination up in VRF tenant-a and hits the `encap seg6` route: it pushes an outer IPv6 header,
-   source = its loopback `fd00:a::1`, destination = pe3's uDT46 SID `fd00:c:3:e000::`. With a single segment the Linux
+   source = its loopback `fd00:a::1`, destination = pe3's uDT46 SID `fd00:c:3:e001::`. With a single segment the Linux
    implementation adds an SRH with that one entry (segments-left 0) — functionally the destination address is the whole
    instruction. Outer lookup: `fd00:c:3::/48` via IS-IS → eth2 → p2.
-3. **p2** receives an IPv6 packet for `fd00:c:3:e000::`. It is not in p2's locator, so p2 does what any IPv6 router does:
+3. **p2** receives an IPv6 packet for `fd00:c:3:e001::`. It is not in p2's locator, so p2 does what any IPv6 router does:
    longest match → `fd00:c:3::/48` → eth5 → pe3. p2 never looks at the SRH, never knows there is a tenant inside. Captured
    on p2's link to pe3:
 
@@ -234,9 +234,9 @@ vyos@p2:~$ sudo tcpdump -ni eth5 -vv 'ip6 and dst net fd00:c:3::/48'
    `172.20.1.2` to `172.20.3.2`. Outer hop limit 62 (64 − pe1 − p2); inner TTL 63 (only ce1 decremented it — the core
    is invisible to the tenant's traceroute, see below).
 
-4. **pe3** owns `fd00:c:3:e000::` — its `seg6local … End.DT46 vrftable tenant-a` route. The kernel removes the IPv6
+4. **pe3** owns `fd00:c:3:e001::` — its `seg6local … End.DT46 vrftable tenant-a` route. The kernel removes the IPv6
    header, and routes the IPv4 packet in VRF tenant-a → `172.20.3.0/24` connected via ce3.
-5. **ce3 → dc3-h1**, and the reply does the same in reverse with pe1's uDT46 SID `fd00:c:1:e000::` as destination.
+5. **ce3 → dc3-h1**, and the reply does the same in reverse with pe1's uDT46 SID `fd00:c:1:e001::` as destination.
 
 The IPv6 tenant does exactly the same, to exactly the same SID — the only difference is what sits inside the outer header:
 
@@ -250,7 +250,7 @@ vyos@p2:~$ sudo tcpdump -ni eth5 -vv 'ip6 and dst net fd00:c:3::/48 and ip6 prot
 {{p2-tcpdump-srv6-v6}}
 ```
 
-IPv6 inside IPv6: `fd00:a::1 > fd00:c:3:e000::` carrying `fd00:20:1::2 > fd00:20:3::2`. That is what End.DT46 buys —
+IPv6 inside IPv6: `fd00:a::1 > fd00:c:3:e001::` carrying `fd00:20:1::2 > fd00:20:3::2`. That is what End.DT46 buys —
 dual-stack tenants with one SID, one route per prefix and no second data plane.
 
 The tenant sees exactly one "missing" hop for the whole core (`*` at hop 2 is pe1's VRF, which has no address on the
@@ -276,7 +276,7 @@ A locator `fd00:c:3::/48` = block + node 3. And because the node ID is only 16 b
 remaining 96 bits of one address:
 
 ```
- fd00:c : 11 : 13 : 3 : e001 :: 
+ fd00:c : 11 : 13 : 3 : e000 :: 
  ──────   ──   ──   ─   ────
  block    p1   p3   pe3  uDT46(tenant-b on pe3)
 ```
@@ -294,7 +294,7 @@ $ tools/steer.py add pe1 tenant-b 172.21.3.0/24 p1 p3
 ```
 
 Watch the destination address change hop by hop. On p1's link *towards p3*, p1 has already consumed its uSID
-(`:11:`), so the destination is now `fd00:c:13:3:e001::` — while the SRH still shows the original carrier:
+(`:11:`), so the destination is now `fd00:c:13:3:e000::` — while the SRH still shows the original carrier:
 
 ```
 vyos@p1:~$ sudo tcpdump -ni eth2 -vv 'ip6 and dst net fd00:c::/32'
@@ -302,7 +302,7 @@ vyos@p1:~$ sudo tcpdump -ni eth2 -vv 'ip6 and dst net fd00:c::/32'
 ```
 
 On p3's link towards pe3, p3 has shifted its own `:13:` out and the address is down to pe3's uDT46 SID
-`fd00:c:3:e001::`, exactly what a non-steered packet would carry:
+`fd00:c:3:e000::`, exactly what a non-steered packet would carry:
 
 ```
 vyos@p3:~$ sudo tcpdump -ni eth3 -vv 'ip6 and dst net fd00:c::/32'
