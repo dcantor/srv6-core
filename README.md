@@ -159,7 +159,9 @@ segments …`, the uDT4 SID read live from the destination PE); with uSID the to
 `fd00:c:11:13:3:e001::`, with `--uncompressed` (or uncompressed locators) it installs `[p1 End, p3 End, pe3 End.DT46]`.
 `steer del` removes it, `steer show` lists policies. On the wire p1 forwards `IP6 fd00:a::1 > fd00:c:13:3:e001::` (its own
 micro-SID consumed), p3 forwards `… > fd00:c:3:e001::`, and p2 sees nothing; the reply still takes the shortest path back
-(asymmetric, as intended). Suite 07 does exactly this and cleans up.
+(asymmetric, as intended). Suite 07 does exactly this and cleans up. The portal's **Steering** view draws every policy on a
+map of the core beside the IGP shortest path it replaces, previews a path before it is applied, and measures the delay of
+both (see [Operations](#operations-sla-probes-capacity-backup-and-restore)).
 
 ### Fast failure detection
 The point-to-point links are UDP tunnels that never lose carrier, so a dead neighbour is only visible through the
@@ -205,7 +207,10 @@ The run engine (steps, streamed log, resume, Robot reports) comes from the share
 | Add tenant | a 3-step wizard: name / kernel table / route target / sites (all suggested: next letter, next table, `65000:<table>`), then the per-site allocation — attachment circuit `/30` and LAN `/24` from the tenant's blocks (`172.(16+i)` / `172.(20+i)`), the next free PE and CE ports, a CirrOS host (name, OOB address, console, node index) — editable and re-validated against the running lab, then a review and **Deploy** |
 | Add site | the same wizard for an existing tenant and one more data centre |
 | Remove | what the removal deletes (hosts, VRF, interfaces, BGP, Nautobot objects) and a run that does it |
-| Steering | the explicit-path policies present on the PEs; add one (PE, tenant, remote prefix, ordered list of P routers) or remove one — applied immediately through `tools/steer.py` |
+| Steering | the explicit-path policies present on the PEs; add one (PE, tenant, remote prefix, ordered list of P routers) or remove one — applied immediately through `tools/steer.py`; **on the map**: each policy's path beside the IGP's, a **Preview** before Apply, and **Measure delay** for both |
+| SLA | per tenant a matrix of every pair of its sites — delay and loss host to host, probed every minute, coloured against the targets; click a pair for its last 24 hours |
+| Capacity | how many more tenants fit at every data centre and at each one, what runs out first (PE / CE ports, tenant letters, address blocks, firewall circuits, host memory), and where each tenant can still add a site |
+| Backups | back the whole lab up into one file, download or upload one, see what restoring it would change, and restore it as a run |
 | Runs | every pipeline run with its steps, streamed log, the Robot report; failed or interrupted runs can be **resumed** from the failed step |
 
 An **add tenant / add site** run: validate → `lab.conf` + day-0 configs (`gen_configs.py`) → host VMs created and booted → the CEs at the
@@ -227,6 +232,43 @@ the new hosts, Nautobot == lab.conf, 52/52 tests with three tenants), then remov
 Under the hood: `webapp/labconf.py` (structured edits of `lab.conf`), `webapp/tenants.py` (facts, suggestions, validation, plans),
 `webapp/state.py` (live state collector), `webapp/app.py` (FastAPI, runs), `webapp/static/index.html`, `tools/topology_svg.py`
 (the drawing, shared with the PDF), `nautobot/remove_tenant.py`.
+
+### Operations: SLA probes, capacity, backup and restore
+
+**Tenant SLA probes** (`webapp/sla.py`). Every minute each tenant host pings the host of every other site of its tenant —
+ten echo requests 0.2 s apart, all peers in parallel over one SSH session per host — so a probe crosses exactly what the
+tenant's traffic crosses: LAN, CE, attachment circuit, PE, the SRv6 core, PE, CE, LAN. Each pair is graded against the
+targets (`SLA_RTT_WARN_MS` 10, `SLA_RTT_CRIT_MS` 25, `SLA_LOSS_WARN` 1 %, `SLA_LOSS_CRIT` 5 %; no answer is critical). A pair
+that changes state writes a Grafana annotation. The results are on `/metrics` (`lab_tenant_rtt_ms`, `lab_tenant_loss_ratio`,
+`lab_tenant_sla_ok`, labelled tenant / src / dst / src_dc / dst_dc) and the lab-portal alert rules fire on them:
+**TenantSlaBreach** (outside the targets for 5 min) and **TenantSlaDown** (no answer for 3 min). Measured on the idle lab:
+2.4–4.3 ms, no loss, on all 24 pairs. API: `GET /api/sla`, `GET /api/sla/history`, `POST /api/sla/probe`.
+
+**Capacity** (`webapp/capacity.py`). A new site takes one PE port, two CE ports, one host VM and a management address; a
+new tenant also takes a letter, an attachment-circuit block and a LAN block, and a firewall circuit for internet breakout.
+The view counts each of these, reads the lab host's memory and CPUs live (every lab on the host counts, 4 GiB kept in
+reserve) and answers how many more tenants fit — at every data centre, and at each one — naming the limit that runs out
+first. On this lab today: **none at every data centre, because pe4 has no free port**; two more at dc1–dc3; the firewall's
+two tenant circuits are both in use. `/metrics` exports `lab_capacity_room_tenants` and `lab_capacity_used_ratio`, and
+**LabNoRoomForTenant** (info) says so in Alertmanager. API: `GET /api/capacity`.
+
+**Steering on the map** (`webapp/steermap.py`). The paths come from the model: every IS-IS metric is the default, so the
+IGP takes the fewest hops (equal-cost paths are all drawn); a policy's segment list is unpacked into the P routers it names
+(the looking glass's decoder) and each leg follows the IGP. **Measure delay** pings from the source PE inside the tenant's
+VRF: the host on the steered prefix (the policy's path) and the same site's CE on its attachment circuit (the same egress PE
+over the IGP). pe1 → 172.21.3.0/24 via p1 p3 measured 3.6 ms against 2.5 ms over p2. API: `GET /api/steering/map`,
+`GET /api/steering/plan`, `GET /api/steering/measure`.
+
+**Backup and restore** (`webapp/backup.py`). A backup is one `srv6-core-<time>.tar.gz` (the newest 20 are kept in
+`webapp/backups/`, not in git): `manifest.json` (tenants, sites, steering, the SHA-256 of every file), `lab.conf`,
+`steering.json` (live state `lab.conf` does not hold), `running/<node>.txt` (`show configuration commands` of every router)
+and `rendered/<node>.txt`. Nautobot is rebuilt from `lab.conf`, so it is not in it. A **restore** reads the backup, checks
+every checksum, builds the backup's inventory from its `lab.conf` and plans against the running lab: tenants to add (with
+the backup's own ports, addresses and hosts), sites to add, tenants to remove, and steering policies to add or remove. It
+then runs as a portal run — `rs_validate → rs_remove → rs_add → rs_steering → nautobot → verify → test → backup` —
+reusing the add and remove steps. It refuses when the core differs from the backup's, or when a tenant would have to lose
+a single site. API: `GET/POST /api/backups`, `GET /api/backups/<file>`, `GET /api/backups/<file>/plan`,
+`POST /api/backups/upload`, and `POST /api/runs` with `mode: restore`.
 
 ## The BGP looking glass (`lg`): a route collector with a memory
 A twenty-first VM — Alpine, 512 MiB — sits in the core as a **passive route collector**. FRR on it holds an iBGP session
@@ -575,7 +617,7 @@ rendered line is on the routers — suite 09 asserts both plus the model itself.
 invisible to REST reads (verify through GraphQL), VRF prefixes go through `vrf-prefix-assignments`, GraphQL returns
 choice fields upper-cased, and new custom fields need a Nautobot restart before GraphQL sees them.
 
-## Tests (`./lab.sh test`, 103 cases)
+## Tests (`./lab.sh test`, 109 cases)
 | Suite | Checks |
 |---|---|
 | 01 management | every node on the OOB network with SSH, host names, host LAN addresses, MTU 9000 on all core links, config saved |
@@ -588,10 +630,11 @@ choice fields upper-cased, and new custom fields need a Nautobot restart before 
 | 09 nautobot | every device/link/address/VRF/RD/peering in Nautobot matches the inventory; Nautobot's rendering == lab.conf's; every rendered line present on the routers |
 | 10 throughput | iperf3 dc1 → dc3: TCP above the floor, UDP at 20 Mbit/s with no loss; **the core carries 100 Mbit/s host to host** — UDP at a 100 Mbit/s offered rate for 10 s with < 5 % loss and < 5 ms jitter and TCP ≥ 90 Mbit/s, dc1→dc3 in tenant-a and dc4→dc2 in tenant-b (measured 0.1–2.4 % loss, 98–127 Mbit/s TCP); steered (uSID and uncompressed) within half of the shortest path |
 | 15 looking glass | the collector's sessions Established at both reflectors with **nothing announced back**; every router read, each part of it through the transport that can express it (its API for the RIB / its own VPN table / IS-IS, SSH for the per-VRF BGP tables), the RIB carrying the SRv6 encapsulation the router really installed and the two VPN views agreeing on RD and next hop; **the drawn path crossing the P router the ingress PE actually forwards through**, and a steered prefix drawn along the segment list the policy installed (added and removed by the test); **the table and the path read back at a chosen moment** — the instant before a policy was applied and the instant after it, from the history alone; it holds exactly the prefixes the reflectors hold, once per reflector; every tenant LAN carries its RD, route target, the originating PE's loopback as next hop and a SID out of that PE's locator; no prefix appears in two VRFs; every per-VRF view matches the router it was polled from and none is stale; the filters (VRF, RD, origin AS, free text) hold; a live query reaches the router and a configuration command is refused; **a packet capture on a PE's core link catches the pings sent across it and hands back a real pcap**, and refuses an interface outside the model or an unsafe filter; **a live capture streams while it runs and stops on request**; **a capture along a prefix's path sees every ping at every hop, plain on the access links and SRv6-encapsulated in the core**; **a LAN withdrawn at the CE is recorded as a withdraw and the moment before it still shows the path**, and Compare shows it removed and then, across the whole flap, moved and back (restored in the teardown); `/metrics` and the portal's `/api/sd`; the VM's `frr.conf` and `lgd.json` are what the model renders |
-| 11 monitoring | node-exporter + frr-exporter on every VyOS node (every PE BGP session Established per the exporter), node-exporter on every host, the portal's `/api/sd` lists every exporter and `/metrics` reports every tenant up / core fully adjacent; Prometheus scrapes all 31 lab targets, the alert rules are loaded and none fires, VictoriaMetrics holds the remote-written series **and the Telegraf series every node pushes** (tags, freshness, no FRR daemon down), every node's syslog is in VictoriaLogs, the log-derived alert rules are healthy and a live BGP reset raises one, sFlow samples from every P router show the encapsulated flow of a ping burst, Grafana serves the provisioned dashboards with the annotation layers |
+| 11 monitoring | node-exporter + frr-exporter on every VyOS node (every PE BGP session Established per the exporter), node-exporter on every host, the portal's `/api/sd` lists every exporter and `/metrics` reports every tenant up / core fully adjacent; Prometheus scrapes all 31 lab targets, the alert rules are loaded and none fires (an info-level capacity notice aside), VictoriaMetrics holds the remote-written series **and the Telegraf series every node pushes** (tags, freshness, no FRR daemon down), every node's syslog is in VictoriaLogs, the log-derived alert rules are healthy and a live BGP reset raises one, sFlow samples from every P router show the encapsulated flow of a ping burst, Grafana serves the provisioned dashboards with the annotation layers |
 | 12 interconnect | the IPsec headends as tenant-a CEs: PE↔headend eBGP with the right AS, headend + branch LANs on every PE with a SID from the attaching PE's locator and under its RD at the reflectors, absent from tenant-b, dc host ↔ branch pings both ways, the path dc → PE → core → headend → IPsec tunnel → branch, SRv6 encapsulation on p2 (skipped without `EXT_NODES`) |
 | 13 dual-stack | per VRF an Established IPv6 eBGP session with the CE announcing its IPv6 LAN; every IPv6 LAN at both reflectors under the right RD and on every PE once per reflector; **one End.DT46 per VRF** with the same SID and label on the IPv4 and the IPv6 route; SRv6 encap routes for every remote IPv6 LAN in the right VRF only; the 8×7 IPv6 host matrix (in-tenant ok, cross-tenant none); IPv6-in-IPv6 on p2 towards the same SID |
 | 14 internet | the firewall has a DHCP address and default route on the uplink and reaches the internet itself; Established as a CE of every tenant on pe4 sending exactly one prefix; the default route on every PE per tenant as an SRv6 route to pe4's End.DT46 SID (via the firewall on pe4 itself); one default per tenant under pe4's RD at both reflectors; every host of every tenant pings a public address and fetches a web page; packets leave masqueraded with the uplink address and the path crosses the firewall; a cross-tenant ping fails **and the firewall logs it as dropped**; input policy default-drop with only management / BGP / DHCP open, masquerade rule present; the portal's breakout metrics all 1 |
+| 16 operations | **every ordered pair of every tenant's sites probed and within its SLA**, never across tenants; the results on `/metrics`, in the pair's history, and the SLA / capacity alert rules loaded in Prometheus; the capacity view adds up (used within total, sites that fit = the tighter of PE and CE ports, every-DC room = the smallest limit and never more than the tightest DC); **the map's preview and the applied policy's path agree** (pe1 → p1 → p3 → pe3, longer than the IGP's), the segment list read back names p1 and p3, both paths measured; **a fresh backup holds every router's configuration and the policy, and plans as identical to the lab**; a damaged backup is refused; with the policy removed, the plan puts it back, and **a restore run does** (skipped when the suite itself runs inside a portal run) |
 | 05 end to end | **every host reaches all 40 extra CE loopbacks of its own tenant and none of the other's**; every host reaches every host of its tenant (2 × 4×3 pings) and **none of the other tenant's**, not even at the same site; dc1→dc3 traffic transits p2 with `tcpdump` showing `IP6 fd00:a::1 > fd00:c:3:…` both ways; P routers hold no VRF and no tenant routes |
 
 Every run lands in `results/<timestamp>/` — `report.html`, `log.html`, `output.xml`, and `configs/{pre-run,post-run}/` with
@@ -669,6 +712,7 @@ a terminal page; run it with the cat8000v-ipsec `webapp/.venv` python).
 | `tools/backup_configs.py` | `lab.sh backup`: running + intended configs and routing tables → the local Gitea (`lab/srv6-core-configs`); also the last step of every portal run |
 | `lg/`, `tools/lg_deploy.py`, `tools/build_lg_image.sh` | the BGP looking glass: the collector / store / API / page that run on the `lg` VM, the deploy (renders `nodes/lg/frr.conf` + `lgd.json`, copies, restarts), the base image |
 | `webapp/` | the tenant provisioning portal (FastAPI + single page; `restart.sh`, `srv6-webapp.service`); `metrics.py` = `/metrics` and `/api/sd` for Prometheus |
+| `webapp/sla.py`, `webapp/capacity.py`, `webapp/steermap.py`, `webapp/backup.py` | tenant SLA probes; the capacity view; steering paths and delay on the map; backup, restore plan (the restore run is in `app.py`) |
 | `tools/chaos.py`, `.mcp.json`, `docs/ai-ops.md` | fault injection for drills; the MCP server registration; the AI-operator setup and a worked diagnosis |
 | `docs/session/`, `tools/demo_live.py` | the teaching / interview kit: guide, questions, exercises, slides; the presenter-mode demo |
 | `docs/demo/record.py` | records `docs/demo/srv6-demo.{gif,mp4}` from the live lab |

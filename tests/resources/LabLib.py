@@ -210,6 +210,31 @@ class LabLib:
         except ValueError: return {"status": r.status_code, "json": {"text": r.text}}
 
     @keyword
+    def http_post_raw(self, url, data, content_type="application/octet-stream", timeout=120):
+        """POST raw bytes (an upload); returns {status, json}."""
+        r = requests.post(url, data=data, headers={"Content-Type": content_type}, timeout=timeout)
+        try: return {"status": r.status_code, "json": r.json()}
+        except ValueError: return {"status": r.status_code, "json": {"text": r.text}}
+
+    @keyword
+    def http_get_bytes(self, url, timeout=60):
+        """GET a file; returns its bytes (fails on an HTTP error)."""
+        r = requests.get(url, timeout=timeout); r.raise_for_status(); return r.content
+
+    @keyword
+    def wait_for_portal_run(self, portal, run_id, timeout=1800):
+        """Poll a portal run until it ends; returns the run (fails if it did not succeed)."""
+        end = time.time() + float(timeout)
+        while time.time() < end:
+            d = requests.get(f"{portal}/api/runs/{run_id}", timeout=30).json()
+            if d["status"] not in ("queued", "running"):
+                logger.info("<pre>" + "\n".join(f"{s['status']:9} {s['name']:14} {s.get('summary') or ''}" for s in d["steps"]) + "</pre>", html=True)
+                if d["status"] != "success": raise AssertionError(f"run {run_id} {d['status']}: {d.get('error')}")
+                return d
+            time.sleep(5)
+        raise AssertionError(f"run {run_id} still running after {timeout} s")
+
+    @keyword
     def lg_path_capture(self, lg, prefix, vrf, vantage, seconds=12, timeout=90):
         """Capture along a prefix's path as the looking glass page does: a point on every link of the path (at its router
         end, the upstream one where both are), pings on the access links and SRv6 in the core, five pings from the first

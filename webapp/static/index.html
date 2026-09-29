@@ -29,11 +29,18 @@
   .tenant { border-left:5px solid var(--accent) } .tenant.up { border-left-color:var(--ok) } .tenant.degraded { border-left-color:var(--warn) } .tenant.down { border-left-color:var(--bad) }
   .wiz .step { display:none } .wiz .step.on { display:block } .actions { display:flex; gap:10px; margin-top:12px; align-items:center }
   .kpis { display:grid; grid-template-columns:repeat(auto-fit, minmax(150px,1fr)); gap:12px; margin-bottom:14px } .kpi { background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:10px 14px } .kpi .n { font-size:24px; font-weight:600 } .kpi .l { color:var(--muted); font-size:12px }
+  .bar { height:8px; border-radius:4px; background:var(--pill); overflow:hidden; min-width:80px } .bar > i { display:block; height:100%; background:var(--ok) } .bar.warning > i { background:var(--warn) } .bar.critical > i { background:var(--bad) }
+  .pill.warning { background:var(--warn-bg); color:var(--warn) } .pill.critical { background:var(--bad-bg); color:var(--bad) }
+  .matrix td.cell { text-align:center; cursor:pointer; font-size:12px; min-width:90px } .matrix td.ok { background:var(--ok-bg) } .matrix td.warning { background:var(--warn-bg) } .matrix td.critical { background:var(--bad-bg) } .matrix td.sel { outline:2px solid var(--blue); outline-offset:-2px } .matrix td.self { color:var(--muted); text-align:center }
+  html[data-theme="dark"] .card svg.chart, html[data-theme="dark"] .card svg.smap { background:transparent }
+  svg.chart { width:100%; height:180px; display:block } svg.chart text { font-size:10px; fill:var(--muted) }
+  svg.smap { width:100%; max-width:720px; height:auto; display:block; margin:auto } svg.smap text { font-size:12px; fill:var(--ink) }
+  .legend span { display:inline-flex; align-items:center; gap:6px; margin-right:16px; font-size:12px } .legend i { display:inline-block; width:22px; height:0; border-top:3px solid }
   dialog { border:1px solid var(--line); border-radius:10px; padding:18px 20px; width:min(760px, 95vw) } dialog::backdrop { background:rgba(15,23,42,.45) }
 </style></head>
 <body>
 <header><div><h1>SRv6 Tenant Provisioning Portal</h1><div class="sub">VyOS SRv6 core · IS-IS + BGP L3VPN (End.DT4) · Nautobot source of truth · Robot Framework validation</div></div>
-  <nav><a href="#tenants" class="on" data-view="tenants">Tenants</a><a href="#steering" data-view="steering">Steering</a><a href="#runs" data-view="runs">Runs</a><a href="/docs" target="_blank">API</a><a id="lg-link" href="#" target="_blank" title="the BGP looking glass: every VPN prefix in the core, its attributes and its history">Looking glass</a></nav>
+  <nav><a href="#tenants" class="on" data-view="tenants">Tenants</a><a href="#steering" data-view="steering">Steering</a><a href="#sla" data-view="sla">SLA</a><a href="#capacity" data-view="capacity">Capacity</a><a href="#backups" data-view="backups">Backups</a><a href="#runs" data-view="runs">Runs</a><a href="/docs" target="_blank">API</a><a id="lg-link" href="#" target="_blank" title="the BGP looking glass: every VPN prefix in the core, its attributes and its history">Looking glass</a></nav>
   <div class="right" id="hdr">Nautobot: <a id="nb-link" href="#" target="_blank">open</a> · <a href="#" id="theme-toggle" title="dark / light (follows the OS setting until chosen)">☾ dark</a></div></header>
 <main>
 <section id="v-tenants" class="view on">
@@ -48,10 +55,44 @@
 <section id="v-steering" class="view">
   <div class="card"><h2>Explicit-path steering <small>pin a tenant prefix on a PE to a segment list through chosen P routers — applied immediately</small></h2>
     <div class="row"><div><label>Source PE</label><select id="st-pe"></select></div><div><label>Tenant</label><select id="st-tenant"></select></div><div><label>Prefix (a remote site LAN)</label><select id="st-prefix"></select></div>
-      <div><label>Path (P routers, in order; the first must be attached to the PE)</label><input id="st-via" value="p1 p3"></div><div style="flex:0"><button class="primary" onclick="steerAdd()">Apply</button></div></div>
+      <div><label>Path (P routers, in order; the first must be attached to the PE)</label><input id="st-via" value="p1 p3"></div><div style="flex:0;white-space:nowrap"><button onclick="steerPreview()">Preview</button> <button class="primary" onclick="steerAdd()">Apply</button></div></div>
     <div class="msg" id="st-msg"></div>
     <h2 style="margin-top:16px">Policies present on the PEs</h2><table id="st-table"><thead><tr><th>PE</th><th>Tenant</th><th>Prefix</th><th>Segment list</th><th>Out</th><th></th></tr></thead><tbody></tbody></table>
+  </div>
+  <div class="card"><h2>On the map <small>each policy's steered path beside the IGP shortest path it replaces, with the delay of each, measured from the PE in the tenant's VRF</small></h2>
+    <div class="row" style="align-items:center"><div style="flex:0 0 auto"><label>Show</label><select id="sm-pick" style="min-width:320px"></select></div><div style="flex:0"><button onclick="steerMeasure()" id="sm-measure">Measure delay</button></div><div class="legend" style="flex:1"><span><i style="border-color:var(--muted);border-top-style:dashed"></i>IGP shortest path</span><span><i style="border-color:var(--accent)"></i>steered</span><span><i style="border-color:var(--blue)"></i>preview (not applied)</span></div></div>
+    <div class="grid" style="grid-template-columns:minmax(0,2fr) minmax(260px,1fr);margin-top:10px"><div id="sm-svg"></div><div id="sm-info" class="hint"></div></div>
+    <p class="hint">Paths come from the model (every IS-IS metric is the default, so the IGP takes the fewest hops; equal-cost paths are all dashed). Delay: ten echo requests 0.2 s apart from the PE, inside the tenant's VRF — to the host on the steered prefix (the policy's path) and to the same site's CE on its attachment circuit (a prefix no policy steers: the IGP path to the same PE).</p>
     <p class="hint">The segment list is the End SID of every listed P router followed by the End.DT4 SID of the PE that owns the prefix (read live). Return traffic keeps the IGP shortest path. Suite 07 shows the SRH on the wire.</p></div>
+</section>
+
+<section id="v-sla" class="view">
+  <div class="kpis" id="sla-kpis"></div>
+  <div class="card"><h2>Tenant SLA <small id="sla-sub">every pair of a tenant's sites, probed host to host every minute</small><span style="float:right"><button onclick="slaProbe()" id="sla-probe">Probe now</button></span></h2>
+    <div id="sla-tenants"></div>
+    <p class="hint" id="sla-targets"></p></div>
+  <div class="card"><h2 id="sla-chart-title">History <small>select a pair</small></h2><div id="sla-chart" class="hint">click a cell of a matrix above</div></div>
+</section>
+
+<section id="v-capacity" class="view">
+  <div class="kpis" id="cap-kpis"></div>
+  <div id="cap-warn"></div>
+  <div class="grid">
+    <div class="card"><h2>Per data centre <small>a new site takes one PE port and two CE ports</small></h2><table id="cap-dc"></table></div>
+    <div class="card"><h2>Lab-wide <small>per tenant: a letter, two address blocks; internet breakout takes a firewall circuit</small></h2><table id="cap-lab"></table></div>
+    <div class="card"><h2>Lab host <small id="cap-host-sub"></small></h2><table id="cap-host"></table></div>
+    <div class="card"><h2>More sites for existing tenants</h2><table id="cap-sites"></table></div>
+  </div>
+  <p class="hint">What runs out first is the answer's limit; <a href="#" onclick="loadCapacity(true);return false">recompute</a> (host memory and CPU are read live, and every lab on the host counts). <span id="cap-gen"></span></p>
+</section>
+
+<section id="v-backups" class="view">
+  <div class="card"><h2>Backups <small>the whole lab in one file: lab.conf, the steering policies, every router's running and rendered configuration</small>
+    <span style="float:right"><label style="display:inline-block;margin:0 8px 0 0"><input type="file" id="bk-file" accept=".gz,.tgz,application/gzip" style="width:auto" onchange="bkUpload(this)"></label><button class="primary" id="bk-create" onclick="bkCreate()">Back up now</button></span></h2>
+    <div class="msg" id="bk-msg"></div>
+    <table id="bk-table"><thead><tr><th>Taken</th><th>Version</th><th>Tenants</th><th>Steering</th><th>Size</th><th></th></tr></thead><tbody></tbody></table></div>
+  <div class="card" id="bk-plan-card" style="display:none"><h2 id="bk-plan-title">Restore plan</h2><div id="bk-plan"></div></div>
+  <p class="hint">A restore changes tenants and steering only: tenants the backup has and the lab does not are added with the backup's own ports, addresses and hosts; tenants the lab has and the backup does not are removed; the steering policies become the backup's. It refuses when the core differs, or when a tenant would have to lose a single site. Nautobot is re-seeded from lab.conf; the looking glass's history is not in a backup.</p>
 </section>
 
 <section id="v-runs" class="view">
@@ -83,7 +124,7 @@ applyTheme(); document.getElementById('theme-toggle').onclick = e => { e.prevent
 const $ = id => document.getElementById(id); const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 let ST = null, wizSpec = null, wizMode = 'tenant', wizStep = 1, watching = null;
 document.querySelectorAll('nav a[data-view]').forEach(a => a.onclick = e => { e.preventDefault(); show(a.dataset.view); });
-function show(v) { document.querySelectorAll('.view').forEach(x => x.classList.toggle('on', x.id === 'v-' + v)); document.querySelectorAll('nav a[data-view]').forEach(a => a.classList.toggle('on', a.dataset.view === v)); location.hash = v; if (v === 'runs') loadRuns(); if (v === 'steering') loadSteering(); }
+function show(v) { document.querySelectorAll('.view').forEach(x => x.classList.toggle('on', x.id === 'v-' + v)); document.querySelectorAll('nav a[data-view]').forEach(a => a.classList.toggle('on', a.dataset.view === v)); location.hash = v; if (v === 'runs') loadRuns(); if (v === 'steering') loadSteering(); if (v === 'sla') loadSla(); if (v === 'capacity') loadCapacity(); if (v === 'backups') loadBackups(); if (v !== 'sla' && slaTimer) { clearInterval(slaTimer); slaTimer = null; } }
 
 async function refresh(live) {
   const r = await fetch('/api/state' + (live ? '?refresh=1' : '?live=0')); ST = await r.json(); render();
@@ -220,11 +261,183 @@ async function loadSteering() {
   $('st-pe').innerHTML = ST.pes.map(p => `<option>${p}</option>`).join(''); $('st-tenant').innerHTML = ST.tenants.map(t => `<option>${t.name}</option>`).join('');
   const fill = () => { const t = ST.tenants.find(x => x.name === $('st-tenant').value); const pe = $('st-pe').value; $('st-prefix').innerHTML = t.sites.filter(s => s.pe !== pe && s.lan).map(s => `<option value="${s.lan}">${s.lan} (${s.dc}, behind ${s.pe})</option>`).join(''); };
   $('st-pe').onchange = fill; $('st-tenant').onchange = fill; fill();
-  const r = await fetch('/api/steering'); const pol = await r.json();
+  $('st-table').querySelector('tbody').innerHTML = '<tr><td colspan="6" class="hint">reading the PEs…</td></tr>';
+  await loadMap(); const pol = SMAP.policies;
   $('st-table').querySelector('tbody').innerHTML = pol.map(p => `<tr><td>${p.pe}</td><td>${p.tenant}</td><td class="mono">${p.prefix}</td><td class="mono">${(p.segments || []).join(' → ')}</td><td>${p.interface}</td><td><button class="danger" onclick="steerDel('${p.pe}','${p.tenant}','${p.prefix}')">Remove</button></td></tr>`).join('') || '<tr><td colspan="6" class="hint">no policies — every prefix follows the IGP shortest path</td></tr>';
 }
-async function steerAdd() { $('st-msg').textContent = ''; const r = await fetch('/api/steering', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pe: $('st-pe').value, tenant: $('st-tenant').value, prefix: $('st-prefix').value, via: $('st-via').value.trim().split(/\s+/) }) }); const d = await r.json(); if (!r.ok) return $('st-msg').textContent = typeof d.detail === 'string' ? d.detail : JSON.stringify(d.detail); $('st-msg').textContent = ''; loadSteering(); }
+async function steerAdd() { $('st-msg').textContent = ''; const r = await fetch('/api/steering', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pe: $('st-pe').value, tenant: $('st-tenant').value, prefix: $('st-prefix').value, via: $('st-via').value.trim().split(/\s+/) }) }); const d = await r.json(); if (!r.ok) return $('st-msg').textContent = typeof d.detail === 'string' ? d.detail : JSON.stringify(d.detail); $('st-msg').textContent = ''; PREVIEW = null; loadSteering(); }
 async function steerDel(pe, tenant, prefix) { await fetch(`/api/steering?pe=${pe}&tenant=${tenant}&prefix=${encodeURIComponent(prefix)}`, { method: 'DELETE' }); loadSteering(); }
+
+// ---- steering on the map -------------------------------------------------------------------------------------------
+let SMAP = null, PREVIEW = null, MEAS = {};
+const pkey = p => `${p.pe}|${p.tenant}|${p.prefix}`;
+async function loadMap() {
+  const r = await fetch('/api/steering/map'); SMAP = await r.json(); fillPick(); drawMap();
+}
+function fillPick(sel) {
+  const items = SMAP.policies.filter(p => !p.error).map(p => [pkey(p), `${p.pe} → ${p.prefix} (${p.tenant}) via ${p.via.join(' ')}`]);
+  if (PREVIEW) items.unshift(['preview', `preview: ${PREVIEW.pe} → ${PREVIEW.prefix} (${PREVIEW.tenant}) via ${PREVIEW.via.join(' ')}`]);
+  const cur = sel || $('sm-pick').value;
+  $('sm-pick').innerHTML = items.map(([k, t]) => `<option value="${esc(k)}">${esc(t)}</option>`).join('') || '<option value="">no policies — Preview one above</option>';
+  if (items.some(i => i[0] === cur)) $('sm-pick').value = cur;
+  $('sm-pick').onchange = drawMap; $('sm-measure').disabled = !items.length;
+}
+function current() { const k = $('sm-pick').value; if (k === 'preview') return PREVIEW; return (SMAP.policies || []).find(p => pkey(p) === k); }
+async function steerPreview() {
+  $('st-msg').textContent = '';
+  const q = new URLSearchParams({ pe: $('st-pe').value, tenant: $('st-tenant').value, prefix: $('st-prefix').value, via: $('st-via').value.trim() });
+  const r = await fetch('/api/steering/plan?' + q); const d = await r.json(); if (!r.ok) return $('st-msg').textContent = typeof d.detail === 'string' ? d.detail : JSON.stringify(d.detail);
+  PREVIEW = { ...d, preview: true }; if (!SMAP) await loadMap(); fillPick('preview'); drawMap();
+}
+function layout() {
+  const P = SMAP.nodes.filter(n => n.role === 'p'), E = SMAP.nodes.filter(n => n.role === 'pe'), pos = {}, W = 640, H = 420, cx = W / 2, cy = H / 2;
+  P.forEach((n, i) => { const a = -Math.PI / 2 + 2 * Math.PI * i / P.length; pos[n.name] = [cx + 95 * Math.cos(a), cy + 95 * Math.sin(a)]; });
+  const ang = E.map((n, i) => {
+    const ps = SMAP.links.filter(l => l.a === n.name || l.b === n.name).map(l => l.a === n.name ? l.b : l.a).filter(x => pos[x]);
+    const ax = ps.reduce((s, x) => s + pos[x][0] - cx, 0), ay = ps.reduce((s, x) => s + pos[x][1] - cy, 0);
+    return Math.hypot(ax, ay) < 1 ? 2 * Math.PI * i / E.length : Math.atan2(ay, ax);
+  });
+  const groups = {}; E.forEach((n, i) => (groups[ang[i].toFixed(2)] ||= []).push(i));      // PEs on the same P routers share an angle: fan them out
+  Object.values(groups).forEach(g => g.forEach((i, k) => { const a = ang[i] + (k - (g.length - 1) / 2) * 0.62; pos[E[i].name] = [cx + 250 * Math.cos(a), cy + 165 * Math.sin(a)]; }));
+  return { pos, W, H };
+}
+function drawMap() {
+  if (!SMAP) return; const { pos, W, H } = layout(); const p = current(); const off = 5;
+  const seg = (a, b, dx) => { const [x1, y1] = pos[a], [x2, y2] = pos[b]; const L = Math.hypot(x2 - x1, y2 - y1) || 1, nx = -(y2 - y1) / L * dx, ny = (x2 - x1) / L * dx; return `M${x1 + nx},${y1 + ny} L${x2 + nx},${y2 + ny}`; };
+  const pathD = (nodes, dx) => nodes.slice(1).map((b, i) => seg(nodes[i], b, dx)).join(' ');
+  let g = SMAP.links.map(l => `<path d="${seg(l.a, l.b, 0)}" stroke="var(--line)" stroke-width="7" stroke-linecap="round"/>`).join('');
+  if (p) {
+    (p.igp || []).forEach(path => g += `<path d="${pathD(path, -off)}" fill="none" stroke="var(--muted)" stroke-width="3" stroke-dasharray="7 5" marker-end="url(#ah-igp)"/>`);
+    if (p.steered) g += `<path d="${pathD(p.steered, off)}" fill="none" stroke="${p.preview ? 'var(--blue)' : 'var(--accent)'}" stroke-width="3.5" marker-end="url(#ah-st)"/>`;
+  }
+  const on = new Set([...(p?.steered || []), ...((p?.igp || []).flat())]);
+  g += SMAP.nodes.map(n => { const [x, y] = pos[n.name]; const src = p && n.name === p.pe, dst = p && n.name === p.egress;
+    return `<g><circle cx="${x}" cy="${y}" r="${n.role === 'p' ? 22 : 26}" fill="${n.role === 'p' ? 'var(--card)' : 'var(--bg)'}" stroke="${src || dst ? 'var(--accent)' : on.has(n.name) ? 'var(--ink)' : 'var(--line)'}" stroke-width="${src || dst ? 3 : 2}"/>
+      <text x="${x}" y="${y + 4}" text-anchor="middle" font-weight="600">${n.name}</text>${n.role === 'pe' ? `<text x="${x}" y="${y + 42}" text-anchor="middle" style="fill:var(--muted);font-size:11px">${n.dc}${src ? ' · source' : dst ? ' · owns ' + esc(p.prefix) : ''}</text>` : ''}</g>`; }).join('');
+  const mk = (id, c) => `<marker id="${id}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="${c}"/></marker>`;
+  $('sm-svg').innerHTML = `<svg class="smap" viewBox="0 0 ${W} ${H + 20}"><defs>${mk('ah-igp', 'var(--muted)')}${mk('ah-st', p?.preview ? 'var(--blue)' : 'var(--accent)')}</defs>${g}</svg>`;
+  if (!p) { $('sm-info').innerHTML = 'no policy to show'; return; }
+  const m = MEAS[p.preview ? 'preview' : pkey(p)];
+  const fmt = x => x ? (x.rtt_ms == null ? '<span class="pill critical">no answer</span>' : `<b>${x.rtt_ms} ms</b> <span class="hint">(${x.rtt_min_ms}–${x.rtt_max_ms}, loss ${Math.round(x.loss * 100)} %)</span>`) : '<span class="hint">—</span>';
+  $('sm-info').innerHTML = `<table><tr><th></th><th>Path</th><th>Hops</th><th>Delay</th></tr>
+    <tr><td><i style="display:inline-block;width:22px;border-top:3px dashed var(--muted)"></i></td><td class="mono">${(p.igp || []).map(x => x.join(' → ')).join('<br>')}</td><td>${p.hops_igp ?? ''}</td><td>${fmt(m?.igp)}</td></tr>
+    <tr><td><i style="display:inline-block;width:22px;border-top:3px solid ${p.preview ? 'var(--blue)' : 'var(--accent)'}"></i></td><td class="mono">${(p.steered || []).join(' → ')}</td><td>${p.hops_steered ?? ''}</td><td>${p.preview ? '<span class="hint">apply it to measure</span>' : fmt(m?.steered)}</td></tr></table>
+    <p>${p.preview ? `<b>Preview</b> — not applied. ${p.hops_steered > p.hops_igp ? `${p.hops_steered - p.hops_igp} hop(s) longer than the IGP.` : 'As short as the IGP.'} <button class="primary" onclick="steerAdd()">Apply</button>` : `${p.tenant} ${esc(p.prefix)} (behind ${p.egress}) from ${p.pe}${m ? `: steered is ${m.steered?.rtt_ms != null && m.igp?.rtt_ms != null ? (m.steered.rtt_ms - m.igp.rtt_ms >= 0 ? '+' : '') + (m.steered.rtt_ms - m.igp.rtt_ms).toFixed(2) + ' ms against the IGP' : 'not comparable'}` : ''}`}</p>
+    ${m ? `<p class="hint">measured ${new Date(m.at).toLocaleTimeString()} · IGP target ${m.igp?.target}, steered target ${m.steered?.target}</p>` : ''}`;
+}
+async function steerMeasure() {
+  const p = current(); if (!p) return; const b = $('sm-measure'); b.disabled = true; b.textContent = 'Measuring…';
+  try { const r = await fetch(`/api/steering/measure?pe=${p.pe}&tenant=${p.tenant}&prefix=${encodeURIComponent(p.prefix)}`); const d = await r.json();
+    if (!r.ok) $('st-msg').textContent = JSON.stringify(d.detail); else MEAS[p.preview ? 'preview' : pkey(p)] = { ...d, at: Date.now() }; }
+  finally { b.disabled = false; b.textContent = 'Measure delay'; drawMap(); }
+}
+
+// ---- tenant SLA ----------------------------------------------------------------------------------------------------
+let SLA = null, slaSel = null, slaTimer = null;
+async function loadSla() {
+  const r = await fetch('/api/sla'); SLA = await r.json(); renderSla(); if (slaSel) slaChart(...slaSel);
+  if (!slaTimer) slaTimer = setInterval(loadSla, 30000);
+}
+async function slaProbe() { const b = $('sla-probe'); b.disabled = true; b.textContent = 'Probing…'; try { await fetch('/api/sla/probe', { method: 'POST' }); await loadSla(); } finally { b.disabled = false; b.textContent = 'Probe now'; } }
+function renderSla() {
+  const T = SLA.targets, rows = SLA.pairs, n = s => rows.filter(r => r.state === s).length;
+  $('sla-kpis').innerHTML = [[rows.length, 'site pairs probed'], [n('ok'), 'meet their SLA'], [n('warning'), 'warning'], [n('critical'), 'critical'],
+    [rows.length ? Math.max(...rows.map(r => r.rtt_ms ?? 0)).toFixed(2) + ' ms' : '—', 'worst RTT'], [SLA.last_run ? new Date(SLA.last_run * 1000).toLocaleTimeString() : 'not yet', 'last probe']]
+    .map(([v, l]) => `<div class="kpi"><div class="n">${v}</div><div class="l">${l}</div></div>`).join('');
+  $('sla-targets').innerHTML = `Targets: RTT below <b>${T.rtt_warn_ms} ms</b> and loss below <b>${T.loss_warn * 100} %</b> (warning above); critical at ${T.rtt_crit_ms} ms or ${T.loss_crit * 100} % loss, or no answer. ${SLA.pings} echo requests per pair every ${SLA.probe_s} s. A pair that changes state writes a Grafana annotation; the alert rules <code>TenantSlaBreach</code> / <code>TenantSlaDown</code> fire from the same numbers.` +
+    (Object.keys(SLA.errors || {}).length ? `<div class="msg">could not probe from: ${Object.entries(SLA.errors).map(([h, e]) => `${h} (${esc(e)})`).join(', ')}</div>` : '');
+  const tenants = [...new Set(rows.map(r => r.tenant))];
+  $('sla-tenants').innerHTML = tenants.map(t => {
+    const rs = rows.filter(r => r.tenant === t), hosts = [...new Set(rs.flatMap(r => [r.src, r.dst]))].sort(), dc = Object.fromEntries(rs.flatMap(r => [[r.src, r.src_dc], [r.dst, r.dst_dc]]));
+    const sum = SLA.tenants[t]; const st = sum.critical ? 'critical' : sum.warning ? 'warning' : 'ok';
+    return `<h3 style="margin:14px 0 6px">${esc(t)} <span class="pill ${st}">${st === 'ok' ? 'all pairs within SLA' : st}</span> <small class="hint">${sum.pairs} pairs · worst ${sum.worst_rtt_ms ?? '—'} ms · worst loss ${Math.round(sum.worst_loss * 100)} %</small></h3>
+      <table class="matrix"><tr><th>from \\ to</th>${hosts.map(h => `<th>${h}<br><span class="hint">${dc[h]}</span></th>`).join('')}</tr>
+      ${hosts.map(a => `<tr><th>${a} <span class="hint">${dc[a]}</span></th>${hosts.map(b => { if (a === b) return '<td class="self">·</td>'; const r = rs.find(x => x.src === a && x.dst === b); if (!r) return '<td class="self">?</td>';
+        const sel = slaSel && slaSel[0] === t && slaSel[1] === a && slaSel[2] === b ? ' sel' : '';
+        return `<td class="cell ${r.state}${sel}" title="${a} → ${b}: ${r.state}" onclick="slaChart('${t}','${a}','${b}')">${r.rtt_ms == null ? 'no answer' : r.rtt_ms.toFixed(2) + ' ms'}<br><span class="hint">${Math.round(r.loss * 100)} % loss</span></td>`; }).join('')}</tr>`).join('')}</table>`;
+  }).join('') || '<p class="hint">no results yet — the first probe runs a few seconds after the portal starts, or press Probe now</p>';
+}
+async function slaChart(t, a, b) {
+  slaSel = [t, a, b]; renderSla();
+  const r = await fetch(`/api/sla/history?tenant=${encodeURIComponent(t)}&src=${a}&dst=${b}`); const pts = (await r.json()).points;
+  $('sla-chart-title').innerHTML = `${esc(t)}: ${a} → ${b} <small>RTT (line) and loss (bars), the last 24 hours in memory — Grafana keeps longer</small>`;
+  if (pts.length < 1) { $('sla-chart').innerHTML = 'no points yet'; return; }
+  const W = 900, H = 180, L = 44, R = 40, Tp = 10, B = 22, t0 = pts[0].ts, t1 = Math.max(pts[pts.length - 1].ts, t0 + 60);
+  const maxR = Math.max(SLA.targets.rtt_warn_ms * 1.2, ...pts.map(p => p.rtt_ms || 0)) , X = ts => L + (W - L - R) * (ts - t0) / (t1 - t0), Y = v => Tp + (H - Tp - B) * (1 - v / maxR), YL = v => Tp + (H - Tp - B) * (1 - v);
+  const line = pts.filter(p => p.rtt_ms != null).map((p, i) => `${i ? 'L' : 'M'}${X(p.ts).toFixed(1)},${Y(p.rtt_ms).toFixed(1)}`).join(' ');
+  const bars = pts.filter(p => p.loss > 0).map(p => `<rect x="${X(p.ts) - 2}" y="${YL(p.loss)}" width="4" height="${H - B - YL(p.loss)}" fill="var(--bad)" opacity=".55"/>`).join('');
+  const ticks = [0, .25, .5, .75, 1].map(f => { const v = maxR * f; return `<line x1="${L}" x2="${W - R}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--line)"/><text x="${L - 6}" y="${Y(v) + 3}" text-anchor="end">${v.toFixed(1)}</text><text x="${W - R + 6}" y="${YL(f) + 3}">${f * 100}%</text>`; }).join('');
+  const tt = [0, .5, 1].map(f => `<text x="${L + (W - L - R) * f}" y="${H - 6}" text-anchor="middle">${new Date((t0 + (t1 - t0) * f) * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</text>`).join('');
+  const warn = `<line x1="${L}" x2="${W - R}" y1="${Y(SLA.targets.rtt_warn_ms)}" y2="${Y(SLA.targets.rtt_warn_ms)}" stroke="var(--warn)" stroke-dasharray="4 4"/>`;
+  const dots = pts.filter(p => p.rtt_ms == null).map(p => `<circle cx="${X(p.ts)}" cy="${H - B - 4}" r="4" fill="var(--bad)"><title>no answer</title></circle>`).join('');
+  const last = pts[pts.length - 1];
+  $('sla-chart').innerHTML = `<svg class="chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${ticks}${warn}${bars}<path d="${line}" fill="none" stroke="var(--blue)" stroke-width="2"/>${pts.length === 1 ? `<circle cx="${X(last.ts)}" cy="${Y(last.rtt_ms || 0)}" r="3" fill="var(--blue)"/>` : ''}${dots}${tt}<text x="${L}" y="9">ms</text></svg>
+    <p class="hint">${pts.length} probes · now ${last.rtt_ms ?? '—'} ms, ${Math.round(last.loss * 100)} % loss · average ${(pts.filter(p => p.rtt_ms != null).reduce((s, p) => s + p.rtt_ms, 0) / Math.max(1, pts.filter(p => p.rtt_ms != null).length)).toFixed(2)} ms · dashed: the warning target</p>`;
+}
+
+// ---- capacity ------------------------------------------------------------------------------------------------------
+async function loadCapacity(refresh) {
+  $('cap-gen').textContent = refresh ? 'recomputing…' : '';
+  const r = await fetch('/api/capacity' + (refresh ? '?refresh=1' : '')); const c = await r.json(); const room = c.room;
+  const kpi = (v, l, st) => `<div class="kpi"><div class="n" style="color:${st === 'critical' ? 'var(--bad)' : st === 'warning' ? 'var(--warn)' : 'inherit'}">${v}</div><div class="l">${l}</div></div>`;
+  $('cap-kpis').innerHTML = kpi(room.every_dc.tenants, `more tenants at every DC<br><span class="hint">limited by ${esc(room.every_dc.limited_by)}</span>`, room.every_dc.tenants ? 'ok' : 'critical')
+    + Object.entries(room.per_dc).map(([dc, x]) => kpi(x.tenants, `more tenants at ${dc} only<br><span class="hint">${esc(x.limited_by)}</span>`, x.tenants ? 'ok' : 'critical')).join('')
+    + kpi(room.internet_breakout ?? '—', 'more with internet breakout', room.internet_breakout ? 'ok' : 'critical') + kpi(c.hosts_fit, 'more host VMs fit in memory', c.hosts_fit ? 'ok' : 'critical');
+  $('cap-warn').innerHTML = c.warnings.length ? `<div class="card" style="border-left:5px solid var(--warn)"><b>Running short</b><ul style="margin:6px 0 0">${c.warnings.map(w => `<li>${esc(w)}</li>`).join('')}</ul></div>` : '';
+  const bar = r => `<div class="bar ${r.state}" title="${r.pct}%"><i style="width:${Math.min(100, r.pct || 0)}%"></i></div>`;
+  const resRow = r => `<tr><td>${esc(r.name)}<div class="hint">${esc(r.note || '')}</div></td><td style="white-space:nowrap">${r.used}${r.unit ? ' ' + r.unit : ''} / ${r.total}${r.unit ? ' ' + r.unit : ''}</td><td style="width:30%">${bar(r)}</td><td><span class="pill ${r.state}">${r.pct}%</span></td></tr>`;
+  $('cap-dc').innerHTML = `<tr><th>DC</th><th>PE ports</th><th>CE ports</th><th>Sites fit</th><th>Tenants here</th></tr>` + c.per_dc.map(d => `<tr><td><b>${d.dc}</b></td>
+    <td>${d.pe}: ${d.pe_ports.used}/${d.pe_ports.total} ${bar(d.pe_ports)}<div class="hint mono">free ${d.pe_free.join(' ') || '—'}</div></td><td>${d.ce}: ${d.ce_ports.used}/${d.ce_ports.total} ${bar(d.ce_ports)}<div class="hint mono">free ${d.ce_free.join(' ') || '—'}</div></td>
+    <td><span class="pill ${d.sites_fit ? 'ok' : 'critical'}">${d.sites_fit}</span></td><td>${d.tenants_here.map(esc).join(', ')}</td></tr>`).join('');
+  $('cap-lab').innerHTML = c.lab.map(resRow).join('');
+  const h = c.host; $('cap-host-sub').textContent = `${h.cores} cores · ${(h.mem_total_mib / 1024).toFixed(0)} GiB · ${h.vms_running ?? '?'} VMs running (every lab) · a tenant host takes ${h.host_vm_mib} MiB; ${h.reserve_mib} MiB kept in reserve`;
+  $('cap-host').innerHTML = h.resources.map(resRow).join('');
+  $('cap-sites').innerHTML = `<tr><th>Tenant</th><th>Not yet at</th><th>Can add now</th></tr>` + Object.entries(room.sites_per_tenant).map(([t, x]) => `<tr><td>${esc(t)}</td><td>${x.missing_dcs.join(', ') || '<span class="hint">every DC</span>'}</td><td>${x.can_add.join(', ') || (x.missing_dcs.length ? '<span class="pill critical">none</span>' : '')}</td></tr>`).join('');
+  $('cap-gen').textContent = `Computed ${new Date(c.generated * 1000).toLocaleTimeString()}.`;
+}
+
+// ---- backup and restore --------------------------------------------------------------------------------------------
+async function loadBackups() {
+  const r = await fetch('/api/backups'); const list = await r.json(); const kb = b => b > 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.round(b / 1024) + ' kB';
+  $('bk-table').querySelector('tbody').innerHTML = list.map(b => `<tr><td>${b.created ? new Date(b.created * 1000).toLocaleString() : ''}<div class="hint mono">${esc(b.file)}</div></td><td>${esc(b.version || '')}</td>
+    <td>${b.error ? `<span class="msg">${esc(b.error)}</span>` : (b.tenants || []).map(esc).join(', ')}</td><td>${b.steering ?? ''}</td><td>${kb(b.bytes)}</td>
+    <td style="white-space:nowrap"><a href="/api/backups/${encodeURIComponent(b.file)}"><button>Download</button></a> ${b.error ? '' : `<button onclick="bkPlan('${esc(b.file)}')">Plan restore</button>`}</td></tr>`).join('') || '<tr><td colspan="6" class="hint">no backups yet</td></tr>';
+}
+async function bkCreate() {
+  const b = $('bk-create'); b.disabled = true; b.textContent = 'Backing up… (~20 s)'; $('bk-msg').textContent = '';
+  try { const r = await fetch('/api/backups', { method: 'POST' }); const d = await r.json(); if (!r.ok) $('bk-msg').textContent = JSON.stringify(d.detail);
+    else if (Object.keys(d.unread || {}).length) $('bk-msg').textContent = 'taken, but these routers could not be read: ' + Object.keys(d.unread).join(', '); }
+  finally { b.disabled = false; b.textContent = 'Back up now'; loadBackups(); }
+}
+async function bkUpload(inp) {
+  const f = inp.files[0]; if (!f) return; $('bk-msg').textContent = '';
+  const r = await fetch('/api/backups/upload', { method: 'POST', headers: { 'Content-Type': 'application/gzip' }, body: f }); const d = await r.json(); inp.value = '';
+  if (!r.ok) return $('bk-msg').textContent = typeof d.detail === 'string' ? d.detail : JSON.stringify(d.detail);
+  await loadBackups(); showPlan(d.file, d.plan);
+}
+async function bkPlan(file) {
+  $('bk-plan-card').style.display = ''; $('bk-plan-title').textContent = 'Restore plan'; $('bk-plan').innerHTML = '<span class="hint">reading the backup and comparing it with the lab…</span>';
+  const r = await fetch(`/api/backups/${encodeURIComponent(file)}/plan`); const d = await r.json(); if (!r.ok) return $('bk-plan').innerHTML = `<div class="msg">${esc(d.detail)}</div>`; showPlan(file, d);
+}
+function showPlan(file, p) {
+  $('bk-plan-card').style.display = ''; $('bk-plan-title').innerHTML = `Restore plan <small>${esc(file)} · taken ${new Date(p.backup.created * 1000).toLocaleString()} · v${esc(p.backup.version || '?')}</small>`;
+  const li = (xs, f) => xs.length ? `<ul style="margin:4px 0">${xs.map(x => `<li>${f(x)}</li>`).join('')}</ul>` : '<div class="hint">nothing</div>';
+  $('bk-plan').innerHTML = (p.same ? '<p><span class="pill ok">the lab already matches this backup</span> — a restore would change nothing</p>' : '')
+    + `<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr))">
+      <div><b>Add tenants</b>${li(p.add, t => `${esc(t.name)} <span class="hint">table ${t.table}, RT ${esc(t.rt)} · ${t.sites.map(s => `${s.dc} (${s.host}, ${s.lan})`).join(', ')}</span>`)}</div>
+      <div><b>Add sites</b>${li(p.add_sites, t => `${esc(t.name)}: ${t.sites.map(s => `${s.dc} (${s.host})`).join(', ')}`)}</div>
+      <div><b>Remove tenants</b>${li(p.remove, t => `<span style="color:var(--bad)">${esc(t)}</span>`)}</div>
+      <div><b>Steering</b>${li([...p.steering_add.map(x => ['+', x]), ...p.steering_remove.map(x => ['−', x])], ([k, x]) => `${k} ${x.pe} ${esc(x.tenant)} ${esc(x.prefix)}${x.via ? ' via ' + x.via.join(' ') : ''}`)}</div></div>`
+    + (p.problems.length ? `<div class="msg"><b>Cannot restore:</b><br>${p.problems.map(esc).join('<br>')}</div>` : '')
+    + (p.notes.length ? `<p class="hint">${p.notes.map(esc).join('<br>')}</p>` : '')
+    + `<label style="margin-top:10px"><input type="checkbox" id="bk-test" checked style="width:auto"> run the Robot suites at the end</label>
+      <div class="actions"><button class="primary" id="bk-go" ${p.same || p.problems.length ? 'disabled' : ''}>Restore</button><span class="hint">${p.add.length + p.add_sites.length ? 'adding re-wires the CEs at those sites (each reboots for ~60 s)' : ''}</span></div>`;
+  const go = $('bk-go'); if (go) go.onclick = async () => {
+    if (!confirm(`Restore ${file}?` + (p.remove.length ? `\n\nThis REMOVES ${p.remove.join(', ')} (hosts deleted, VRFs removed).` : ''))) return;
+    const r = await fetch('/api/runs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode: 'restore', name: file, options: { test: $('bk-test').checked } }) });
+    const d = await r.json(); if (!r.ok) return alert(JSON.stringify(d.detail)); show('runs'); watch(d.id);
+  };
+}
 
 // ---- runs --------------------------------------------------------------------------------------------------------
 async function loadRuns() {

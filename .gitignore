@@ -18,3 +18,4 @@ webapp/runs/
 .gitea-backup/
 nodes/*/network-config
 .chaos.json
+webapp/backups/

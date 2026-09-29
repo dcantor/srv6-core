@@ -208,5 +208,5 @@ Log Alert Firing
 
 No Lab Alert Firing
     ${rules}=    Http Get    ${PROMETHEUS}/api/v1/rules
-    ${firing}=    Evaluate    [r["name"] for g in $rules["data"]["groups"] for r in g["rules"] if r.get("state") == "firing" and any(a["labels"].get("lab") == "srv6-core" for a in r.get("alerts", []))]
-    Should Be Empty    ${firing}    msg=alerts firing for srv6-core: ${firing}
+    ${firing}=    Evaluate    [r["name"] for g in $rules["data"]["groups"] for r in g["rules"] if r.get("state") == "firing" and r.get("labels", {}).get("severity") != "info" and any(a["labels"].get("lab") == "srv6-core" for a in r.get("alerts", []))]
+    Should Be Empty    ${firing}    msg=alerts firing for srv6-core: ${firing}    # info (a capacity notice) is not a fault

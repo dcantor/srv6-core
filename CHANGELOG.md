@@ -10,6 +10,43 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 The current version is in [`VERSION`](VERSION), and in git as a `v<version>` tag.
 
+## [1.3.0] — 2026-09-28
+
+### Added
+- **Steering on the map.** The portal's Steering view draws each policy on a map of the core: its path in colour beside
+  the IGP shortest path it replaces, dashed.
+  - **Preview** shows a path before it is applied.
+  - **Measure delay** pings from the source PE in the tenant's VRF, over the policy and over the IGP to the same egress
+    PE. For example, pe1 → 172.21.3.0/24 via p1 p3 measured 3.6 ms against 2.5 ms over p2.
+  - API: `GET /api/steering/map`, `GET /api/steering/plan`, `GET /api/steering/measure`.
+- **Tenant SLA probes.** Every minute, each tenant host pings every other site of its tenant (ten requests), and each
+  pair is graded against delay and loss targets.
+  - The SLA view shows a matrix per tenant, and each pair's last 24 hours as a chart.
+  - A change of state writes a Grafana annotation.
+  - `/metrics` exports `lab_tenant_rtt_ms`, `lab_tenant_loss_ratio` and `lab_tenant_sla_ok`.
+  - New alert rules in lab-portal: **TenantSlaBreach** and **TenantSlaDown**.
+  - API: `GET /api/sla`, `GET /api/sla/history`, `POST /api/sla/probe`.
+- **Capacity view.** Shows how many more tenants fit at every data centre and at each one, and which limit runs out
+  first: PE and CE ports, tenant letters, address blocks, firewall circuits, host memory or management addresses.
+  - It also shows where each tenant can still add a site, and the lab host's memory, CPU and vCPU allocation.
+  - `/metrics` exports `lab_capacity_room_tenants` and `lab_capacity_used_ratio`.
+  - New info alert: **LabNoRoomForTenant**.
+  - API: `GET /api/capacity`.
+  - On this lab today it shows that pe4 has no free port, so no new tenant fits at every data centre.
+- **Backup and restore.** The whole lab state goes into one checksummed `.tar.gz`: `lab.conf`, the steering policies,
+  and every router's running and rendered configuration.
+  - The Backups view can create, download and upload a backup, and shows what a restore would change.
+  - A restore runs as a portal run (mode `restore`). It adds and removes tenants and sites with the existing add and
+    remove steps, puts the steering policies back, re-seeds Nautobot and verifies.
+  - It refuses when the core differs, or when a tenant would have to lose a single site.
+  - API: `/api/backups`, `/api/backups/<file>`, `/api/backups/<file>/plan`, `/api/backups/upload`.
+- **Tests:** a new suite, `16_operations` (6 cases), covering all four features, including a real restore. 109 cases in
+  all.
+
+### Changed
+- `steer.py show` reads the PEs in parallel: about 9 s instead of 27 s.
+- Suite 11 ignores info-severity alerts (a capacity notice is not a fault).
+
 ## [1.2.0] — 2026-09-28
 
 ### Added

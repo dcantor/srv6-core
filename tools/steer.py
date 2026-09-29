@@ -112,12 +112,15 @@ elif cmd == "del":
     print(f"{src}: {tenant} {prefix} back on the IGP shortest path")
     print(with_retry(src, lambda c: c.send_command(f"sudo ip -c=never route show vrf {tenant} {prefix}", read_timeout=READ_TIMEOUT)))
 elif cmd == "show":
-    for pe in (sys.argv[2:] or [n["name"] for n in inv["nodes"] if n["role"] == "pe"]):
+    def read(pe):                                                   # the PEs are read in parallel, printed in order
         c = conn(pe); lines = []
         for t in inv["service"]["tenants"]:
             for l in c.send_command(f"sudo ip -c=never route show vrf {t}").splitlines():
                 if "seg6" in l and "proto static" in l: lines.append(f"  {t}: {l.strip()}")
-        c.disconnect(); print(f"{pe}:" + ("\n" + "\n".join(lines) if lines else " no steering policies"))
+        c.disconnect(); return f"{pe}:" + ("\n" + "\n".join(lines) if lines else " no steering policies")
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor(max_workers=8) as ex:
+        for text in ex.map(read, sys.argv[2:] or [n["name"] for n in inv["nodes"] if n["role"] == "pe"]): print(text)
 elif cmd == "sid":
     print(dt4_sid(sys.argv[2], sys.argv[3]))
 else:

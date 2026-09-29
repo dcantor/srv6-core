@@ -5,19 +5,26 @@ The UI (static/index.html) shows the tenants with live state and the topology, a
     add tenant / add site  ->  lab.conf + day-0 configs -> host VMs -> CE VMs re-wired -> configure (SSH) -> Nautobot seed
                                -> verify (ping matrix, Nautobot == lab.conf) -> Robot tests
     remove tenant          ->  hosts off, Nautobot clean-up, lab.conf, configure (interfaces/VRFs deleted), seed, verify, tests
-    steering               ->  explicit-path SRv6 policies (tools/steer.py), applied immediately
+    steering               ->  explicit-path SRv6 policies (tools/steer.py), applied immediately; drawn on the map with the IGP
+                               path they replace and the delay of each, measured (steermap.py)
+    restore                ->  a backup (backup.py): tenants removed / added and steering put back as the backup had them
+The portal also probes every pair of a tenant's sites every minute (sla.py), and says how much room the lab has (capacity.py).
 Runs execute one at a time in a background thread; state is mirrored to runs/<id>.json. Start with ./lab.sh webapp
 (uvicorn on 0.0.0.0:8091) or the systemd user unit srv6-webapp."""
-import json, os, subprocess, sys, time
+import json, os, re, subprocess, sys, threading, time
 from pathlib import Path
 from labportal import RunBase, RunRegistry, install_runs_api, grafana
-from fastapi import FastAPI, HTTPException, Query, Path as PathParam
+from fastapi import FastAPI, HTTPException, Query, Request, Path as PathParam
 from fastapi.responses import FileResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 import tenants as T
 from state import State
 import metrics as M
+import sla as SLA
+import capacity as CAP
+import backup as BK
+import steermap as SM
 
 LAB = Path(__file__).resolve().parents[1]; sys.path.insert(0, str(LAB / "tools")); from topology_svg import draw   # noqa: E402
 RUNS_DIR = Path(__file__).resolve().parent / "runs"; RUNS_DIR.mkdir(exist_ok=True); RESULTS = LAB / "results"
@@ -27,11 +34,16 @@ STEP_TITLES = {"validate": "Validate the allocation", "labconf": "Register in la
                "nautobot": "Nautobot source of truth (seed)", "verify": "Verify: tenant ping matrix, Nautobot rendering == lab.conf", "test": "Robot Framework tests",
                "rm_validate": "Validate the removal", "rm_hosts": "Power off and delete the host VMs", "rm_nautobot": "Remove the tenant from Nautobot",
                "rm_labconf": "Remove from lab.conf, render the day-0 configs", "rm_configure": "Delete the VRF, interfaces and BGP on the PEs and CEs", "rm_ces": "Re-wire the CE VMs",
-               "backup": "Commit the configurations to Gitea"}
+               "backup": "Commit the configurations to Gitea",
+               "rs_validate": "Read the backup and plan the restore", "rs_remove": "Remove the tenants the backup does not have",
+               "rs_add": "Add the tenants and sites the backup has", "rs_steering": "Put the steering policies back as the backup had them"}
 TAGS = [{"name": "state", "description": "Tenants, sites, hosts and live state (eBGP per tenant, VRF routes, SIDs, host reachability), topology."},
         {"name": "provisioning", "description": "Suggest / validate a new tenant or a new site; plan a removal."},
         {"name": "steering", "description": "Explicit-path SRv6 steering policies (applied immediately)."},
-        {"name": "runs", "description": "Pipeline runs: add tenant, add site, remove tenant, tests."}]
+        {"name": "runs", "description": "Pipeline runs: add tenant, add site, remove tenant, restore, tests."},
+        {"name": "sla", "description": "Tenant SLA probes: delay and loss between every pair of a tenant's sites, every minute."},
+        {"name": "capacity", "description": "How much room the lab has for more tenants and sites, and what runs out first."},
+        {"name": "backup", "description": "The whole lab state in one file, and a restore that brings the lab back to it."}]
 app = FastAPI(title="SRv6 Tenant Provisioning Portal API", version="1.0", openapi_tags=TAGS, docs_url="/docs", redoc_url="/redoc",
               description="REST API behind the SRv6 core lab's tenant portal. Every change goes **lab.conf → day-0 configs → VMs → SSH push → Nautobot seed → verification → Robot tests**; "
                           "runs are asynchronous (`POST /api/runs`, poll `GET /api/runs/{id}`). UI: [/](/)")
@@ -53,24 +65,29 @@ class SteerSpec(BaseModel):
 
 
 class RunRequest(BaseModel):
-    mode: str = Field(examples=["tenant"], description="tenant | site | remove | test")
+    mode: str = Field(examples=["tenant"], description="tenant | site | remove | restore | test")
     tenant: TenantSpec | None = None
-    name: str | None = Field(None, description="remove: the tenant to remove")
+    name: str | None = Field(None, description="remove: the tenant to remove; restore: the backup file")
     options: dict = Field(default_factory=dict, description="{test: bool (default true), suites: [..]}")
 
 
 class Run(RunBase):
     LAB = "srv6-core"
     STEP_TITLES = STEP_TITLES
-    EXTRA = {"tenant": "tenant", "spec": "spec", "removal": "removal"}
+    EXTRA = {"tenant": "tenant", "spec": "spec", "removal": "removal", "rplan": "rplan"}
 
     def __init__(self, mode, spec, options, resume_of=None):
         self.spec, self.removal = spec, (resume_of or {}).get("removal")
+        self.rplan = (resume_of or {}).get("rplan")
         self.tenant = (spec or {}).get("name")
         super().__init__(mode, options, resume_of, runs_dir=RUNS_DIR, cwd=LAB)
 
     def plan(self):
         if self.mode == "test": return ["test"]
+        if self.mode == "restore":
+            steps = ["rs_validate", "rs_remove", "rs_add", "rs_steering", "nautobot", "verify"]
+            if self.options.get("test", True): steps.append("test")
+            steps.append("backup"); return steps
         if self.mode == "remove":
             steps = ["rm_validate", "rm_hosts", "rm_nautobot", "rm_labconf", "rm_configure", "rm_ces", "nautobot", "verify"]
         else:
@@ -109,8 +126,15 @@ class Run(RunBase):
         self.sh([LAB / "lab.sh", "nautobot", "seed"]); s["summary"] = "seeded"
 
     def do_verify(self, s):
-        hosts = [x["host"] for x in (self.spec or {}).get("sites", [])] if self.mode != "remove" else []
+        hosts = [x["host"] for x in (self.spec or {}).get("sites", [])] if self.mode not in ("remove", "restore") else []
         time.sleep(20)   # eBGP + VPNv4 convergence after the pushes
+        if self.mode == "restore":                                   # the whole lab, as the backup had it
+            f = T.facts()                                            # one matrix per tenant: tenants never reach each other
+            for t in f["order"]:
+                hs = [x["host"] for x in T.tenant_sites(f, t) if x.get("host")]
+                if len(hs) > 1: self.sh([PY, LAB / "tools" / "host_cmd.py", "matrix", *hs])
+            self.sh([LAB / "lab.sh", "nautobot", "render", "--check"])
+            s["summary"] = "every host reaches its tenant's others, Nautobot == lab.conf"; return
         if hosts:
             if len(hosts) > 1: self.sh([PY, LAB / "tools" / "host_cmd.py", "matrix", *hosts])
             else: self.sh([PY, LAB / "tools" / "host_cmd.py", "matrix", *hosts, *[h["host"] for h in T.tenant_sites(T.facts(), self.spec["name"]) if h["host"] != hosts[0]][:1]], check=False)
@@ -158,6 +182,47 @@ class Run(RunBase):
     def do_rm_ces(self, s):
         ces = self.removal["ces"]; self.sh([LAB / "lab.sh", "down", *ces]); self.sh([LAB / "lab.sh", "rebuild", *ces]); self.sh([LAB / "lab.sh", "up", *ces]); self.sh([LAB / "lab.sh", "wait", *ces])
         s["summary"] = ", ".join(ces)
+
+    # ---- restore from a backup ----------------------------------------------------------------------------------
+    def do_rs_validate(self, s):
+        b = BK.load(self.spec["backup"])
+        self.rplan = BK.plan(b, state.steering())
+        if self.rplan["problems"]: raise RuntimeError("; ".join(self.rplan["problems"]))
+        p = self.rplan
+        s["summary"] = (f"{self.spec['backup']}: add {', '.join(x['name'] for x in p['add']) or '—'}; sites {', '.join(x['name'] + ' ' + '/'.join(y['dc'] for y in x['sites']) for x in p['add_sites']) or '—'}; "
+                        f"remove {', '.join(p['remove']) or '—'}; steering +{len(p['steering_add'])} −{len(p['steering_remove'])}")
+
+    def do_rs_remove(self, s):
+        done = []
+        for t in self.rplan["remove"]:
+            problems, self.removal = T.removal_plan(t)
+            if problems: raise RuntimeError(f"{t}: " + "; ".join(problems))
+            self.say(f"== removing {t}")
+            for step in (self.do_rm_hosts, self.do_rm_nautobot, self.do_rm_labconf, self.do_rm_configure, self.do_rm_ces):
+                step({})
+            done.append(t)
+        s["summary"] = ", ".join(done) or "nothing to remove"
+
+    def do_rs_add(self, s):
+        done = []
+        for spec, new in [(x, True) for x in self.rplan["add"]] + [(x, False) for x in self.rplan["add_sites"]]:
+            self.say(f"== adding {spec['name']}: " + ", ".join(x["dc"] for x in spec["sites"]))
+            problems = T.validate(spec, new_tenant=new)
+            if problems: raise RuntimeError(f"{spec['name']}: " + "; ".join(problems))
+            self.spec = {**spec, "backup": self.spec.get("backup")}
+            ces, hosts = T.apply_to_labconf(spec, new_tenant=new); self.spec["_ces"], self.spec["_hosts"] = ces, hosts
+            self.sh([PY, LAB / "tools" / "gen_configs.py"])
+            for step in (self.do_hosts, self.do_ces, self.do_configure):
+                step({})
+            done.append(spec["name"])
+        s["summary"] = ", ".join(done) or "nothing to add"
+
+    def do_rs_steering(self, s):
+        for p in self.rplan["steering_remove"]:
+            self.sh([PY, LAB / "tools" / "steer.py", "del", p["pe"], p["tenant"], p["prefix"]])
+        for p in self.rplan["steering_add"]:
+            self.sh([PY, LAB / "tools" / "steer.py", "add", p["pe"], p["tenant"], p["prefix"], *p["via"]])
+        s["summary"] = f"{len(self.rplan['steering_add'])} added, {len(self.rplan['steering_remove'])} removed"
 
 
 # ---- API ----------------------------------------------------------------------------------------------------
@@ -210,6 +275,17 @@ def prometheus_metrics():
     body = M.render(collector.snapshot(), registry.list())
     body += "# HELP lab_collector_last_refresh_seconds When the background refresh last succeeded (0 = never)\n# TYPE lab_collector_last_refresh_seconds gauge\n"
     body += M.line("lab_collector_last_refresh_seconds", {"lab": "srv6-core"}, int(collector.last or 0)) + "\n"
+    body += prober.metrics(M.line)
+    cap = _capacity(max_age=None)
+    if cap:
+        body += "# HELP lab_capacity_room_tenants How many more tenants fit (every data centre, or one)\n# TYPE lab_capacity_room_tenants gauge\n"
+        body += M.line("lab_capacity_room_tenants", {"lab": "srv6-core", "scope": "every_dc"}, cap["room"]["every_dc"]["tenants"]) + "\n"
+        for dc, r in cap["room"]["per_dc"].items():
+            body += M.line("lab_capacity_room_tenants", {"lab": "srv6-core", "scope": dc}, r["tenants"]) + "\n"
+        body += "# HELP lab_capacity_used_ratio How much of a resource is in use (0-1)\n# TYPE lab_capacity_used_ratio gauge\n"
+        for r in [x for d in cap["per_dc"] for x in (d["pe_ports"], d["ce_ports"])] + cap["lab"] + cap["host"]["resources"]:
+            if r["pct"] is not None:
+                body += M.line("lab_capacity_used_ratio", {"lab": "srv6-core", "resource": r["name"]}, round(r["pct"] / 100, 4)) + "\n"
     return PlainTextResponse(body, media_type="text/plain; version=0.0.4")
 
 
@@ -247,7 +323,7 @@ def steering_del(pe: str, tenant: str, prefix: str):
 @app.post("/api/runs", tags=["runs"], summary="Start a pipeline run", responses={409: {"description": "a run is already in progress"}, 422: {"description": "validation problems"}})
 def start_run(body: RunRequest):
     """Modes: **tenant** (a TenantSpec: new tenant with its sites), **site** (a TenantSpec naming an existing tenant with the new site(s)),
-    **remove** (`name`), **test** (Robot suites; `options.suites`, default the VPN / end-to-end / Nautobot suites, `["all"]` for everything)."""
+    **remove** (`name`), **restore** (`name`: a backup file; see /api/backups/{file}/plan), **test** (Robot suites; `options.suites`, default the VPN / end-to-end / Nautobot suites, `["all"]` for everything)."""
     mode = body.mode; spec = None
     if mode in ("tenant", "site"):
         if body.tenant is None: raise HTTPException(422, {"problems": ["tenant spec required"]})
@@ -257,9 +333,141 @@ def start_run(body: RunRequest):
         problems, _ = T.removal_plan(body.name or "")
         if problems: raise HTTPException(422, {"problems": problems})
         spec = {"name": body.name}
-    elif mode != "test": raise HTTPException(400, "mode must be tenant, site, remove or test")
+    elif mode == "restore":
+        try: p = BK.plan(BK.load(body.name or ""), state.steering())
+        except ValueError as e: raise HTTPException(422, {"problems": [str(e)]})
+        if p["problems"]: raise HTTPException(422, {"problems": p["problems"]})
+        spec = {"name": f"restore {body.name}", "backup": body.name}
+    elif mode != "test": raise HTTPException(400, "mode must be tenant, site, remove, restore or test")
     try: return registry.start(Run(mode, spec, body.options))
     except RuntimeError as e: raise HTTPException(409, str(e))
+
+
+# ---- tenant SLA probes ------------------------------------------------------------------------------------------
+def _host_run(ip, cmd, timeout):
+    import paramiko
+    c = paramiko.SSHClient(); c.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    c.connect(ip, username=os.environ.get("HOST_USERNAME", "lab"), password=os.environ.get("HOST_PASSWORD", "lab"), timeout=20,
+              look_for_keys=False, allow_agent=False)
+    try:
+        _, out, err = c.exec_command(cmd, timeout=timeout); text = out.read().decode(errors="replace"); rc = out.channel.recv_exit_status()
+        return rc, text
+    finally:
+        c.close()
+
+
+def _router_run(node, cmd, timeout):
+    import paramiko
+    n = next(x for x in T.inventory()["nodes"] if x["name"] == node)
+    c = paramiko.SSHClient(); c.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    c.connect(n["mgmt_ip"], username=os.environ.get("VYOS_USERNAME", "vyos"), password=os.environ.get("VYOS_PASSWORD", "vyos"), timeout=20,
+              look_for_keys=False, allow_agent=False)
+    try:
+        _, out, err = c.exec_command(cmd, timeout=timeout); text = out.read().decode(errors="replace"); out.channel.recv_exit_status()
+        return text
+    finally:
+        c.close()
+
+
+def _lab_running():
+    """Probe unless the last live look found every host down (the lab is stopped)."""
+    live = (state._cache or {}).get("hosts_live")
+    return not live or any((h or {}).get("reachable") for h in live.values())
+
+
+prober = SLA.Prober(T.inventory, _host_run, annotate=lambda text, tags: grafana.annotate(text, tags=tags))
+_cap = {"at": 0, "data": None, "busy": False}
+
+
+def _capacity(max_age=120):
+    """The capacity picture; max_age=None never blocks (a scrape): it hands back what is cached and refreshes behind."""
+    if max_age is not None and (time.time() - _cap["at"] > max_age or _cap["data"] is None):
+        _cap["data"], _cap["at"] = CAP.compute(), time.time()
+    elif max_age is None and time.time() - _cap["at"] > 300 and not _cap["busy"]:
+        def bg():
+            _cap["busy"] = True
+            try: _cap["data"], _cap["at"] = CAP.compute(), time.time()
+            finally: _cap["busy"] = False
+        threading.Thread(target=bg, daemon=True).start()
+    return _cap["data"]
+
+
+@app.on_event("startup")
+def _start_prober():
+    threading.Thread(target=prober.loop, args=(_lab_running,), daemon=True).start()
+
+
+@app.get("/api/sla", tags=["sla"], summary="Every pair of a tenant's sites: the last probe's delay and loss, against the targets")
+def sla_summary(): return prober.summary()
+
+
+@app.get("/api/sla/history", tags=["sla"], summary="One pair's delay and loss over the last 24 hours (one point a minute)")
+def sla_history(tenant: str, src: str, dst: str, since: float | None = None): return {"points": prober.history(tenant, src, dst, since)}
+
+
+@app.post("/api/sla/probe", tags=["sla"], summary="Probe every pair now (blocks ~5 s)")
+def sla_probe_now(): prober.run_once(); return prober.summary()
+
+
+# ---- capacity -------------------------------------------------------------------------------------------------
+@app.get("/api/capacity", tags=["capacity"], summary="Room for more tenants and sites: ports per data centre, tenant letters and blocks, host memory")
+def capacity(refresh: bool = False): return _capacity(max_age=0 if refresh else 60)
+
+
+# ---- backup and restore ---------------------------------------------------------------------------------------
+@app.get("/api/backups", tags=["backup"], summary="The backups kept on the lab host, newest first")
+def backups(): return BK.listing()
+
+
+@app.post("/api/backups", tags=["backup"], summary="Back up the lab now (lab.conf, steering, every router's configuration; ~20 s)")
+def backup_create(): return BK.create(state.steering())
+
+
+@app.get("/api/backups/{file}", tags=["backup"], summary="Download a backup", response_class=Response)
+def backup_download(file: str):
+    try: BK.load(file)
+    except ValueError as e: raise HTTPException(404, str(e))
+    return FileResponse(str(BK.DIR / file), media_type="application/gzip", filename=file)
+
+
+@app.get("/api/backups/{file}/plan", tags=["backup"], summary="What restoring a backup would change (nothing changes yet)")
+def backup_plan(file: str):
+    try: return BK.plan(BK.load(file), state.steering())
+    except ValueError as e: raise HTTPException(422, str(e))
+
+
+@app.post("/api/backups/upload", tags=["backup"], summary="Upload a backup (the .tar.gz as the request body); returns its plan")
+async def backup_upload(request: Request):
+    data = await request.body()
+    try: name, b = BK.save_upload(data)
+    except ValueError as e: raise HTTPException(422, str(e))
+    return {"file": name, "plan": BK.plan(b, state.steering())}
+
+
+# ---- steering on the map --------------------------------------------------------------------------------------
+@app.get("/api/steering/map", tags=["steering"], summary="Every policy with its steered path and the IGP path it replaces (from the model)")
+def steering_map():
+    inv = T.inventory(); out = []
+    for p in state.steering():
+        if "pe" not in p: continue
+        try: out.append({**p, **SM.paths_for(inv, p["pe"], p["tenant"], p["prefix"], segments=p.get("segments"))})
+        except ValueError as e: out.append({**p, "error": str(e)})
+    role = {n["name"]: n["role"] for n in inv["nodes"]}
+    core = [{"a": l["a"], "b": l["b"], "a_port": l["a_port"], "b_port": l["b_port"], "prefix": l["prefix"]}
+            for l in inv["links"] if role.get(l["a"]) in SM.CORE and role.get(l["b"]) in SM.CORE]
+    return {"policies": out, "nodes": [{"name": n["name"], "role": n["role"], "dc": n.get("dc")} for n in inv["nodes"] if n["role"] in SM.CORE], "links": core}
+
+
+@app.get("/api/steering/plan", tags=["steering"], summary="The path a policy would take, and the IGP path it would replace (nothing is applied)")
+def steering_plan(pe: str, tenant: str, prefix: str, via: str = Query(..., description="P routers, comma- or space-separated")):
+    try: return SM.paths_for(T.inventory(), pe, tenant, prefix, via=[v for v in re.split(r"[ ,]+", via) if v])
+    except ValueError as e: raise HTTPException(422, str(e))
+
+
+@app.get("/api/steering/measure", tags=["steering"], summary="Delay from the PE in the tenant's VRF: over the policy, and over the IGP (~3 s)")
+def steering_measure(pe: str, tenant: str, prefix: str):
+    try: return SM.measure(T.inventory(), pe, tenant, prefix, _router_run)
+    except ValueError as e: raise HTTPException(422, str(e))
 
 
 install_runs_api(app, registry, resume_factory=lambda d: Run(d["mode"], d.get("spec"), d.get("options") or {}, resume_of=d))
