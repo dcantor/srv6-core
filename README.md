@@ -685,7 +685,17 @@ working network*. It has three parts:
 It is built from `docs/srv6-lab-guide.md` by `docs/build_lab_guide.py`, with the same live captures as the walkthrough
 below and screenshots from `docs/guide_screenshots.py`.
 
-The deeper companion:
+**Then go deeper:** [docs/srv6-in-depth.pdf](docs/srv6-in-depth.pdf) — *SRv6 In Depth*. It opens with a high-level
+overview (what SRv6 is, what it gives an operator, how it compares with MPLS, the trade-offs), then covers the details:
+- the SID structure, and the SRH decoded byte by byte from a real packet;
+- the behaviours and flavours, and compressed SIDs;
+- the IS-IS and BGP extensions, read from the lab's own tables (including BGP's SID transposition);
+- SR Policy, resilience, the Linux data plane, OAM, security, design and migration;
+- a troubleshooting checklist, a command cheat sheet and the RFCs.
+
+It is built with `docs/build_lab_guide.py srv6-in-depth`. Its extra outputs come from `docs/indepth_capture.py`.
+
+The walkthrough below goes table by table:
 [docs/srv6-walkthrough.md](docs/srv6-walkthrough.md) ([PDF](docs/srv6-walkthrough.pdf)) — *SRv6 L3VPN, shown on real boxes*: the
 underlay, the SIDs in the kernel, the BGP Prefix-SID attribute, a packet walk with captures on the P router, uSID
 shift-and-forward seen hop by hop on a steered path, and how the lab is operated. Every output is captured from the

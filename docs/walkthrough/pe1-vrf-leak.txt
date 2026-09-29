@@ -1,0 +1,8 @@
+fd00:c:2::/48 nhid 67 proto static metric 20 pref medium
+fd00:c:3::/48 nhid 62 via fe80::5054:ff:fec6:603 dev eth2 proto static metric 20 pref medium
+fd00:c:4::/48 nhid 62 via fe80::5054:ff:fec6:603 dev eth2 proto static metric 20 pref medium
+fd00:c:11::/48 nhid 61 via fe80::5054:ff:fec6:503 dev eth1 proto static metric 20 pref medium
+fd00:c:12::/48 nhid 62 via fe80::5054:ff:fec6:603 dev eth2 proto static metric 20 pref medium
+fd00:c:13::/48 nhid 67 proto static metric 20 pref medium
+fd00:c::/32 nhid 67 proto static metric 20 pref medium
+	nexthop  encap seg6 mode encap segs 1 [ fd00:c:2:e001:: ] via fe80::5054:ff:fec6:503 dev eth1 weight 1

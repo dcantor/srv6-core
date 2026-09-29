@@ -1,0 +1,10 @@
+18:47:53.618019 IP6 (hlim 62, next-header Routing (43) payload length: 68) fd00:a::1 > fd00:c:3:e001::: RT6 (len=2, type=4, segleft=0, last-entry=0, flags=0x0, tag=0, [0]fd00:c:3:e001::) IP (tos 0x0, ttl 63, id 1457, offset 0, flags [DF], proto ICMP (1), length 44)
+    172.20.1.2 > 172.20.3.2: ICMP echo request, id 1184, seq 0, length 24
+	0x0000:  5254 00c6 0301 5254 00c6 0605 86dd 6000
+	0x0010:  0000 0044 2b3e fd00 000a 0000 0000 0000
+	0x0020:  0000 0000 0001 fd00 000c 0003 e001 0000
+	0x0030:  0000 0000 0000 0402 0400 0000 0000 fd00
+	0x0040:  000c 0003 e001 0000 0000 0000 0000 4500
+	0x0050:  002c 05b1 4000 3f01 d9f3 ac14 0102 ac14
+	0x0060:  0302 0800 12bb 04a0 0000 099c d708 0000
+	0x0070:  0000 0000 0000 0000 0000

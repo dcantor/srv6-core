@@ -1,0 +1,3 @@
+traceroute to fd00:a::3 (fd00:a::3), 30 hops max, 80 byte packets
+ 1  fd00:b:0:201::1  0.382 ms
+ 2  fd00:a::3  0.629 ms

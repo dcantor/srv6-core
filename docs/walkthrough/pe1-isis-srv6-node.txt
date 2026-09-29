@@ -1,0 +1,14 @@
+Area VyOS:
+ IS-IS L1 SRv6-Nodes:
+
+ IS-IS L2 SRv6-Nodes:
+
+ System ID       Algorithm  SRH Max SL  SRH Max End Pop  SRH Max H.encaps  SRH Max End D  
+ -----------------------------------------------------------------------------------------
+ 0000.0000.0001  SPF        3           3                2                 5              
+ 0000.0000.0002  SPF        3           3                2                 5              
+ 0000.0000.0003  SPF        3           3                2                 5              
+ 0000.0000.0004  SPF        3           3                2                 5              
+ 0000.0000.0011  SPF        3           3                2                 5              
+ 0000.0000.0012  SPF        3           3                2                 5              
+ 0000.0000.0013  SPF        3           3                2                 5

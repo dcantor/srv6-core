@@ -1,0 +1,33 @@
+Area VyOS:
+IS-IS Level-2 link-state database:
+LSP ID                  PduLen  SeqNumber   Chksum  Holdtime  ATT/P/OL
+pe1.00-00            *    330   0x00000027  0xbdbb     358    0/0/0
+  Protocols Supported: IPv4, IPv6
+  Area Address: 49.0001
+  Hostname: pe1
+  TE Router ID: 10.3.0.11
+  Router Capability: 10.3.0.11 , D:0, S:0
+    Segment Routing: I:1 V:1, Global Block Base: 16000 Range: 8000
+    SR Local Block Base: 15000 Range: 1000
+    SR Algorithm:
+      0: SPF
+    SRv6: O:0
+  Extended Reachability: 0000.0000.0011.00 (Metric: 10)
+    Adjacency-SID: 15001, Weight: 0, Flags: F:1 B:0, V:1, L:1, S:0, P:0
+    SRv6 End.X SID: fd00:c:1:e003::, Algorithm: SPF, Weight: 0, Endpoint Behavior: uA, Flags: B:0, S:0, P:0
+        SRv6 SID Structure Locator Block length: 32, Locator Node length: 16, Function length: 16, Argument length: 0, 
+  Extended Reachability: 0000.0000.0012.00 (Metric: 10)
+    Adjacency-SID: 15000, Weight: 0, Flags: F:1 B:0, V:1, L:1, S:0, P:0
+    SRv6 End.X SID: fd00:c:1:e002::, Algorithm: SPF, Weight: 0, Endpoint Behavior: uA, Flags: B:0, S:0, P:0
+        SRv6 SID Structure Locator Block length: 32, Locator Node length: 16, Function length: 16, Argument length: 0, 
+  IPv4 Interface Address: 10.3.0.11
+  IPv6 Reachability: fd00:c:1::/48 (Metric: 0)
+  IPv6 Reachability: fd00:c:1::1/128 (Metric: 10)
+  IPv6 Reachability: fd00:b:0:101::/64 (Metric: 10)
+  IPv6 Reachability: fd00:b:0:201::/64 (Metric: 10)
+  IPv6 Reachability: fd00:a::1/128 (Metric: 10)
+  SRv6 Locator: fd00:c:1::/48 (Metric: 0) standard
+    Sub-TLVs:
+      SRv6 End SID Endpoint Behavior: uN, SID value: fd00:c:1::
+        Sub-Sub-TLVs:
+          SRv6 SID Structure Locator Block length: 32, Locator Node length: 16, Function length: 16, Argument length: 0,

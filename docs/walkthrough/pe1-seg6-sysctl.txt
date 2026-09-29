@@ -1,0 +1,5 @@
+net.ipv6.conf.all.seg6_enabled = 1
+net.ipv6.conf.eth1.seg6_enabled = 1
+net.ipv6.conf.eth2.seg6_enabled = 1
+net.ipv6.conf.eth3.seg6_enabled = 0
+tunsrc addr fd00:a::1

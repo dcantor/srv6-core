@@ -10,6 +10,25 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 The current version is in [`VERSION`](VERSION), and in git as a `v<version>` tag.
 
+## [1.6.0] — 2026-09-29
+
+### Added
+- **SRv6 In Depth** (`docs/srv6-in-depth.pdf`, 19 pages), the second guide.
+  - **Part 1** is a high-level overview for anyone: SRv6 in one page, what it gives an operator, the network-programming
+    model, a comparison with MPLS and SR-MPLS with the trade-offs, and a VPN packet's life in five steps.
+  - **Part 2** covers the details, shown on the lab's routers:
+    - the SID structure, and one real packet decoded byte by byte (outer IPv6, SRH, inner IPv4);
+    - the behaviours and flavours, and the two compressed-SID flavours;
+    - pe1's IS-IS LSP with its SRv6 TLVs, and the Maximum SID Depths;
+    - BGP's Prefix-SID and SID transposition, decoded from the route;
+    - SR Policy, resilience, the Linux data plane (including `seg6_enabled` on the customer-facing ports), OAM,
+      security, design and migration;
+    - a troubleshooting checklist, a command cheat sheet and the RFCs.
+- `docs/indepth_capture.py`: the nine extra read-only captures the guide quotes.
+
+### Changed
+- `docs/build_lab_guide.py` builds either guide: `srv6-lab-guide` (the default) or `srv6-in-depth`.
+
 ## [1.5.0] — 2026-09-29
 
 ### Added

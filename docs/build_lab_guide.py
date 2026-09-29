@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Build docs/srv6-lab-guide.{html,pdf} from docs/srv6-lab-guide.md — the SRv6 primer, lab tour and walkthrough.
+"""Build the lab's guides: docs/<doc>.{html,pdf} from docs/<doc>.md, where <doc> is srv6-lab-guide (the primer, lab tour
+and walkthrough; the default) or srv6-in-depth (the overview and the deep dive).
 
 `{{name}}` is replaced by the captured output docs/walkthrough/<name>.txt (`{{name|N}}` keeps its first N lines, with a
 note), `{{meta}}` by the version and date. Captures come from the live lab (docs/walkthrough_capture.py), screenshots from
@@ -8,12 +9,17 @@ Chrome prints the PDF with page numbers. Run with the cat8000v-ipsec webapp venv
 
     python3 docs/walkthrough_capture.py                                  # refresh the outputs (the lab must be up)
     ~/cat8000v-ipsec/webapp/.venv/bin/python docs/guide_screenshots.py    # refresh the screenshots
-    ~/cat8000v-ipsec/webapp/.venv/bin/python docs/build_lab_guide.py"""
+    ~/cat8000v-ipsec/webapp/.venv/bin/python docs/build_lab_guide.py [srv6-in-depth]
+    python3 docs/indepth_capture.py                                      # the extra outputs srv6-in-depth quotes"""
 import datetime, html, re, sys
 from pathlib import Path
 from markdown_it import MarkdownIt
 
-D = Path(__file__).resolve().parent; SRC = D / "srv6-lab-guide.md"; CAP = D / "walkthrough"
+DOCS = {"srv6-lab-guide": ("SRv6 Lab Guide — SRv6 from first principles, a tour of the lab, and a walkthrough", "SRv6 Lab Guide"),
+        "srv6-in-depth": ("SRv6 In Depth — the overview, then the details", "SRv6 In Depth")}
+DOC = next((a for a in sys.argv[1:] if not a.startswith("--")), "srv6-lab-guide")
+if DOC not in DOCS: sys.exit(f"unknown document {DOC!r}: one of {', '.join(DOCS)}")
+D = Path(__file__).resolve().parent; SRC = D / f"{DOC}.md"; CAP = D / "walkthrough"
 VERSION = (D.parent / "VERSION").read_text().strip()
 md = SRC.read_text()
 
@@ -68,6 +74,7 @@ figure { margin:12px 0 16px; page-break-inside:avoid; break-inside:avoid } figur
 figcaption { font-size:8.5pt; color:var(--muted); margin-top:5px; font-style:italic }
 figure.shot img { max-width:100%; max-height:125mm; width:auto; margin:0 auto; border:1px solid var(--line); border-radius:6px; display:block }
 .callout { border-radius:8px; padding:10px 13px; margin:12px 0; font-size:9.5pt; page-break-inside:avoid; break-inside:avoid }
+.summary { background:#f8fafc; border:1px solid var(--line); border-radius:10px; padding:12px 18px 8px; font-size:10.5pt } .summary ul { margin-top:4px }
 .callout.note { background:#eff6ff; border-left:4px solid var(--blue) } .callout.tip { background:#fff7ed; border-left:4px solid var(--accent) }
 .cover { height:254mm; display:flex; flex-direction:column; justify-content:center; page-break-after:always; border-radius:14px;
          background:linear-gradient(160deg, #0b1020 0%, #1e293b 62%, #7c2d12 140%); color:#f8fafc; margin:0; padding:0 16mm }
@@ -75,6 +82,7 @@ figure.shot img { max-width:100%; max-height:125mm; width:auto; margin:0 auto; b
 .cover .title { font-size:34pt; line-height:1.1; margin:14px 0 14px; font-weight:700; color:#fff }
 .cover .subtitle { font-size:13pt; color:#cbd5e1; max-width:150mm; line-height:1.45 }
 .cover .parts { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin:34px 0 26px }
+.cover .parts.two { grid-template-columns:repeat(2,1fr) }
 .cover .parts div { background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.14); border-radius:10px; padding:12px 13px }
 .cover .parts b { display:block; color:#fdba74; font-size:9pt; text-transform:uppercase; letter-spacing:.1em }
 .cover .parts span { display:block; font-size:12pt; font-weight:600; margin:3px 0 5px; color:#fff } .cover .parts small { color:#cbd5e1; font-size:8.5pt; line-height:1.4 }
@@ -88,26 +96,26 @@ figure.shot img { max-width:100%; max-height:125mm; width:auto; margin:0 auto; b
 .part-banner span { display:block; font-size:9pt; letter-spacing:.18em; text-transform:uppercase; color:#fdba74; margin-bottom:2px }
 @page { size:A4; margin:16mm 14mm 18mm }
 """
-title = "SRv6 Lab Guide — SRv6 from first principles, a tour of the lab, and a walkthrough"
+title, doc_label = DOCS[DOC]
 page = f"<!DOCTYPE html><html><head><meta charset='utf-8'><title>{title}</title><style>{CSS}</style></head><body>{body}</body></html>"
-(D / "srv6-lab-guide.html").write_text(page); print(f"wrote docs/srv6-lab-guide.html ({len(toc)} contents entries)")
+(D / f"{DOC}.html").write_text(page); print(f"wrote docs/{DOC}.html ({len(toc)} contents entries)")
 if "--html-only" not in sys.argv:
     from playwright.sync_api import sync_playwright
     foot = ('<div style="width:100%;font:7.5pt Helvetica,Arial,sans-serif;color:#94a3b8;padding:0 14mm;display:flex;justify-content:space-between">'
-            f'<span>SRv6 Lab Guide · srv6-core {VERSION}</span><span class="pageNumber"></span></div>')
+            f'<span>{doc_label} · srv6-core {VERSION}</span><span class="pageNumber"></span></div>')
     import subprocess
 
     def render():
         with sync_playwright() as pw:
             b = pw.chromium.launch(channel="chrome", headless=True); pg = b.new_page()
-            pg.goto((D / "srv6-lab-guide.html").as_uri()); pg.wait_for_load_state("networkidle")
-            pg.pdf(path=str(D / "srv6-lab-guide.pdf"), format="A4", print_background=True, display_header_footer=True,
+            pg.goto((D / f"{DOC}.html").as_uri()); pg.wait_for_load_state("networkidle")
+            pg.pdf(path=str(D / f"{DOC}.pdf"), format="A4", print_background=True, display_header_footer=True,
                    header_template="<span></span>", footer_template=foot, tagged=True, outline=True,
                    margin={"top": "16mm", "bottom": "18mm", "left": "14mm", "right": "14mm"}); b.close()
     render()
     # pass 2: find the page each numbered heading landed on, write it into the contents, print again (the contents is
     # one page either way, so the numbers do not move)
-    text = subprocess.run(["pdftotext", "-layout", str(D / "srv6-lab-guide.pdf"), "-"], capture_output=True, text=True).stdout.split("\f")
+    text = subprocess.run(["pdftotext", "-layout", str(D / f"{DOC}.pdf"), "-"], capture_output=True, text=True).stdout.split("\f")
     norm = lambda t: re.sub(r"\s+", " ", html.unescape(t)).strip()
     pages = {}
     for kind, hid, label in toc:
@@ -116,7 +124,7 @@ if "--html-only" not in sys.argv:
     for hid, pno in pages.items():
         page = page.replace(f'href="#{hid}"><span>', f'href="#{hid}" data-p="{pno}"><span>', 1)
     page = re.sub(r'data-p="(\d+)"><span>(.*?)</span><i></i>', r'><span>\2</span><i></i><b>\1</b>', page)
-    (D / "srv6-lab-guide.html").write_text(page); render()
+    (D / f"{DOC}.html").write_text(page); render()
     missing = [h for h, p in pages.items() if not p]
     if missing: print(f"  no page found for {missing}")
-    print(f"wrote docs/srv6-lab-guide.pdf ({(D / 'srv6-lab-guide.pdf').stat().st_size // 1024} KB)")
+    print(f"wrote docs/{DOC}.pdf ({(D / f'{DOC}.pdf').stat().st_size // 1024} KB)")
