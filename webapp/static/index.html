@@ -1,5 +1,6 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><title>SRv6 Tenant Provisioning Portal</title>
+<script>try { document.documentElement.dataset.skin = localStorage.getItem('portal-skin') || 'default'; } catch (e) { document.documentElement.dataset.skin = 'default'; }</script>
 <script>try { const t = localStorage.getItem('portal-theme'); document.documentElement.dataset.theme = t ? t : (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'); } catch (e) { }</script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
@@ -37,13 +38,52 @@
   svg.smap { width:100%; max-width:720px; height:auto; display:block; margin:auto } svg.smap text { font-size:12px; fill:var(--ink) }
   .legend span { display:inline-flex; align-items:center; gap:6px; margin-right:16px; font-size:12px } .legend i { display:inline-block; width:22px; height:0; border-top:3px solid }
   dialog { border:1px solid var(--line); border-radius:10px; padding:18px 20px; width:min(760px, 95vw) } dialog::backdrop { background:rgba(15,23,42,.45) }
+
+  /* ---- skins: the look (default | apple), on top of the light / dark theme ---------------------------------------- */
+  header select.skin { width:auto; padding:2px 6px; font-size:12px; background:transparent; color:var(--header-ink); border:1px solid var(--header-muted); border-radius:6px } header select.skin option { color:#1d1d1f; background:#fff }
+  .hero { display:none }
+  html[data-skin="apple"] { --ink:#1d1d1f; --muted:#6e6e73; --line:#d2d2d7; --bg:#f5f5f7; --card:#fff; --accent:#0071e3; --ok:#248a3d; --warn:#b25000; --bad:#d70015; --blue:#0066cc;
+          --input:#fff; --pill:#e8e8ed; --ok-bg:#e3f5e6; --warn-bg:#fff4e5; --bad-bg:#ffe5e7; --header:rgba(250,250,252,.8); --header-ink:#1d1d1f; --header-muted:#6e6e73; --nav:#1d1d1f; --nav-on:transparent; --code-bg:#1d1d1f; --code-ink:#f5f5f7 }
+  html[data-skin="apple"][data-theme="dark"] { --ink:#f5f5f7; --muted:#86868b; --line:#424245; --bg:#000; --card:#1d1d1f; --accent:#0071e3; --ok:#30d158; --warn:#ff9f0a; --bad:#ff453a; --blue:#2997ff;
+          --input:#1d1d1f; --pill:#2c2c2e; --ok-bg:#0f2e17; --warn-bg:#33240a; --bad-bg:#3a1512; --header:rgba(22,22,23,.8); --header-ink:#f5f5f7; --header-muted:#a1a1a6; --nav:#e8e8ed; --code-bg:#000; --code-ink:#f5f5f7 }
+  html[data-skin="apple"] body { font:15px/1.47 -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Helvetica Neue", Helvetica, Arial, sans-serif; letter-spacing:-.01em; -webkit-font-smoothing:antialiased }
+  html[data-skin="apple"] header { position:sticky; top:0; z-index:10; padding:0 22px; min-height:44px; gap:18px; flex-wrap:nowrap; border-bottom:1px solid rgba(0,0,0,.06); backdrop-filter:saturate(180%) blur(20px); -webkit-backdrop-filter:saturate(180%) blur(20px) }
+  html[data-skin="apple"] header h1 { font-size:14px; font-weight:600; letter-spacing:0 } html[data-skin="apple"] header .sub { display:none }
+  html[data-skin="apple"] header nav { display:flex; gap:2px; margin:0 auto; overflow-x:auto; white-space:nowrap } html[data-skin="apple"] header nav a { font-size:12px; padding:13px 10px; border-radius:0; opacity:.8; color:var(--nav) }
+  html[data-skin="apple"] header nav a.on, html[data-skin="apple"] header nav a:hover { background:none; opacity:1; color:var(--header-ink) }
+  html[data-skin="apple"] header .right { margin-left:0; font-size:12px; white-space:nowrap } html[data-skin="apple"] header .right a { color:var(--blue) }
+  html[data-skin="apple"] main { max-width:1180px; padding:24px 22px 60px }
+  html[data-skin="apple"] .hero { display:block; text-align:center; padding:44px 0 34px } html[data-skin="apple"] .hero h2 { font-size:56px; line-height:1.07; font-weight:600; letter-spacing:-.005em; margin:0 }
+  html[data-skin="apple"] .hero p { font-size:24px; line-height:1.17; margin:8px 0 18px; color:var(--ink); font-weight:400 } html[data-skin="apple"] .hero .links { display:flex; gap:14px; justify-content:center; flex-wrap:wrap }
+  html[data-skin="apple"] .hero .links a { text-decoration:none; font-size:17px; padding:11px 22px; border-radius:980px; border:1px solid var(--accent); color:var(--blue) } html[data-skin="apple"] .hero .links a.fill { background:var(--accent); color:#fff }
+  html[data-skin="apple"] .card { border:none; border-radius:18px; padding:24px 26px; margin-bottom:20px }
+  html[data-skin="apple"] .card h2 { font-size:21px; font-weight:600; letter-spacing:.004em; margin-bottom:14px } html[data-skin="apple"] .card h2 small { font-size:14px }
+  html[data-skin="apple"] .grid { gap:20px }
+  html[data-skin="apple"] .kpis { gap:14px } html[data-skin="apple"] .kpi { background:var(--card); border:none; border-radius:18px; padding:20px 18px; text-align:center }
+  html[data-skin="apple"] .kpi .n { font-size:34px; font-weight:600; letter-spacing:-.01em } html[data-skin="apple"] .kpi .l { font-size:13px }
+  html[data-skin="apple"] button { font-size:14px; font-weight:400; letter-spacing:-.01em; border-radius:980px; padding:7px 17px; border:1px solid var(--accent); background:transparent; color:var(--blue) }
+  html[data-skin="apple"] button.primary { background:var(--accent); border-color:var(--accent); color:#fff } html[data-skin="apple"] button.primary:hover { background:#0077ed }
+  html[data-skin="apple"] button.danger { border-color:var(--bad); color:var(--bad) }
+  html[data-skin="apple"] input, html[data-skin="apple"] select { border-radius:12px; padding:8px 12px; border-color:var(--line) }
+  html[data-skin="apple"] input:focus, html[data-skin="apple"] select:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px rgba(0,113,227,.25) }
+  html[data-skin="apple"] header select.skin { padding:2px 8px; border-radius:980px; font-size:12px; border-color:var(--line); box-shadow:none }
+  html[data-skin="apple"] a { color:var(--blue) } html[data-skin="apple"] th { font-weight:500; color:var(--muted) } html[data-skin="apple"] th, html[data-skin="apple"] td { border-bottom-color:var(--pill) }
+  html[data-skin="apple"] .pill { border-radius:980px; padding:3px 10px; font-weight:500 }
+  html[data-skin="apple"] .tenant { border-left:none; box-shadow:inset 4px 0 0 var(--accent) } html[data-skin="apple"] .tenant.up { box-shadow:inset 4px 0 0 var(--ok) } html[data-skin="apple"] .tenant.degraded { box-shadow:inset 4px 0 0 var(--warn) } html[data-skin="apple"] .tenant.down { box-shadow:inset 4px 0 0 var(--bad) }
+  html[data-skin="apple"] pre.log { border-radius:14px } html[data-skin="apple"] dialog { border:none; border-radius:18px; box-shadow:0 20px 60px rgba(0,0,0,.25); background:var(--card); color:var(--ink) }
+  html[data-skin="apple"] .card svg, html[data-skin="apple"] #topo svg { border-radius:12px }
+  @media (max-width:820px) { html[data-skin="apple"] header { flex-wrap:wrap; padding:6px 16px 0; gap:6px 12px } html[data-skin="apple"] header .right { margin-left:auto }
+    html[data-skin="apple"] header nav { order:3; flex:1 0 100%; margin:0 -6px } html[data-skin="apple"] header nav a { padding:9px 8px }
+    html[data-skin="apple"] main { padding:16px 16px 40px } html[data-skin="apple"] .hero { padding:28px 0 22px } html[data-skin="apple"] .hero h2 { font-size:40px } html[data-skin="apple"] .hero p { font-size:19px } }
 </style></head>
 <body>
 <header><div><h1>SRv6 Tenant Provisioning Portal</h1><div class="sub">VyOS SRv6 core · IS-IS + BGP L3VPN (End.DT4) · Nautobot source of truth · Robot Framework validation</div></div>
   <nav><a href="#tenants" class="on" data-view="tenants">Tenants</a><a href="#steering" data-view="steering">Steering</a><a href="#sla" data-view="sla">SLA</a><a href="#capacity" data-view="capacity">Capacity</a><a href="#backups" data-view="backups">Backups</a><a href="#runs" data-view="runs">Runs</a><a href="/docs" target="_blank">API</a><a id="lg-link" href="#" target="_blank" title="the BGP looking glass: every VPN prefix in the core, its attributes and its history">Looking glass</a></nav>
-  <div class="right" id="hdr">Nautobot: <a id="nb-link" href="#" target="_blank">open</a> · <a href="#" id="theme-toggle" title="dark / light (follows the OS setting until chosen)">☾ dark</a></div></header>
+  <div class="right" id="hdr">Nautobot: <a id="nb-link" href="#" target="_blank">open</a> · <a href="#" id="theme-toggle" title="dark / light (follows the OS setting until chosen)">☾ dark</a> · <select id="skin" class="skin" title="the look of the portal"><option value="default">Default</option><option value="apple">Apple</option></select></div></header>
 <main>
 <section id="v-tenants" class="view on">
+  <div class="hero"><h2>SRv6 Core.</h2><p>Tenants, steering and SLAs. One network.</p>
+    <div class="links"><a href="#" class="fill" onclick="openWizard(); return false">Add a tenant</a><a href="#sla" onclick="show('sla'); return false">See the SLAs ›</a></div></div>
   <div class="kpis" id="kpis"></div>
   <div class="card"><h2>Tenants <small>one VRF per tenant on every PE and CE; tenants never meet</small>
     <span style="float:right"><button onclick="refresh(true)">Refresh live state</button> <button class="primary" onclick="openWizard()">Add tenant</button></span></h2>
@@ -120,6 +160,8 @@
 
 <script>
 function applyTheme() { let t = null; try { t = localStorage.getItem('portal-theme'); } catch (e) { } const dark = t ? t === 'dark' : (window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches); document.documentElement.dataset.theme = dark ? 'dark' : 'light'; const a = document.getElementById('theme-toggle'); if (a) a.textContent = dark ? '☀ light' : '☾ dark'; }
+function applySkin(v) { document.documentElement.dataset.skin = v; try { localStorage.setItem('portal-skin', v); } catch (e) { } }
+{ const sk = document.getElementById("skin"); sk.value = document.documentElement.dataset.skin || "default"; sk.onchange = () => applySkin(sk.value); }
 applyTheme(); document.getElementById('theme-toggle').onclick = e => { e.preventDefault(); try { localStorage.setItem('portal-theme', document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'); } catch (x) { } applyTheme(); };
 const $ = id => document.getElementById(id); const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 let ST = null, wizSpec = null, wizMode = 'tenant', wizStep = 1, watching = null;

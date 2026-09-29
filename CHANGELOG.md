@@ -10,6 +10,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 The current version is in [`VERSION`](VERSION), and in git as a `v<version>` tag.
 
+## [1.4.0] — 2026-09-28
+
+### Added
+- **Portal themes.** A picker in the header switches the look of the portal; the browser remembers the choice.
+  - **Default:** the existing layout, unchanged.
+  - **Apple:** styled after the apple.com homepage. It has a light translucent nav bar, the system SF font, white
+    rounded tiles on light grey, blue pill buttons and a large centred headline, with a phone-width layout.
+  - Both themes have light and dark modes.
+
 ## [1.3.0] — 2026-09-28
 
 ### Added

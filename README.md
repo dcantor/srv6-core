@@ -213,6 +213,16 @@ The run engine (steps, streamed log, resume, Robot reports) comes from the share
 | Backups | back the whole lab up into one file, download or upload one, see what restoring it would change, and restore it as a run |
 | Runs | every pipeline run with its steps, streamed log, the Robot report; failed or interrupted runs can be **resumed** from the failed step |
 
+**Themes.** The picker in the header switches the portal's look, and the choice is remembered in the browser. The
+☾ / ☀ link switches light or dark in either theme (it follows the OS setting until chosen).
+- **Default:** the dense operator layout.
+- **Apple:** styled after the apple.com homepage. It has a light translucent nav bar with the links centred, the
+  system SF font, a light grey page with white rounded tiles, blue pill buttons, and a large centred headline on the
+  Tenants view. It lays out for phone width too.
+
+A theme is a set of CSS rules under `html[data-skin=…]` in `webapp/static/index.html`, so adding one is a single block of
+variables and overrides.
+
 An **add tenant / add site** run: validate → `lab.conf` + day-0 configs (`gen_configs.py`) → host VMs created and booted → the CEs at the
 chosen sites re-wired (their VM definition gains the new links; ~60 s reboot each, the PEs are untouched because they anchor
 the UDP links and have spare ports) → configuration pushed to the PEs and CEs over SSH (`lab.sh configure`) → Nautobot seeded →
