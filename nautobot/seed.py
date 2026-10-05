@@ -462,7 +462,8 @@ CTX = {"domain_name": "lab.local", "oob": {"network": OOB["network"], "gateway":
        "isis": {"area": SVC["isis_area"], "level": "level-2", "metric_style": "wide", "network": "point-to-point", "bfd": True},
        "srv6": {**SR, "locator_name": "main", "sid_interface": "dum0", "behavior_usid": SR["format"].startswith("usid")},
        "core_mtu": 9000, "route_reflectors": SVC["rrs"], "tenants": {t: {"table": v["table"], "rt": v["rt"]} for t, v in SVC["tenants"].items()},
-       **({"internet": SVC["internet"]} if SVC.get("internet") else {})}
+       **({"internet": SVC["internet"]} if SVC.get("internet") else {}),
+       **({"lg": SVC["lg"]} if SVC.get("lg") else {})}       # the looking glass's feed: bmp or session
 ctx = nb.extras.config_contexts.get(name=SITE)
 if ctx is None: nb.extras.config_contexts.create(name=SITE, description="SRv6 core lab constants (IS-IS, SRv6 structure, BFD, MTU, OOB, tenant tables)", locations=[site.id], data=CTX); created.append("config-context:srv6-core")
 elif current(ctx.data) != CTX: patch(f"extras/config-contexts/{ctx.id}", data=CTX, locations=[site.id]); created.append("config-context updated")

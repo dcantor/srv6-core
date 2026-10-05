@@ -432,6 +432,7 @@ cmd_configure() {  # (re)apply nodes/<n>/vyos_config.txt over SSH — idempotent
   need_python
   local n; for n in $(vyos_nodes_or_all "$@"); do "$PY" "$LAB_DIR/tools/vyos_push.py" "${MGMT_IP[$n]}" "$(node_dir "$n")/vyos_config.txt" | sed "s/^/[$n] /"; done
   "$PY" "$LAB_DIR/tools/frr_logging.py" $(vyos_nodes_or_all "$@")   # FRR state changes to syslog (not expressible in the CLI, see the tool)
+  "$PY" "$LAB_DIR/tools/bmp_hook.py" $(vyos_nodes_or_all "$@")      # BMP to the looking glass for the VPN families (ditto)
   for n in $(nodes_or_all "$@"); do is_lg "$n" && cmd_lg deploy; done   # the collector: its FRR config and the lgd service
   true
 }
@@ -504,7 +505,7 @@ cmd_inventory() {  # the lab as JSON (nodes, links, service) — consumed by tes
     local rj=""; for t in "${RRS[@]}"; do rj+="${rj:+, }\"$t\""; done
     local sr; if [[ "$SRV6_FORMAT" == usid* ]]; then sr='"format": "usid-f3216", "block_len": 32, "node_len": 16, "func_bits": 16'; else sr='"format": "uncompressed-f4024", "block_len": 40, "node_len": 24, "func_bits": 16'; fi
     local ij=""; [[ -n "${INTERNET_FW:-}" ]] && ij=', "internet": {"pe": "'"$INTERNET_PE"'", "fw": "'"$INTERNET_FW"'", "net": "'"$INTERNET_NET"'", "asn": '"$INTERNET_AS"'}'
-    echo ' "service": {"core_as": '"$CORE_AS"', "rr": "'"$RR"'", "rrs": ['"$rj"'], "isis_area": "'"$ISIS_AREA"'", "srv6": {"block": "'"$SRV6_BLOCK"'", '"$sr"'}, "tenants": {'"$tj"'}'"$ij"'},'
+    echo ' "service": {"core_as": '"$CORE_AS"', "rr": "'"$RR"'", "rrs": ['"$rj"'], "isis_area": "'"$ISIS_AREA"'", "srv6": {"block": "'"$SRV6_BLOCK"'", '"$sr"'}, "tenants": {'"$tj"'}'"$ij"', "lg": {"feed": "'"${LG_FEED:-session}"'", "bmp_port": '"${LG_BMP_PORT:-11019}"'}},'
     echo ' "nodes": ['
     local first=1
     for n in "${ALL_NODES[@]}" "${EXT_NODES[@]}"; do

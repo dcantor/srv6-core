@@ -147,7 +147,7 @@
     <div id="topo"></div></div>
   <div class="split">
     <div class="card"><h2>Collector sessions <small>iBGP to every route reflector, one link each</small></h2>
-      <table><thead><tr><th>Reflector</th><th>State</th><th>AS</th><th>VPNv4</th><th>VPNv6</th><th>Up since</th></tr></thead><tbody id="ov-peers"></tbody></table>
+      <table><thead><tr id="ov-peers-head"><th>Reflector</th><th>State</th><th>AS</th><th>VPNv4</th><th>VPNv6</th><th>Up since</th></tr></thead><tbody id="ov-peers"></tbody></table>
       <p class="hint" id="ov-peers-hint"></p></div>
     <div class="card"><h2>Paths over time <small>what the collector held, per address family</small></h2>
       <div id="ov-chart"></div><div class="legend" id="ov-legend"></div></div>
@@ -230,8 +230,10 @@
 </section>
 
 <section id="v-peers" class="view">
-  <div class="card"><h2>BGP sessions <small>the collector is a reflector client: it receives everything and announces nothing</small></h2>
-    <table><thead><tr><th>Peer</th><th>Name</th><th>State</th><th>AS</th><th>Router-id</th><th>Accepted</th><th>Messages rx/tx</th><th>Established</th></tr></thead><tbody id="pe-rows"></tbody></table></div>
+  <div class="card"><h2 id="pe-title">BGP sessions <small>the collector is a reflector client: it receives everything and announces nothing</small></h2>
+    <table><thead><tr id="pe-head"><th>Peer</th><th>Name</th><th>State</th><th>AS</th><th>Router-id</th><th>Accepted</th><th>Messages rx/tx</th><th>Established</th></tr></thead><tbody id="pe-rows"></tbody></table></div>
+  <div class="card" id="pe-bgp-card" style="display:none"><h2>The reflectors’ own BGP sessions <small>as each reflector reports them over BMP (Peer Up / Peer Down), with the reason a session went down</small></h2>
+    <table><thead><tr><th>Reflector</th><th>Peer</th><th>Address</th><th>AS</th><th>Router-id</th><th>State</th><th>Since</th><th>Why down</th></tr></thead><tbody id="pe-bgp"></tbody></table></div>
   <div class="card"><h2>Collections <small>the collector's own table is read locally; the per-VRF views are polled over SSH</small></h2>
     <table><thead><tr><th>View</th><th>Last</th><th>Result</th><th>Paths</th><th>Took</th><th>Error</th></tr></thead><tbody id="pe-polls"></tbody></table></div>
 </section>
@@ -293,9 +295,16 @@ const prefixLink = p => `<a class="link mono" href="#prefix/${encodeURIComponent
 /* how a row was obtained — the looking glass never shows a route without saying where it got it */
 const VIA = {
   'rr-session': ['session', 'ok', 'the collector\'s own iBGP session with the route reflectors — full path attributes'],
+  'bmp-loc-rib': ['BMP Loc-RIB', 'ok', 'streamed by a route reflector over BMP: its Loc-RIB, the best paths it reflects to the PEs'],
+  'bmp-pre-policy': ['BMP pre-policy', 'ok', 'streamed by a route reflector over BMP: what a PE sent it, before any policy (its Adj-RIB-In)'],
   'router-api': ['router API', 'warn', 'read from the router\'s own HTTPS API (JSON)'],
   'router-ssh': ['router SSH', '', 'read with vtysh over SSH — the views the router\'s API cannot express'],
 };
+const isUp = p => p.state === 'Established' || p.state === 'up';
+const stateClass = st => st === 'up' ? 'ok' : st === 'down' || st === 'terminated' ? 'bad' : st;
+/* the views that are not a router's own: the core's table, and (over BMP) what each PE sent the reflectors */
+const srcPill = s => s === 'collector' ? '<span class="pill ok">core</span>' : s === 'adj-in' ? '<span class="pill ok" title="what each PE sent the reflectors, before policy (BMP pre-policy)">sent by the PEs</span>' : node(s);
+const srcName = s => s === 'collector' ? 'the core (collector)' : s === 'adj-in' ? 'sent by the PEs (BMP pre-policy)' : s;
 const viaPill = v => { const x = VIA[v] || [v || '—', '', '']; return `<span class="pill ${x[1]}" title="${esc(x[2])}">${esc(x[0])}</span>`; };
 
 /* ---- routing --------------------------------------------------------- */
@@ -321,27 +330,38 @@ async function loadOverview() {
   STATUS = await api('/api/status');
   const s = STATUS, core = s.counts.filter(c => c.source === 'collector');
   const paths = core.reduce((a, c) => a + c.n, 0), prefixes = core.reduce((a, c) => a + c.prefixes, 0);
-  const up = s.collector.peers.filter(p => p.state === 'Established').length;
+  const up = s.collector.peers.filter(isUp).length, bmp = s.collector.feed === 'bmp';
   const vrfs = new Set(core.map(c => c.vrf).filter(Boolean));
   $('#kpis').innerHTML = [
     ['Prefixes in the core', prefixes], ['Paths', paths], ['Tenant VRFs', vrfs.size],
-    ['Reflector sessions', `${up}/${s.collector.peers.length}`],
+    [bmp ? 'Reflector BMP feeds' : 'Reflector sessions', `${up}/${s.collector.peers.length}`],
     ['Changes (1 h)', Object.values(s.churn['1h']).reduce((a, b) => a + b, 0)],
     ['History kept', `${s.db.events} events`],
   ].map(([l, n]) => `<div class="kpi"><div class="n">${n}</div><div class="l">${l}</div></div>`).join('');
-  $('#hdr-state').textContent = `${up}/${s.collector.peers.length} sessions · ${prefixes} prefixes · AS ${s.collector.asn}`;
-  $('#ov-peers').innerHTML = s.collector.peers.map(p => {
+  $('#hdr-state').textContent = `${up}/${s.collector.peers.length} ${bmp ? 'BMP feeds' : 'sessions'} · ${prefixes} prefixes · AS ${s.collector.asn}`;
+  $('#ov-peers-head').innerHTML = bmp ? '<th>Reflector</th><th>BMP</th><th>Its PE sessions</th><th>Loc-RIB</th><th>Pre-policy</th><th>Up since</th>'
+    : '<th>Reflector</th><th>State</th><th>AS</th><th>VPNv4</th><th>VPNv6</th><th>Up since</th>';
+  if (bmp) $('#ov-peers').innerHTML = s.collector.peers.map(p => {
+    const bgp = (p.bgp_peers || []).filter(b => b.type !== 'loc-rib'), v = p.views || {};
+    return `<tr><td>${node(p.name || p.ip)}<div class="hint mono">${esc(p.ip)} · ${esc(p.sys_descr || '')}</div></td>
+      <td><span class="pill ${stateClass(p.state)}">${esc(p.state)}</span>${p.state === 'up' && !p.synced ? ' <span class="pill warn">replaying</span>' : ''}</td>
+      <td>${bgp.filter(b => b.state === 'up').length}/${bgp.length} up</td>
+      <td>${v['loc-rib'] ?? '—'}</td><td>${v['pre-policy'] ?? '—'}</td><td>${p.uptime ? fmtAgo(p.uptime) : '—'}</td></tr>`;
+  }).join('');
+  else $('#ov-peers').innerHTML = s.collector.peers.map(p => {
     const f = k => (p.families && p.families[k] && p.families[k].accepted != null) ? p.families[k].accepted : '—';
     return `<tr><td>${node(p.name || p.ip)}<div class="hint mono">${esc(p.ip)}</div></td>
       <td><span class="pill ${esc(p.state)}">${esc(p.state)}</span></td><td>${p.remote_as ?? ''}</td>
       <td>${f('ipv4Vpn')}</td><td>${f('ipv6Vpn')}</td><td>${p.uptime ? fmtAgo(p.uptime) : '—'}</td></tr>`;
   }).join('');
-  $('#ov-peers-hint').textContent = `router-id ${s.collector.router_id}, AS ${s.collector.asn}; the collector's own table is re-read every ${s.poll_intervals.local} s, the per-VRF views every ${s.poll_intervals.devices} s.`;
-  const rank = x => x === 'collector' ? 0 : (META.nodes[x] || {}).role === 'pe' ? 1 : (META.nodes[x] || {}).role === 'ce' ? 2 : 3;
+  $('#ov-peers-hint').textContent = bmp
+    ? `each reflector streams its tables over BMP (port ${s.collector.bmp_port}) as they change — its Loc-RIB is the core's VPN table, its pre-policy Adj-RIB-In what each PE sent it; the per-VRF views are polled every ${s.poll_intervals.devices} s.`
+    : `router-id ${s.collector.router_id}, AS ${s.collector.asn}; the collector's own table is re-read every ${s.poll_intervals.local} s, the per-VRF views every ${s.poll_intervals.devices} s.`;
+  const rank = x => x === 'collector' ? 0 : x === 'adj-in' ? 0.5 : (META.nodes[x] || {}).role === 'pe' ? 1 : (META.nodes[x] || {}).role === 'ce' ? 2 : 3;
   $('#ov-counts').innerHTML = s.counts.sort((a, b) => rank(a.source) - rank(b.source) ||
       a.source.localeCompare(b.source) || a.afi.localeCompare(b.afi) || (a.vrf || '').localeCompare(b.vrf || '')).map(c =>
     `<tr style="cursor:pointer" onclick="jumpTo('${c.source}','${c.afi}','${c.safi}','${c.vrf || ''}')">
-       <td>${c.source === 'collector' ? '<span class="pill ok">core (collector)</span>' : node(c.source)}</td>
+       <td>${c.source === 'collector' ? '<span class="pill ok">core (collector)</span>' : srcPill(c.source)}</td>
        <td class="mono">${c.afi} ${c.safi}</td><td>${esc(c.vrf || '—')}</td>
        <td>${c.prefixes}</td><td>${c.n}</td><td>${viaPill(c.via)}</td>
        <td class="hint">${s.polls[c.source] ? fmtAgo(s.polls[c.source].ts) + ' ago' : '—'}</td></tr>`).join('');
@@ -349,7 +369,7 @@ async function loadOverview() {
   drawTopology($('#topo'));
   $('#topo-legend').innerHTML = `<i style="display:inline-block;width:14px;border-top:2px solid var(--accent)"></i> core ·
     <i style="display:inline-block;width:14px;border-top:2px solid var(--muted)"></i> tenant ·
-    <i style="display:inline-block;width:14px;border-top:2px dashed var(--ok)"></i> collector session ·
+    <i style="display:inline-block;width:14px;border-top:2px dashed var(--ok)"></i> ${bmp ? 'BMP feed' : 'collector session'} ·
     <i style="display:inline-block;width:14px;border-top:2px dashed var(--bad)"></i> no IS-IS adjacency · click a router to list what it holds`;
   const ev = await api('/api/history?limit=25');
   $('#ov-events').innerHTML = ev.events.map(eventRow).join('') || '<tr><td colspan="6" class="hint">nothing has changed since the collector started</td></tr>';
@@ -538,6 +558,7 @@ async function loadPrefixes(append) {
   $('#pf-more').disabled = $('#pf-rows').children.length >= d.total;
   $('#pf-hint').textContent = $('#f-source').value === 'collector' || !$('#f-source').value
     ? 'The collector’s view is the core’s VPN table: one row per path a reflector handed over, with the attributes the PE originated.'
+    : $('#f-source').value === 'adj-in' ? 'What each PE sent each reflector, before any policy — one row per PE, per reflector that heard it (BMP pre-policy).'
     : 'A device view is that router’s own table after import — what the tenant actually has on that PE or CE.';
 }
 const morePrefixes = () => loadPrefixes(true);
@@ -554,7 +575,7 @@ function pathRow(p) {
     <td>${a.local_pref ?? '—'}</td><td>${a.med ?? '—'}</td>
     <td class="mono">${esc(a.sid || '—')}</td><td class="mono">${esc(a.ext_communities || '—')}</td>
     <td class="hint">${fmtAgo(p.first_seen)}</td>
-    <td>${p.source === 'collector' ? '<span class="pill ok">core</span>' : node(p.source)}</td>
+    <td>${srcPill(p.source)}</td>
     <td>${viaPill(p.via)}</td></tr>`;
 }
 
@@ -584,7 +605,7 @@ async function renderPrefix(prefix) {
     ? `${PX.events.length} event(s) between ${fmtTime(Math.min(...PX.events.map(e => e.ts)))} and now`
     : 'no change since the collector started';
   $('#px-events').innerHTML = PX.events.map(e => `<tr><td class="hint">${fmtTime(e.ts)}</td><td><span class="pill ${e.kind}">${e.kind}</span></td>
-    <td>${e.source === 'collector' ? '<span class="pill ok">core</span>' : node(e.source)}</td><td>${esc(e.vrf || '—')}<div class="hint mono">${esc(e.rd || '')}</div></td>
+    <td>${srcPill(e.source)}</td><td>${esc(e.vrf || '—')}<div class="hint mono">${esc(e.rd || '')}</div></td>
     <td>${node(e.origin_node || e.peer_name || '')}</td><td class="mono">${changeText(e)}</td>
     <td style="width:1%"><button onclick="showAt(${e.ts})">this moment</button></td></tr>`).join('');
   renderAt(null);
@@ -641,12 +662,12 @@ async function renderAt(at) {
   }
   $('#px-when').innerHTML = note;
   showPath(PX.prefix, null, $('#px-from').value || null, 'px-path', at);
-  const groups = {}, rank = s => s === 'collector' ? 0 : (META.nodes[s] || {}).role === 'pe' ? 1 : (META.nodes[s] || {}).role === 'ce' ? 2 : 3;
+  const groups = {}, rank = s => s === 'collector' ? 0 : s === 'adj-in' ? 0.5 : (META.nodes[s] || {}).role === 'pe' ? 1 : (META.nodes[s] || {}).role === 'ce' ? 2 : 3;
   paths.sort((a, b) => rank(a.source) - rank(b.source) || a.source.localeCompare(b.source) || (b.best - a.best));
   paths.forEach(p => { (groups[p.source] = groups[p.source] || []).push(p); });
   $('#px-paths').innerHTML = Object.entries(groups).map(([source, ps]) => `<div class="card">
-    <h2>${source === 'collector' ? 'The core’s VPN table' : 'On ' + esc(source)}
-      <small>${source === 'collector' ? 'as the reflectors handed it over' :
+    <h2>${source === 'collector' ? 'The core’s VPN table' : source === 'adj-in' ? 'As the PEs sent it' : 'On ' + esc(source)}
+      <small>${source === 'collector' ? 'as the reflectors handed it over' : source === 'adj-in' ? 'each PE’s announcement as a reflector received it, before any policy' :
         [...new Set(ps.map(x => x.safi))].map(s => s === 'rib' ? 'its routing table' : s === 'vpn' ? 'its own VPN table' : 'after import, in the tenant’s VRF').join(' and ')}</small>
       <span style="float:right">${[...new Set(ps.map(x => x.via))].map(viaPill).join(' ')}</span></h2>
     ${ps.map(pathCard).join('')}</div>`).join('')
@@ -676,7 +697,7 @@ async function loadHistory() {
   if ($('#h-since').value) p.set('since', Math.round(Date.now() / 1000 - Number($('#h-since').value)));
   const d = await api('/api/history?' + p);
   $('#h-rows').innerHTML = d.events.map(e => `<tr><td class="hint">${fmtTime(e.ts)}</td><td><span class="pill ${e.kind}">${e.kind}</span></td>
-    <td>${prefixLink(e.prefix)}</td><td>${esc(e.vrf || '—')}</td><td>${e.source === 'collector' ? '<span class="pill ok">core</span>' : node(e.source)}</td>
+    <td>${prefixLink(e.prefix)}</td><td>${esc(e.vrf || '—')}</td><td>${srcPill(e.source)}</td>
     <td>${node(e.origin_node || e.peer_name || '')}</td><td class="mono">${changeText(e)}</td></tr>`).join('')
     || '<tr><td colspan="7" class="hint">no events in that window</td></tr>';
 }
@@ -684,11 +705,27 @@ async function loadHistory() {
 /* ---- sessions -------------------------------------------------------- */
 async function loadPeers() {
   const d = await api('/api/peers');
+  const bmp = d.peers.some(p => p.feed === 'bmp');
+  $('#pe-bgp-card').style.display = bmp ? '' : 'none';
+  if (bmp) {
+    $('#pe-title').innerHTML = 'BMP feeds <small>each route reflector connects to the looking glass and streams its tables as they change; nothing is polled</small>';
+    $('#pe-head').innerHTML = '<th>Reflector</th><th>Address</th><th>State</th><th>Software</th><th>Loc-RIB / pre-policy</th><th>End-of-RIB</th><th>Messages</th><th>Connected</th>';
+    $('#pe-rows').innerHTML = d.peers.map(p => `<tr><td>${node(p.name)}</td><td class="mono">${esc(p.ip)}</td>
+      <td><span class="pill ${stateClass(p.state)}">${esc(p.state)}</span>${p.state === 'up' && !p.synced ? ' <span class="pill warn">replaying</span>' : ''}
+        ${p.state !== 'up' && p.down_reason ? `<div class="hint">${esc(p.down_reason)}</div>` : ''}</td>
+      <td class="hint">${esc(p.sys_descr || '—')}</td><td>${(p.views || {})['loc-rib'] ?? '—'} / ${(p.views || {})['pre-policy'] ?? '—'}</td>
+      <td class="hint">${(p.eor || []).map(esc).join('<br>') || '—'}</td><td>${p.messages ?? '—'}</td>
+      <td>${p.uptime ? fmtAgo(p.uptime) + ' ago' : p.down_since ? 'down ' + fmtAgo(p.down_since) + ' ago' : '—'}</td></tr>`).join('');
+    $('#pe-bgp').innerHTML = d.peers.flatMap(p => (p.bgp_peers || []).filter(b => b.type !== 'loc-rib').map(b => `<tr><td>${node(p.name)}</td>
+      <td>${node(b.name)}</td><td class="mono">${esc(b.address || '')}</td><td>${b.asn ?? ''}</td><td class="mono">${esc(b.bgp_id || '')}</td>
+      <td><span class="pill ${stateClass(b.state)}">${esc(b.state)}</span></td><td>${b.since ? fmtAgo(b.since) + ' ago' : '—'}</td>
+      <td class="hint">${esc(b.reason || '')}</td></tr>`)).join('');
+  } else
   $('#pe-rows').innerHTML = d.peers.map(p => `<tr><td class="mono">${esc(p.ip)}</td><td>${node(p.name || '')}</td>
     <td><span class="pill ${esc(p.state)}">${esc(p.state)}</span></td><td>${p.remote_as ?? ''}</td><td class="mono">${esc(p.router_id || '')}</td>
     <td>${Object.entries(p.families || {}).map(([af, x]) => `${af}: ${x.accepted ?? '—'}`).join('<br>')}</td>
     <td>${p.messages.rx ?? '—'} / ${p.messages.tx ?? '—'}</td><td>${p.uptime ? fmtAgo(p.uptime) + ' ago' : '—'} <span class="hint">(${p.established_count ?? 0}×)</span></td></tr>`).join('');
-  $('#pe-polls').innerHTML = Object.values(d.polls).map(p => `<tr><td>${p.source === 'collector' ? '<span class="pill ok">core (local)</span>' : node(p.source)}</td>
+  $('#pe-polls').innerHTML = Object.values(d.polls).map(p => `<tr><td>${p.source === 'collector' ? `<span class="pill ok">core (${p.via === 'bmp' ? 'BMP' : 'local'})</span>` : srcPill(p.source)}</td>
     <td>${fmtAgo(p.ts)} ago</td><td><span class="pill ${p.ok ? 'ok' : 'bad'}">${p.ok ? 'ok' : 'failed'}</span></td>
     <td>${p.paths}</td><td>${(p.duration || 0).toFixed(1)} s</td><td class="mono">${esc(p.error || '')}</td></tr>`).join('');
 }
@@ -745,15 +782,15 @@ async function boot() {
   META = await api('/api/meta');
   document.title = `BGP Looking Glass — ${META.lab}`;
   $('#sub').textContent = `a passive route collector in the ${META.lab} core (AS ${META.core_as}, reflectors ${META.rrs.join(' + ')}) — every VPN prefix, its attributes, and how they changed`;
-  $('#f-source').innerHTML = '<option value="">every view</option>' + META.sources.map(s => `<option value="${s}">${s === 'collector' ? 'the core (collector)' : s}</option>`).join('');
+  $('#f-source').innerHTML = '<option value="">every view</option>' + META.sources.map(s => `<option value="${s}">${srcName(s)}</option>`).join('');
   $('#f-afi').innerHTML = '<option value="">every family</option>' + ['ipv4 vpn', 'ipv6 vpn', 'ipv4 unicast', 'ipv6 unicast', 'ipv4 rib', 'ipv6 rib'].map(f => `<option>${f}</option>`).join('');
   $('#f-via').innerHTML = '<option value="">however it was read</option>' + Object.entries(VIA).map(([k, v]) => `<option value="${k}">${v[0]}</option>`).join('');
   $('#f-vrf').innerHTML = '<option value="">every VRF</option>' + META.vrfs.map(v => `<option>${v}</option>`).join('');
   $('#f-rd').innerHTML = '<option value="">every RD</option>' + Object.entries(META.rds).sort().map(([rd, v]) => `<option value="${rd}">${rd} — ${v.vrf} on ${v.pe}</option>`).join('');
   try {                                      // the header line belongs to every page, not only the overview
-    const s = await api('/api/status'), up = s.collector.peers.filter(p => p.state === 'Established').length;
+    const s = await api('/api/status'), up = s.collector.peers.filter(isUp).length;
     const prefixes = s.counts.filter(c => c.source === 'collector').reduce((a, c) => a + c.prefixes, 0);
-    $('#hdr-state').textContent = `${up}/${s.collector.peers.length} sessions · ${prefixes} prefixes · AS ${s.collector.asn}`;
+    $('#hdr-state').textContent = `${up}/${s.collector.peers.length} ${s.collector.feed === 'bmp' ? 'BMP feeds' : 'sessions'} · ${prefixes} prefixes · AS ${s.collector.asn}`;
   } catch (e) { $('#hdr-state').textContent = 'the collector is not answering'; }
   route();
   setInterval(() => { if (location.hash.replace('#', '').startsWith('overview') || !location.hash) loadOverview(); }, 20000);
@@ -1017,7 +1054,7 @@ const toLocalInput = t => { const d = new Date(t * 1000), z = n => String(n).pad
 let CMP = { items: [], hide: new Set() };
 function openCompare() {
   if (!$('#cmp-source').options.length) {
-    $('#cmp-source').innerHTML = META.sources.map(s => `<option value="${esc(s)}">${esc(s === 'collector' ? 'collector (the core’s VPN table)' : s)}</option>`).join('') + '<option value="">every view</option>';
+    $('#cmp-source').innerHTML = META.sources.map(s => `<option value="${esc(s)}">${esc(s === 'collector' ? 'collector (the core’s VPN table)' : srcName(s))}</option>`).join('') + '<option value="">every view</option>';
     $('#cmp-vrf').innerHTML = '<option value="">every VRF</option>' + META.vrfs.map(v => `<option>${esc(v)}</option>`).join('');
     const now = Math.floor(Date.now() / 1000); $('#cmp-from').value = toLocalInput(now - 3600); $('#cmp-to').value = toLocalInput(now);
   }

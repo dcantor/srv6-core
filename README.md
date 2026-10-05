@@ -283,30 +283,61 @@ a single site. API: `GET/POST /api/backups`, `GET /api/backups/<file>`, `GET /ap
 `POST /api/backups/upload`, and `POST /api/runs` with `mode: restore`.
 
 ## The BGP looking glass (`lg`): a route collector with a memory
-A twenty-first VM — Alpine, 512 MiB — sits in the core as a **passive route collector**. FRR on it holds an iBGP session
-to *each* route reflector over its own point-to-point link, as a reflector client, so it receives the whole VPNv4 /
-VPNv6 table with the attributes the PEs originated and announces nothing back (an outbound `deny` route-map says so
-explicitly). On top of that RIB, `lgd` keeps a **history** and serves a web page and an API:
+A twenty-first VM — Alpine, 512 MiB — sits in the core as a **passive route collector**. Each route reflector streams
+its tables to it over **BMP** (BGP Monitoring Protocol, RFC 7854; Loc-RIB per RFC 9069) on its own point-to-point link,
+and `lgd` decodes the stream itself, keeps a **history** and serves a web page and an API:
 **http://192.168.50.231:8092** (the lab-side address is `http://10.3.0.70:8080`; the LAN port is a socat relay like
 Grafana's — `monitoring/lab-relay-lookingglass.service.example` in the lab-portal repo).
 
 ```
-                       ┌─ eth1 fd00:b:0:121::2 ── p1 eth5 (route reflector) ─┐
-   lg  (Alpine+FRR) ───┤                                                      ├── the whole VPNv4 / VPNv6 table,
-   AS 65000, rid .21   └─ eth2 fd00:b:0:321::2 ── p3 eth5 (route reflector) ─┘    one copy per reflector
+                       ┌─ eth1 fd00:b:0:121::2 ◀── BMP :11019 ── p1 eth5 (route reflector) ─┐   each reflector's Loc-RIB (the
+   lg  (Alpine, lgd) ──┤                                                                     ├── core's VPNv4 / VPNv6 table) and
+                       └─ eth2 fd00:b:0:321::2 ◀── BMP :11019 ── p3 eth5 (route reflector) ─┘   each PE's Adj-RIB-In, pre-policy
         │
         ├─ SQLite: every announce / attribute change / withdraw, per path        (the time series)
-        ├─ SSH poll of each PE, CE and the firewall: their per-VRF tables        (the tenant view after import)
+        ├─ HTTPS API / SSH poll of each PE, CE, P and the firewall              (the tenant view after import, the RIBs)
         └─ Flask: /api/… + the page + /metrics
 ```
 
-**Why a session and not screen-scraping.** The collector sees the same update the reflector sent: route distinguisher,
-route targets, **SRv6 SID** and VPN label, originator-id and cluster list, AS path, local preference — and the
-originating **PE's loopback still as the next hop**. That last one is the subtle part: the session negotiates
-`capability extended-nexthop`, without which FRR rewrites the IPv6 next hop of a VPNv4 route to its own address and
-every prefix would look as if it came from the reflector. The P router's side of both links is rendered by
-`tools/render.py` like everything else, and because the P router is the *first* end of the link its UDP ports do not
-change — p1 and p3 only needed `lab.sh configure`, never a rebuild.
+**Why BMP.** The reflector *pushes*: every update reaches the looking glass as the reflector processes it, with the
+attributes the PE originated — route distinguisher, route targets, the **SRv6 SID** (the BGP Prefix-SID's SRv6 L3
+Service TLV, decoded in `lg/bmp.py` with the SID structure, and the function bits that travel in the label field put
+back: `fd00:c:1::` + label `0xE0010` → `fd00:c:1:e001::`, pe1's End.DT46), originator-id and cluster list, and the PE's
+loopback as the next hop. Two views come with it that a BGP session cannot give:
+
+| View (`source`) | `via` | What |
+|---|---|---|
+| `collector` — the core's VPN table | `bmp-loc-rib` | each reflector's Loc-RIB: the best paths it reflects, one row per reflector (the one with the lowest link address is marked best, as the old session's tie-break did) |
+| `adj-in` — "sent by the PEs" | `bmp-pre-policy` | each reflector's Adj-RIB-In from every PE **before policy**: what the PE actually announced, one row per PE per reflector that heard it |
+
+…plus each reflector's **own sessions** (BMP Peer Up / Peer Down, with the reason a session went down) on the Sessions
+page and as `lg_bmp_peer_up` in `/metrics`. Nothing is polled: lgd reconciles the live tables into the store within
+~2 s of a change (it was a 20 s poll). A reflector that (re)connects replays its tables first; until its End-of-RIB the
+view keeps what that reflector showed last, and after an lgd restart a view waits (up to 5 minutes) until every
+reflector has shown a full table — so a restart does not read as every route withdrawn and announced again.
+
+**The reflector side, and what VyOS cannot express.** FRR 10.6 monitors VPNv4 / VPNv6 over BMP, but VyOS's CLI only
+offers the unicast families, every commit re-renders bgpd without anything else, and a BMP target committed while bgpd
+still runs without the module fails the *whole* BGP commit. So the rendered configuration only loads the module
+(`set system frr bmp`) and keeps each PE's Adj-RIB-In (`soft-reconfiguration inbound` on `RR-CLIENTS`, without which
+there is nothing to replay pre-policy), and `tools/bmp_hook.py` (run by `lab.sh configure`, like `frr_logging.py`):
+restarts bgpd once to load `-M bmp` (one reflector at a time, waiting for the PEs), removes the old iBGP neighbour, and
+installs a **commit hook** (`/config/scripts/commit/post-hooks.d/srv6-core-bmp`, also run at boot) that puts the target
+and its four `bmp monitor ipv4|ipv6 vpn pre-policy|loc-rib` lines back after any commit that took them away — and
+recreates the target when it does, because a monitor added to a live connection triggers no table dump. The reflector
+logs `srv6-core-bmp: BMP target lg (…) restored` when it does.
+
+**A replay gap in FRR.** FRR 10.6's table sync (`bmp_wrsync`) starts each RD's walk from a zeroed position and steps to
+the next node, so depending on how the tree was built it can skip a `0.0.0.0/0` at the top of an RD's table: p3 left
+pe4's two defaults out of every replay while p1 sent them (updates arriving later are monitored normally). lgd fills
+such a hole from the reflector's own VPN table, read through its API every poll — those rows say `via: router-api`
+and carry `bmp_gap: true`, and they have what that table has (no SID, no route targets).
+
+**The fallback.** `LG_FEED=session` in `lab.conf` (then `lab.sh configure p1 p3 lg`) brings back the original design:
+FRR on the VM holds an iBGP session to each reflector as a route-reflector client (`capability extended-nexthop`, or FRR
+rewrites a VPNv4 route's IPv6 next hop to the reflector's own address), rows say `via: rr-session`, and `bmp_hook.py`
+removes the hook, the target and the module. Both producers carry the setting (`service.lg` in the inventory, the
+`lg` key of the Nautobot config context), and `nautobot render --check` still compares the collector's two files.
 
 **And it reads every router directly, too.** The VPN table shows what travels between PEs; what a tenant actually has
 is the VRF table *after* import, and what the box will really do with a packet is in its RIB — neither exists in the
@@ -320,9 +351,9 @@ cannot:
 | the router's own VPN table (`show bgp ipv4\|ipv6 vpn json`) — on the PEs and the reflectors | `router-api` | the same routes the session delivers, fetched from the box: two answers to one question |
 | IS-IS adjacencies (`show isis neighbor json`) | `router-api` | the core as the routers see it — the map draws a link that has no adjacency as broken |
 | the per-VRF BGP tables (`show bgp vrf <t> ipv4 unicast detail json`) | `router-ssh` | VyOS's op-mode has no `json` for these, and the text form loses the attributes |
-| the whole VPNv4 / VPNv6 table with every attribute | `rr-session` | the collector's own iBGP session with the reflectors |
+| the whole VPNv4 / VPNv6 table with every attribute, and what each PE sent | `bmp-loc-rib`, `bmp-pre-policy` | BMP from each reflector (`rr-session` with `LG_FEED=session`) |
 
-**Every row says how it arrived** — `rr-session`, `router-api` or `router-ssh` — as a column, a filter and a pill next
+**Every row says how it arrived** — `bmp-loc-rib`, `bmp-pre-policy`, `router-api` or `router-ssh` (`rr-session` on the fallback) — as a column, a filter and a pill next
 to each view, because the same prefix seen two ways is two answers and a looking glass that hides which one it is
 showing is one you cannot trust. Asking for a single prefix returns all of them at once: the core's VPN table over the
 session, the reflectors' and PEs' own VPN tables through their API, each PE's and CE's VRF table over SSH, and every
@@ -347,7 +378,7 @@ where Prometheus scrapes them for the dashboard's **BGP looking glass** row and 
 | History | every change, newest first, with the diff |
 | Compare | **two moments side by side**: pick a start and an end (or the last 15 min / hour / 6 h / day / week), a view and a VRF, and every path that moved in between is listed as it stood at each end — *added*, *removed*, *changed* (only the fields that differ, down to one next hop's SID or label) or *flapped* (different in between, the same at both ends), with how many events it had |
 | Routers | every box it reads: identity, which transports it was read through, when, how many RIB / BGP / VPN entries it holds and its IS-IS adjacencies — and a second table of what each one holds, by family and VRF |
-| Sessions | the collector's BGP sessions and the health of every collection |
+| Sessions | the BMP feeds (state, replay, End-of-RIB, messages), every reflector's own BGP sessions as BMP reports them, and the health of every collection |
 | Live query | a `show` command straight on a router (or a ping from it) — the classic looking-glass button; only `show …`, `ping` and `traceroute`, only on the lab's devices |
 | Packet capture | **click any link on a map** (the Overview's or a prefix's path): `tcpdump` runs on one end of that link and the packets **stream in as they are decoded**, with **Stop** to end it early — an SRv6 packet shows its segment routing header and, underneath, the tenant's own packet — with the `.pcap` to download for Wireshark. On a prefix's path, **Capture along this path** captures on every link at once and follows each ping hop by hop |
 
@@ -397,7 +428,7 @@ curl -sk -X POST https://10.3.0.11/show -F key=srv6core-lab-looking-glass \
 ./lab.sh up lg         # start the VM (cloud-init gives it the OOB and both collector links)
 ./lab.sh lg deploy     # render frr.conf + lgd.json from the model, copy lg/ onto the VM, (re)start lgd
 ./lab.sh lg status     # sessions, what each view holds, the size of the history
-./lab.sh lg frr 'show bgp ipv4 vpn'      # the collector's own table
+./lab.sh lg frr 'show bgp ipv4 vpn'      # the collector's own table (LG_FEED=session only)
 curl -s http://10.3.0.70:8080/api/prefixes?vrf=tenant-a\&source=collector | jq '.paths[0]'
 ```
 The history lives on the VM (`/var/lib/lgd/lg.db`, WAL, 30 days by default, pruned hourly) and survives a restart of
@@ -629,7 +660,7 @@ rendered line is on the routers — suite 09 asserts both plus the model itself.
 invisible to REST reads (verify through GraphQL), VRF prefixes go through `vrf-prefix-assignments`, GraphQL returns
 choice fields upper-cased, and new custom fields need a Nautobot restart before GraphQL sees them.
 
-## Tests (`./lab.sh test`, 109 cases)
+## Tests (`./lab.sh test`, 112 cases)
 | Suite | Checks |
 |---|---|
 | 01 management | every node on the OOB network with SSH, host names, host LAN addresses, MTU 9000 on all core links, config saved |
@@ -641,7 +672,7 @@ choice fields upper-cased, and new custom fields need a Nautobot restart before 
 | 08 failover | BFD up on all 24 adjacencies; silent cut of p2–pe3 with a live 0.2 s ping: pe3 moves every tenant route to p3 within seconds, BFD reports Down, ≤ 10 packets lost across cut and repair (measured: 4); all BFD sessions and adjacencies back afterwards |
 | 09 nautobot | every device/link/address/VRF/RD/peering in Nautobot matches the inventory; Nautobot's rendering == lab.conf's; every rendered line present on the routers |
 | 10 throughput | iperf3 dc1 → dc3: TCP above the floor, UDP at 20 Mbit/s with no loss; **the core carries 100 Mbit/s host to host** — UDP at a 100 Mbit/s offered rate for 10 s with < 5 % loss and < 5 ms jitter and TCP ≥ 90 Mbit/s, dc1→dc3 in tenant-a and dc4→dc2 in tenant-b (measured 0.1–2.4 % loss, 98–127 Mbit/s TCP); steered (uSID and uncompressed) within half of the shortest path |
-| 15 looking glass | the collector's sessions Established at both reflectors with **nothing announced back**; every router read, each part of it through the transport that can express it (its API for the RIB / its own VPN table / IS-IS, SSH for the per-VRF BGP tables), the RIB carrying the SRv6 encapsulation the router really installed and the two VPN views agreeing on RD and next hop; **the drawn path crossing the P router the ingress PE actually forwards through**, and a steered prefix drawn along the segment list the policy installed (added and removed by the test); **the table and the path read back at a chosen moment** — the instant before a policy was applied and the instant after it, from the history alone; it holds exactly the prefixes the reflectors hold, once per reflector; every tenant LAN carries its RD, route target, the originating PE's loopback as next hop and a SID out of that PE's locator; no prefix appears in two VRFs; every per-VRF view matches the router it was polled from and none is stale; the filters (VRF, RD, origin AS, free text) hold; a live query reaches the router and a configuration command is refused; **a packet capture on a PE's core link catches the pings sent across it and hands back a real pcap**, and refuses an interface outside the model or an unsafe filter; **a live capture streams while it runs and stops on request**; **a capture along a prefix's path sees every ping at every hop, plain on the access links and SRv6-encapsulated in the core**; **a LAN withdrawn at the CE is recorded as a withdraw and the moment before it still shows the path**, and Compare shows it removed and then, across the whole flap, moved and back (restored in the teardown); `/metrics` and the portal's `/api/sd`; the VM's `frr.conf` and `lgd.json` are what the model renders |
+| 15 looking glass | **both reflectors' BMP feeds up and replayed** (End-of-RIB), reported Up by the reflectors, with no BGP session left to the collector (with `LG_FEED=session`: the sessions Established with **nothing announced back**); **the pre-policy view holds exactly what each reflector says it received from each PE**; **the SID decoded from BMP, transposition undone, is an End.DT46 the originating PE really has, into the right VRF**; **a commit on a reflector loses no BMP**: the hook restores the monitors and the replayed table is whole again; every router read, each part of it through the transport that can express it (its API for the RIB / its own VPN table / IS-IS, SSH for the per-VRF BGP tables), the RIB carrying the SRv6 encapsulation the router really installed and the two VPN views agreeing on RD and next hop; **the drawn path crossing the P router the ingress PE actually forwards through**, and a steered prefix drawn along the segment list the policy installed (added and removed by the test); **the table and the path read back at a chosen moment** — the instant before a policy was applied and the instant after it, from the history alone; it holds exactly the prefixes the reflectors hold, once per reflector; every tenant LAN carries its RD, route target, the originating PE's loopback as next hop and a SID out of that PE's locator; no prefix appears in two VRFs; every per-VRF view matches the router it was polled from and none is stale; the filters (VRF, RD, origin AS, free text) hold; a live query reaches the router and a configuration command is refused; **a packet capture on a PE's core link catches the pings sent across it and hands back a real pcap**, and refuses an interface outside the model or an unsafe filter; **a live capture streams while it runs and stops on request**; **a capture along a prefix's path sees every ping at every hop, plain on the access links and SRv6-encapsulated in the core**; **a LAN withdrawn at the CE is recorded as a withdraw and the moment before it still shows the path**, and Compare shows it removed and then, across the whole flap, moved and back (restored in the teardown); `/metrics` and the portal's `/api/sd`; the VM's `frr.conf` and `lgd.json` are what the model renders |
 | 11 monitoring | node-exporter + frr-exporter on every VyOS node (every PE BGP session Established per the exporter), node-exporter on every host, the portal's `/api/sd` lists every exporter and `/metrics` reports every tenant up / core fully adjacent; Prometheus scrapes all 31 lab targets, the alert rules are loaded and none fires (an info-level capacity notice aside), VictoriaMetrics holds the remote-written series **and the Telegraf series every node pushes** (tags, freshness, no FRR daemon down), every node's syslog is in VictoriaLogs, the log-derived alert rules are healthy and a live BGP reset raises one, sFlow samples from every P router show the encapsulated flow of a ping burst, Grafana serves the provisioned dashboards with the annotation layers |
 | 12 interconnect | the IPsec headends as tenant-a CEs: PE↔headend eBGP with the right AS, headend + branch LANs on every PE with a SID from the attaching PE's locator and under its RD at the reflectors, absent from tenant-b, dc host ↔ branch pings both ways, the path dc → PE → core → headend → IPsec tunnel → branch, SRv6 encapsulation on p2 (skipped without `EXT_NODES`) |
 | 13 dual-stack | per VRF an Established IPv6 eBGP session with the CE announcing its IPv6 LAN; every IPv6 LAN at both reflectors under the right RD and on every PE once per reflector; **one End.DT46 per VRF** with the same SID and label on the IPv4 and the IPv6 route; SRv6 encap routes for every remote IPv6 LAN in the right VRF only; the 8×7 IPv6 host matrix (in-tenant ok, cross-tenant none); IPv6-in-IPv6 on p2 towards the same SID |
@@ -789,8 +820,7 @@ a terminal page; run it with the cat8000v-ipsec `webapp/.venv` python).
 - **Don't run this alongside the cat9000v lab** (two 18 GiB Cat9kv); with the IPsec lab down there is ample headroom.
 
 ## Next
-TI-LFA / a full P-router failure, steering policies with fallback modelled in Nautobot, Golden Config compliance for VyOS,
+A full P-router failure, steering policies with fallback modelled in Nautobot, Golden Config compliance for VyOS,
 Alertmanager notifications, blackbox / synthetic probes; IPv6 for the internet breakout (NAT66 or a routed prefix) once the
-host uplink has it. For the looking glass: BMP instead of a BGP session once VyOS exposes it for the VPN address families
-(FRR has the module, the CLI only offers ipv4/ipv6 unicast), per-peer Adj-RIB-In views on the page (the sessions already
-keep them, `soft-reconfiguration inbound`).
+host uplink has it. For the looking glass: drop the BMP commit hook once VyOS's CLI
+offers the VPN families to monitor; Loc-RIB with ADD-PATH, so a reflector's backup paths show too.

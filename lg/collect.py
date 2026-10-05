@@ -230,10 +230,17 @@ class Collector:
     def __init__(self, cfg, store, log=print):
         self.cfg, self.store, self.log = cfg, store, log
         self.resolver = Resolver(cfg)
-        self.peers = {}            # the collector's BGP sessions, as of the last read
+        self.peers = {}            # the collector's feeds (BGP sessions or BMP connections), as of the last read
         self.adjacency = {}        # node -> IS-IS adjacencies, as the routers report them
         self.stop = threading.Event()
         self.last = {}
+        # where the core's VPN table comes from: BMP from the reflectors (the default), or the iBGP session (the fallback)
+        self.feed = None
+        if cfg.get("feed") == "bmp":
+            from bmp import Feed
+            self.feed = Feed(cfg, log=log)
+        self.started = time.time()
+        self._bmp = {"version": None, "ts": 0, "cache": {}}
 
     # ---- the collector's own table ---------------------------------------------------------------------------
     def vtysh(self, cmd, timeout=60):
@@ -294,7 +301,124 @@ class Collector:
         self.peers = peers
         return peers
 
+    # ---- the core's table over BMP ------------------------------------------------------------------------------
+    VIEWS = (("loc-rib", "collector", "bmp-loc-rib"), ("pre-policy", "adj-in", "bmp-pre-policy"))
+
+    def bmp_paths(self, view, rr, rows):
+        """One reflector's BMP view -> the looking glass's path shape. Loc-RIB rows stand where the session's paths
+        stood (peer = the reflector's end of the collector link, discriminator = the next hop), so the history carries
+        on across the switch; pre-policy rows are each PE's own announcement, one per reflector that heard it."""
+        rr_ip = {p["name"]: p["ip"] for p in self.cfg["collector"]["peers"]}
+        out = []
+        for (afi, safi, rd, prefix, peer_addr), a in rows:
+            if safi != "vpn": continue
+            a = dict(a)
+            if view == "loc-rib":
+                peer, peer_name, disc = rr_ip.get(rr, rr), rr, a.get("nexthop") or "-"
+            else:
+                peer, peer_name = peer_addr, self.resolver.node_of_ip(peer_addr)
+                disc = f"{rr}|{a.get('nexthop') or '-'}"; a["reflector"] = rr
+            a["peer_hostname"] = peer_name
+            m = re.findall(r"\d+", a.get("as_path") or "")
+            origin_node = (self.resolver.router_ids.get(a.get("originator_id")) or self.resolver.node_of_sid(a.get("sid"))
+                           or self.resolver.node_of_ip(a.get("nexthop")) or self.resolver.pe_of_rd(rd))
+            if view == "pre-policy": origin_node = origin_node or peer_name
+            out.append({"afi": afi, "safi": safi, "vrf": self.resolver.vrf_of_rd(rd), "rd": rd, "prefix": prefix,
+                        "disc": disc, "via": f"bmp-{view}", "peer": peer, "peer_name": peer_name,
+                        "origin_node": origin_node, "origin_as": int(m[-1]) if m else None,
+                        "nexthop": a.get("nexthop"), "best": False, "attrs": a})
+        return out
+
+    def bmp_gaps(self, view, rr, mine):
+        """What the reflector holds but its BMP replay left out. FRR 10.6's table sync (bmp_wrsync) starts each RD's walk
+        from a zeroed position and steps to the *next* node, so depending on how the tree was built it can skip a
+        0.0.0.0/0 at the top of an RD's table — p3 consistently left out pe4's two defaults while p1 sent them. Updates
+        that arrive later are monitored normally; only the replay misses them. The reflector's own VPN table, read
+        through its API every poll, fills such a hole — marked `via: router-api` and `bmp_gap`, so the row says
+        exactly how the looking glass knows it (and it carries what that table has: no SID, no route targets)."""
+        if not self.cfg.get("devices") or not any(d["name"] == rr for d in self.cfg["devices"]): return []
+        have = {(p["afi"], p["rd"], p["prefix"]) for p in mine}
+        if view == "pre-policy": have = {(p["afi"], p["rd"], p["prefix"], p["peer"]) for p in mine}
+        rr_ip = {p["name"]: p["ip"] for p in self.cfg["collector"]["peers"]}
+        _, own = self.store.paths(alive=True, limit=20000, source=rr, safi="vpn")
+        out = []
+        for r in own:
+            if not r.get("best") or not r.get("rd"): continue
+            k = (r["afi"], r["rd"], r["prefix"]) + ((r["peer"],) if view == "pre-policy" else ())
+            if k in have: continue
+            a = {**{x: y for x, y in (r.get("attrs") or {}).items() if x not in ("best", "selection_reason", "weight")},
+                 "bmp_gap": True, "peer_hostname": rr if view == "loc-rib" else r.get("peer_name")}
+            if view == "loc-rib": peer, peer_name, disc = rr_ip.get(rr, rr), rr, r.get("nexthop") or "-"
+            else: peer, peer_name, disc = r["peer"], r.get("peer_name"), f"{rr}|{r.get('nexthop') or '-'}"; a["reflector"] = rr
+            out.append({"afi": r["afi"], "safi": "vpn", "vrf": r.get("vrf"), "rd": r["rd"], "prefix": r["prefix"], "disc": disc,
+                        "via": "router-api", "peer": peer, "peer_name": peer_name, "origin_node": r.get("origin_node"),
+                        "origin_as": r.get("origin_as"), "nexthop": r.get("nexthop"), "best": False, "attrs": a})
+        return out
+
+    @staticmethod
+    def mark_best(paths):
+        """Each reflector's Loc-RIB holds only its own best paths, so a prefix arrives once per reflector, every copy
+        best. The collector used to choose one itself (FRR's last tie-break: the lowest neighbour address); do the same,
+        so `best` keeps meaning "the one path the core table shows for this prefix"."""
+        groups = {}
+        for p in paths: groups.setdefault((p["afi"], p["rd"], p["prefix"]), []).append(p)
+        for g in groups.values():
+            g.sort(key=lambda p: ipaddress.ip_address(p["peer"]) if re.match(r"^[0-9a-f:.]+$", p["peer"] or "") else p["peer"])
+            for i, p in enumerate(g):
+                p["best"] = i == 0; p["attrs"]["best"] = i == 0
+                if len(g) > 1: p["attrs"]["multipath"] = True
+
+    def collect_bmp(self):
+        """Reconcile the reflectors' BMP tables into the store — only when something arrived (or once a minute, for
+        the samples). A reflector still replaying its table after (re)connecting contributes what it last showed in
+        full; one that has never shown a full table keeps the whole view from being reconciled for up to 5 minutes,
+        so restarting lgd does not read as every route withdrawn and announced again."""
+        st = self.feed.status(); now = time.time()
+        if self._bmp["version"] == self.feed.version and now - self._bmp["ts"] < 60: return None
+        self._bmp["version"] = self.feed.version; self._bmp["ts"] = now
+        t0 = time.time(); total = 0; result = {}
+        families = [tuple(f) for f in self.cfg["collector"]["families"]]
+        rrs = [p["name"] for p in self.cfg["collector"]["peers"] if p.get("rr", True)]
+        for view, source, via in self.VIEWS:
+            snap = self.feed.snapshot(view); paths, blind = [], []
+            for rr in rrs:
+                rows = snap.get(rr)
+                if rows is None: rows = self._bmp["cache"].get((view, rr))
+                else: self._bmp["cache"][(view, rr)] = rows
+                if rows is None: blind.append(rr); continue
+                mine = self.bmp_paths(view, rr, rows)
+                paths += mine + self.bmp_gaps(view, rr, mine)
+            if blind and now - self.started < 300: continue        # a reflector not seen yet: wait up to 5 min
+            if view == "loc-rib": self.mark_best(paths)
+            for afi, safi in families:
+                mine = [p for p in paths if p["afi"] == afi and p["safi"] == safi]
+                r = self.store.reconcile(source, mine, scope={"afi": [afi], "safi": [safi]})
+                result[f"{source} {afi} {safi}"] = r; total += r["total"]
+                by_vrf = {}
+                for p in mine: by_vrf[p["vrf"] or "-"] = by_vrf.get(p["vrf"] or "-", 0) + 1
+                for vrf, n in by_vrf.items(): self.store.sample(source, "paths", n, afi=afi, safi=safi, vrf=vrf)
+        rr_ip = {p["name"]: p["ip"] for p in self.cfg["collector"]["peers"]}
+        peers = {}
+        for rr in rrs:
+            c = st.get(rr) or {}
+            peers[rr_ip[rr]] = {"ip": rr_ip[rr], "name": rr, "feed": "bmp", "state": c.get("state", "down"),
+                                "synced": bool(c.get("synced")), "uptime": c.get("since") if c.get("state") == "up" else None,
+                                "down_since": c.get("down_since"), "down_reason": c.get("down_reason"),
+                                "sys_name": c.get("sys_name"), "sys_descr": c.get("sys_descr"),
+                                "messages": c.get("messages"), "last_message": c.get("last"), "views": c.get("views", {}),
+                                "eor": c.get("eor", []),
+                                "bgp_peers": [{**x, "name": self.resolver.node_of_ip(x["address"]) or x["address"] or rr}
+                                              for x in c.get("peers", [])]}
+            self.store.sample("collector", "session_up", 1 if c.get("state") == "up" else 0, peer=rr)
+            for v, n in (c.get("views") or {}).items(): self.store.sample("collector", "bmp_routes", n, peer=rr, view=v)
+        self.peers = peers
+        self.store.note_poll("collector", True, time.time() - t0, total, via="bmp",
+                             detail={"peers": [{"name": p["name"], "state": p["state"], "synced": p["synced"]} for p in peers.values()]})
+        self.last["collector"] = time.time()
+        return result
+
     def collect_local(self):
+        if self.feed: return self.collect_bmp()
         t0 = time.time(); total = 0; result = {}
         try:
             for afi, safi in [tuple(f) for f in self.cfg["collector"]["families"]]:
@@ -458,7 +582,10 @@ class Collector:
 
     # ---- loops ------------------------------------------------------------------------------------------------
     def run(self):
-        for name, fn, period in (("local", self.collect_local, self.cfg["poll"]["local"]),
+        if self.feed:                              # BMP is pushed: listen, and reconcile as soon as anything arrives
+            threading.Thread(target=self.feed.serve, daemon=True, name="lgd-bmp").start()
+        local = 2 if self.feed else self.cfg["poll"]["local"]
+        for name, fn, period in (("local", self.collect_local, local),
                                  ("devices", self.collect_devices, self.cfg["poll"]["devices"]),
                                  ("prune", self.store.prune, 3600)):
             threading.Thread(target=self._loop, args=(name, fn, period), daemon=True, name=f"lgd-{name}").start()

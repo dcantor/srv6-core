@@ -6,7 +6,8 @@ Everything the UI shows comes from these endpoints, so anything the page can do 
   GET  /api/status                       collector, sessions, counts, poll health, database
   GET  /api/meta                         the model behind the filters: VRFs, RDs, sources, address families, nodes
   GET  /api/prefixes?...                 the current table (source, via, afi, safi, vrf, rd, origin_as, q, best_only, …)
-                                         — `via` is how the row was obtained: rr-session, router-api or router-ssh
+                                         — `via` is how the row was obtained: bmp-loc-rib / bmp-pre-policy (BMP from the
+                                         reflectors), rr-session (the fallback iBGP session), router-api or router-ssh
   GET  /api/prefix?prefix=1.2.3.0/24     every path for one prefix, in every view, with its history
   GET  /api/history?prefix=&since=       announce / change / withdraw events, newest first
   GET  /api/state?at=<epoch>&prefix=     the table as it stood at a moment (the event log replayed)
@@ -53,7 +54,8 @@ def create_app(cfg, store, collector):
         vrfs = sorted({v for v in (cfg.get("service", {}).get("tenants") or {})} | {"default"})
         return {"lab": cfg["lab"], "node": cfg["node"], "vrfs": vrfs, "tenants": cfg.get("service", {}).get("tenants", {}),
                 "rds": cfg.get("rd_map", {}), "nodes": cfg.get("nodes", {}), "devices": list(devices),
-                "sources": ["collector"] + list(devices), "srv6": cfg.get("service", {}).get("srv6", {}),
+                "sources": ["collector"] + (["adj-in"] if cfg.get("feed") == "bmp" else []) + list(devices),
+                "feed": cfg.get("feed", "session"), "srv6": cfg.get("service", {}).get("srv6", {}),
                 "core_as": cfg.get("service", {}).get("core_as"), "rrs": cfg.get("service", {}).get("rrs", []),
                 "peers": cfg["collector"]["peers"], "families": cfg["collector"]["families"],
                 "locators": cfg.get("locators", {}), "loopbacks": cfg.get("loopbacks", {}),
@@ -68,6 +70,7 @@ def create_app(cfg, store, collector):
         now = time.time()
         return jsonify({"lab": cfg["lab"], "node": cfg["node"], "uptime": now - started, "now": now,
                         "collector": {"asn": cfg["collector"]["asn"], "router_id": cfg["collector"]["router_id"],
+                                      "feed": cfg.get("feed", "session"), "bmp_port": (cfg.get("bmp") or {}).get("port"),
                                       "peers": list(collector.peers.values())},
                         "counts": counts, "polls": polls, "churn": {"5m": store.churn(now - 300), "1h": store.churn(now - 3600),
                                                                     "24h": store.churn(now - 86400)},
@@ -131,6 +134,8 @@ def create_app(cfg, store, collector):
                         "adjacencies": collector.adjacency.get(d["name"]), "holds": counts.get(d["name"], [])})
         return jsonify({"routers": out, "transports": {
             "rr-session": "the collector's own iBGP session to the route reflectors",
+            "bmp-loc-rib": "BMP from the route reflectors: each one's Loc-RIB, the best paths it reflects",
+            "bmp-pre-policy": "BMP from the route reflectors: each PE's Adj-RIB-In, what the PE sent, before any policy",
             "router-api": "the router's HTTPS API (VyOS `service https api`, JSON)",
             "router-ssh": "vtysh over SSH, for the views the API cannot express"}})
 
@@ -332,8 +337,13 @@ def create_app(cfg, store, collector):
             lab = {**L, "source": c["source"], "via": c["via"] or "-", "afi": c["afi"], "safi": c["safi"], "vrf": c["vrf"] or "-"}
             out += [_m("lg_paths", c["n"], lab), _m("lg_prefixes", c["prefixes"], lab)]
         for p in collector.peers.values():
-            lab = {**L, "peer": p["name"] or p["ip"], "remote_as": p.get("remote_as")}
-            out.append(_m("lg_session_up", 1 if p["state"] == "Established" else 0, lab))
+            lab = {**L, "peer": p["name"] or p["ip"], "remote_as": p.get("remote_as"), "feed": p.get("feed", "session")}
+            # one gauge whatever the feed: a BMP connection that is up counts as the session it replaces (alerts use it)
+            out.append(_m("lg_session_up", 1 if p["state"] in ("Established", "up") else 0, lab))
+            for view, n in (p.get("views") or {}).items(): out.append(_m("lg_bmp_routes", n, {**lab, "view": view}))
+            for b in p.get("bgp_peers") or []:           # the reflector's own sessions, as its BMP Peer Up / Down report them
+                if b.get("type") == "loc-rib": continue
+                out.append(_m("lg_bmp_peer_up", 1 if b.get("state") == "up" else 0, {**L, "reflector": p["name"], "peer": b.get("name"), "address": b.get("address")}))
             for af, d in (p.get("families") or {}).items():
                 if d.get("accepted") is not None: out.append(_m("lg_session_accepted_prefixes", d["accepted"], {**lab, "af": af}))
         now = time.time()

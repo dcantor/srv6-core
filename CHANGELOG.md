@@ -10,6 +10,39 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 The current version is in [`VERSION`](VERSION), and in git as a `v<version>` tag.
 
+## [1.7.0] — 2026-10-04
+
+### Changed
+- **The looking glass is fed over BMP** (RFC 7854, Loc-RIB per RFC 9069) instead of an iBGP session. Each route
+  reflector streams its tables to `lgd` on its own link (port 11019) and `lgd` decodes them itself (`lg/bmp.py`):
+  VPNv4 / VPNv6, route targets, and the SRv6 Prefix-SID with its structure, with the transposed function bits put back
+  into the SID (`transposed_sid`, e.g. `fd00:c:1:e001::`). The core's table now updates within ~2 s of a change (it was
+  a 20 s poll), and its rows keep the same identity, so the history carries on. Rows say `via: bmp-loc-rib`.
+- `LG_FEED` in `lab.conf` (`bmp` by default, `session` for the original design) chooses the feed. It is in the
+  inventory (`service.lg`) and the Nautobot config context, so both producers still render the same files.
+
+### Added
+- **What each PE sent, before policy:** a new view, `adj-in` ("sent by the PEs" on the page, `via: bmp-pre-policy`): each
+  reflector's Adj-RIB-In from every PE, one row per PE per reflector.
+- **The reflectors' own BGP sessions**, as BMP Peer Up / Peer Down report them (with the reason a session went down), on
+  the Overview and Sessions pages and as `lg_bmp_peer_up`; `lg_bmp_routes` per reflector and view. `lg_session_up` still
+  exists and counts a BMP feed that is up.
+- `tools/bmp_hook.py`, run by `lab.sh configure`: loads FRR's BMP module on the reflectors (one bgpd restart each, one at
+  a time), removes the old iBGP neighbour, and installs a commit hook that restores the BMP target and its VPN monitors
+  after every commit (VyOS's CLI only offers the unicast families) and at boot. With `LG_FEED=session` it undoes all of it.
+- The reflectors keep each PE's Adj-RIB-In (`soft-reconfiguration inbound` on `RR-CLIENTS`), which the pre-policy view
+  replays on every reconnect.
+- **Tests:** three new cases in `15_looking_glass` (the pre-policy view against what each reflector received, the decoded
+  SID against the PE's End.DT46, a commit on a reflector), and the session cases now check whichever feed is configured.
+  112 cases in all.
+
+### Known
+- FRR 10.6's BMP table replay can skip a `0.0.0.0/0` at the top of an RD's table (p3 leaves pe4's two defaults out of
+  every replay; p1 does not). `lgd` fills such a hole from the reflector's own VPN table, read through its API, and the
+  row says so (`via: router-api`, `bmp_gap: true`, no SID or route targets).
+- The switch recorded one "change" event per core path, because the stored attributes differ slightly between the two
+  feeds (no `weight` or `selection_reason`; `transposed_sid`, `behavior` and `nexthop_afi: ipv6` added).
+
 ## [1.6.0] — 2026-09-29
 
 ### Added

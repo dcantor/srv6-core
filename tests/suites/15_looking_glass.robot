@@ -1,15 +1,16 @@
 *** Settings ***
-Documentation     BGP looking glass: a small Alpine VM (lg) runs FRR as a **passive route collector** — an iBGP session to every
-...               route reflector over its own point-to-point link — so it holds the core's whole VPNv4 / VPNv6 table with the
-...               attributes the PEs originated: route distinguisher, route targets, SRv6 SID and label, originator and cluster
-...               list, and the PE's loopback still as the next hop (that last one only survives because the session negotiates
-...               extended next-hop encoding; without it FRR would rewrite it to the reflector's own address). On top of that RIB
+Documentation     BGP looking glass: a small Alpine VM (lg) holds the core's whole VPNv4 / VPNv6 table with the attributes the
+...               PEs originated: route distinguisher, route targets, SRv6 SID and label, originator and cluster list, and the
+...               PE's loopback as the next hop. With LG_FEED=bmp (the default) every route reflector streams it over **BMP**
+...               (RFC 7854) — its Loc-RIB, and each PE's Adj-RIB-In before policy, with every session's up / down — decoded by
+...               lgd itself; with LG_FEED=session FRR on the VM holds an iBGP session to every reflector instead (the original
+...               design, which needs extended next-hop encoding to keep the PE's loopback as the next hop). On top of that
 ...               the lgd service keeps a history in SQLite — every announce, every attribute change with the fields that changed,
 ...               every withdraw — polls each PE's and CE's per-VRF table over SSH for the tenant view after import, and serves
 ...               both through an API and a web page. It also reads **every router directly**: its RIB, its own VPN table and
 ...               its IS-IS adjacencies through the router's HTTPS API (VyOS `service https api`, JSON), and its per-VRF BGP
 ...               tables with vtysh over SSH — VyOS's op-mode has no `json` for those. Every row it stores says which of the
-...               three ways it came in (`rr-session`, `router-api`, `router-ssh`), so the same prefix can be held against
+...               ways it came in (`bmp-loc-rib`, `bmp-pre-policy`, `rr-session`, `router-api`, `router-ssh`), so the same prefix can be held against
 ...               itself. These tests check the collector against the reflectors it peers with, the API against the routers it
 ...               describes, the paths it draws against the routers' own forwarding state, and the history against a change
 ...               this suite makes and undoes.
@@ -93,6 +94,22 @@ Collector Paths For
     ${d}=    Lg    /api/prefixes    source=collector    prefix=${prefix}    vrf=${vrf}    limit=50
     RETURN    ${d}[paths]
 
+BMP Monitors Should Be Back
+    [Arguments]    ${rr}
+    ${cfg}=    Shell    ${rr}    sudo vtysh -c 'show running-config bgpd'
+    FOR    ${m}    IN    ipv4 vpn pre-policy    ipv4 vpn loc-rib    ipv6 vpn pre-policy    ipv6 vpn loc-rib
+        Should Contain    ${cfg}    bmp monitor ${m}    msg=${rr}: bmp monitor ${m} is missing after the commit
+    END
+
+Feed Should Be Synced And Whole
+    [Arguments]    ${rr}    ${paths}
+    ${s}=    Lg    /api/status
+    ${feed}=    Evaluate    [x for x in $s["collector"]["peers"] if x["name"] == "${rr}"][0]
+    Should Be Equal    ${feed}[state]    up
+    Should Be True    ${feed}[synced]
+    ${now}=    Lg    /api/prefixes    source=collector    peer=${rr}    limit=2000
+    Should Be Equal As Integers    ${now}[total]    ${paths}    msg=${rr}: ${now}[total] paths in the core's table after the commit, ${paths} before
+
 *** Test Cases ***
 The looking glass is up, and says which lab and which collector it is
     ${s}=    Lg    /api/status
@@ -103,18 +120,35 @@ The looking glass is up, and says which lab and which collector it is
     Length Should Be    ${s}[collector][peers]    ${{len($LG_PEERS)}}
     Should Be True    ${s}[db][events] > 0    msg=the collector has recorded no events at all
 
-Its session to every route reflector is Established, and the reflector sees a client that announces nothing
+Every route reflector feeds it, and nothing flows back
+    [Documentation]    BMP: each reflector's connection is up, it has finished replaying its tables (End-of-RIB), the
+    ...                reflector itself reports the connection Up, and it no longer holds a BGP session to the collector.
+    ...                Session: the iBGP session is Established, and the collector has announced nothing to the reflector.
     ${s}=    Lg    /api/status
-    FOR    ${rr}    IN    @{LG_PEERS}
-        ${p}=    Set Variable    ${LG_PEERS}[${rr}]
-        ${peer}=    Evaluate    [x for x in $s["collector"]["peers"] if x["ip"] == "${p}[rr_ip]"][0]
-        Should Be Equal    ${peer}[state]    Established    msg=the collector's session to ${rr} is ${peer}[state]
-        Should Be Equal As Integers    ${peer}[remote_as]    ${CORE_AS}
-        # ...and from the reflector's side: the session is up and the collector has sent it nothing (PfxSnt is ours, State/PfxRcd theirs)
-        ${sum}=    Vyos    ${rr}    show bgp ipv4 vpn summary
-        ${line}=    Get Lines Containing String    ${sum}    ${p}[lg_ip]
-        Should Match Regexp    ${line}    ^${p}[lg_ip]\\s+4\\s+${CORE_AS}\\s+\\d+\\s+\\d+\\s+\\d+\\s+\\d+\\s+\\d+\\s+\\S+\\s+0\\s
-        ...    msg=${rr}: the collector is not Established with 0 prefixes received from it — ${line}
+    IF    $LG_FEED == "bmp"
+        FOR    ${rr}    IN    @{LG_PEERS}
+            ${p}=    Set Variable    ${LG_PEERS}[${rr}]
+            ${feed}=    Evaluate    [x for x in $s["collector"]["peers"] if x["name"] == "${rr}"][0]
+            Should Be Equal    ${feed}[state]    up    msg=${rr}'s BMP connection is ${feed}[state]
+            Should Be True    ${feed}[synced]    msg=${rr} has not finished replaying its tables
+            Should Contain    ${feed}[eor]    loc-rib ipv4 vpn    msg=no End-of-RIB for ${rr}'s Loc-RIB: ${feed}[eor]
+            ${bmp}=    Shell    ${rr}    sudo vtysh -c 'show bmp'
+            Should Match Regexp    ${bmp}    ${p}[lg_ip]:\\d+\\s+Up    msg=${rr} does not report its BMP connection to the collector as Up
+            ${sum}=    Vyos    ${rr}    show bgp ipv4 vpn summary
+            Should Not Contain    ${sum}    ${p}[lg_ip]    msg=${rr} still has a BGP session to the collector
+        END
+    ELSE
+        FOR    ${rr}    IN    @{LG_PEERS}
+            ${p}=    Set Variable    ${LG_PEERS}[${rr}]
+            ${peer}=    Evaluate    [x for x in $s["collector"]["peers"] if x["ip"] == "${p}[rr_ip]"][0]
+            Should Be Equal    ${peer}[state]    Established    msg=the collector's session to ${rr} is ${peer}[state]
+            Should Be Equal As Integers    ${peer}[remote_as]    ${CORE_AS}
+            # ...and from the reflector's side: the session is up and the collector has sent it nothing (PfxSnt is ours, State/PfxRcd theirs)
+            ${sum}=    Vyos    ${rr}    show bgp ipv4 vpn summary
+            ${line}=    Get Lines Containing String    ${sum}    ${p}[lg_ip]
+            Should Match Regexp    ${line}    ^${p}[lg_ip]\\s+4\\s+${CORE_AS}\\s+\\d+\\s+\\d+\\s+\\d+\\s+\\d+\\s+\\d+\\s+\\S+\\s+0\\s
+            ...    msg=${rr}: the collector is not Established with 0 prefixes received from it — ${line}
+        END
     END
 
 It holds exactly what the reflectors hold: every VPNv4 and VPNv6 prefix, once per reflector
@@ -327,10 +361,10 @@ The routers' own tables agree with the routers, and the RIB carries the SRv6 enc
     ${own}=    Lg    /api/prefixes    source=${rr}    safi=vpn    prefix=${lan}
     Should Not Be Empty    ${own}[paths]                                     msg=${rr}: ${lan} is missing from its own VPN table
     Should Be Equal    ${own}[paths][0][via]    router-api
-    ${session}=    Lg    /api/prefixes    source=collector    safi=vpn    prefix=${lan}
-    Should Be Equal    ${session}[paths][0][via]    rr-session
-    Should Be Equal    ${own}[paths][0][rd]    ${session}[paths][0][rd]      msg=the two views disagree about the RD of ${lan}
-    Should Be Equal    ${own}[paths][0][nexthop]    ${session}[paths][0][nexthop]    msg=the two views disagree about the next hop of ${lan}
+    ${core}=    Lg    /api/prefixes    source=collector    safi=vpn    prefix=${lan}    best_only=1
+    Should Be Equal    ${core}[paths][0][via]    ${LG_VIA}
+    Should Be Equal    ${own}[paths][0][rd]    ${core}[paths][0][rd]      msg=the two views disagree about the RD of ${lan}
+    Should Be Equal    ${own}[paths][0][nexthop]    ${core}[paths][0][nexthop]    msg=the two views disagree about the next hop of ${lan}
 
 The path it draws for a prefix is the one the routers actually take
     ${t}=    Set Variable    ${TENANTS}[0]
@@ -342,7 +376,7 @@ The path it draws for a prefix is the one the routers actually take
     Should Contain    ${nodes}    ${site}[pe]                                msg=the path never reaches ${site}[pe], which owns ${site}[lan]
     Should Contain    ${nodes}    ${site}[ce]
     Should Be Equal    ${d}[egress]    ${site}[pe]
-    Should Be Equal    ${d}[sources][control_plane]    rr-session            msg=the attributes should come from the collector's session
+    Should Be Equal    ${d}[sources][control_plane]    ${LG_VIA}            msg=the attributes should come from the collector's own feed
     Should Be Equal    ${d}[sources][forwarding]    router-api               msg=the forwarding decision should come from the router's own API
     # the P routers on the drawn path are the ones the ingress PE really forwards through
     ${crossed}=    Evaluate    [h["node"] for h in $d["hops"] if h["role"] == "p"]
@@ -408,6 +442,11 @@ The numbers are exported for Prometheus, and the portal points the scraper at th
     Should Be Equal As Numbers    ${up}[0][value]    1
     ${sessions}=    Metric Samples    ${text}    lg_session_up
     Should Be True    all(s["value"] == 1 for s in $sessions) and len($sessions) == ${{len($LG_PEERS)}}    msg=lg_session_up: ${sessions}
+    IF    $LG_FEED == "bmp"
+        ${peers}=    Metric Samples    ${text}    lg_bmp_peer_up
+        Should Be True    len($peers) == len($PES) * len($LG_PEERS) and all(s["value"] == 1 for s in $peers)
+        ...    msg=lg_bmp_peer_up should report every PE up at every reflector: ${peers}
+    END
     ${paths}=    Metric Samples    ${text}    lg_paths
     ${core}=    Evaluate    [s for s in $paths if s["labels"]["source"] == "collector"]
     Should Not Be Empty    ${core}                                          msg=no lg_paths for the collector's own table
@@ -425,6 +464,53 @@ Its own configuration is rendered from the model, not kept by hand
     Should Be Equal    ${json}[node]    ${LG}
     Should Be Equal As Integers    ${json}[collector][asn]    ${CORE_AS}
     Should Be Equal    ${{sorted($json["rd_map"])}}    ${{sorted($RD_MAP)}}    msg=the collector's RD map is not the lab's
+
+Over BMP it also holds what each PE sent each reflector, before any policy
+    [Documentation]    The pre-policy view (source adj-in): per reflector and per PE, exactly as many routes as the reflector
+    ...                says it received from that PE, and each one names the PE that sent it.
+    Skip If    $LG_FEED != "bmp"    the looking glass is fed by the iBGP session (LG_FEED=session): no pre-policy view
+    ${d}=    Lg    /api/prefixes    source=adj-in    limit=5000
+    FOR    ${rr}    IN    @{LG_PEERS}
+        FOR    ${afi}    IN    ipv4    ipv6
+            ${sum}=    Vyos    ${rr}    show bgp ${afi} vpn summary
+            FOR    ${pe}    IN    @{PES}
+                ${line}=    Get Lines Containing String    ${sum}    ${LOOPBACK}[${pe}]${SPACE}
+                ${rcvd}=    Evaluate    int(r"""${line}""".split()[9])
+                ${held}=    Evaluate    len([p for p in $d["paths"] if p["afi"] == "${afi}" and p["peer_name"] == "${pe}" and p["attrs"].get("reflector") == "${rr}"])
+                Should Be Equal As Integers    ${held}    ${rcvd}    msg=${rr} received ${rcvd} ${afi} VPN routes from ${pe}, the pre-policy view holds ${held}
+            END
+        END
+    END
+
+The SID decoded from BMP is the one the originating PE installed
+    [Documentation]    lgd decodes the Prefix-SID itself (RFC 9252) and puts the transposed function bits back from the label
+    ...                field: the result must be an End.DT46 the originating PE really has.
+    Skip If    $LG_FEED != "bmp"    the SID is decoded by FRR on the collector with LG_FEED=session
+    ${t}=    Set Variable    ${TENANTS}[0]
+    FOR    ${dc}    IN    @{SITES}[${t}]
+        ${site}=    Set Variable    ${SITES}[${t}][${dc}]
+        ${core}=    Lg    /api/prefixes    source=collector    vrf=${t}    prefix=${site}[lan]    best_only=1
+        ${a}=    Set Variable    ${core}[paths][0][attrs]
+        Should Be Equal    ${core}[paths][0][via]    bmp-loc-rib
+        Should Be True    $a.get("transposed_sid")    msg=${site}[lan]: no transposed SID in ${a}
+        ${local}=    Shell    ${site}[pe]    sudo ip -c=never -6 route show ${a}[transposed_sid]
+        Should Contain    ${local}    End.DT46    msg=${site}[pe] has no End.DT46 at ${a}[transposed_sid] (${site}[lan]): ${local}
+        Should Contain    ${local}    vrftable ${t}    msg=${a}[transposed_sid] on ${site}[pe] does not decapsulate into ${t}
+    END
+
+A commit on a reflector does not cost the looking glass its BMP feed
+    [Documentation]    VyOS re-renders bgpd on every commit and drops the VPN monitors it cannot express; the commit hook
+    ...                (tools/bmp_hook.py) puts them back and makes the reflector replay, and the core's table is whole again.
+    Skip If    $LG_FEED != "bmp"    no BMP with LG_FEED=session
+    ${rr}=    Set Variable    ${RRS}[-1]
+    ${before}=    Lg    /api/prefixes    source=collector    peer=${rr}    limit=2000
+    TRY
+        Configure    ${rr}    set protocols bgp neighbor ${LOOPBACK}[${PES}[0]] description '${PES}[0] (looking-glass test)'
+        Wait Until Keyword Succeeds    60 s    5 s    BMP Monitors Should Be Back    ${rr}
+        Wait Until Keyword Succeeds    90 s    5 s    Feed Should Be Synced And Whole    ${rr}    ${before}[total]
+    FINALLY
+        Configure    ${rr}    set protocols bgp neighbor ${LOOPBACK}[${PES}[0]] description '${PES}[0]'
+    END
 
 The page itself loads and is the looking glass
     ${html}=    Http Get    ${LG_URL}/

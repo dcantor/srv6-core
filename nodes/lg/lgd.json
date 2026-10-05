@@ -3,6 +3,9 @@
   "key": "srv6core-lab-looking-glass",
   "scheme": "https"
  },
+ "bmp": {
+  "port": 11019
+ },
  "collector": {
   "asn": 65000,
   "families": [
@@ -325,6 +328,7 @@
    ]
   }
  ],
+ "feed": "bmp",
  "history_days": 30,
  "lab": "srv6-core",
  "listen": {

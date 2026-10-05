@@ -95,6 +95,10 @@ set protocols bgp peer-group RR-CLIENTS update-source fd00:a::11
 set protocols bgp peer-group RR-CLIENTS capability extended-nexthop
 set protocols bgp peer-group RR-CLIENTS address-family ipv4-vpn route-reflector-client
 set protocols bgp peer-group RR-CLIENTS address-family ipv6-vpn route-reflector-client
+# keep each PE's Adj-RIB-In as received: BMP's pre-policy view replays it to the looking glass on every
+# (re)connect — without it the reflector has nothing to replay, only the updates that arrive afterwards
+set protocols bgp peer-group RR-CLIENTS address-family ipv4-vpn soft-reconfiguration inbound
+set protocols bgp peer-group RR-CLIENTS address-family ipv6-vpn soft-reconfiguration inbound
 set protocols bgp neighbor fd00:a::1 peer-group RR-CLIENTS
 set protocols bgp neighbor fd00:a::1 description 'pe1'
 set protocols bgp neighbor fd00:a::2 peer-group RR-CLIENTS
@@ -106,11 +110,9 @@ set protocols bgp neighbor fd00:a::4 description 'pe4'
 # eth5: the BGP looking glass (lg) hangs off this reflector on its own link — no IS-IS, no SRv6, no traffic
 set interfaces ethernet eth5 address fd00:b:0:121::1/64
 set interfaces ethernet eth5 description 'looking glass: lg eth1'
-# ...and takes the whole VPN table as a reflector client. `capability extended-nexthop` is what keeps the PE's
-# loopback as the next hop: without it FRR rewrites the IPv6 next hop of a VPNv4 route to its own address and the
-# looking glass would show every prefix as coming from the reflector. The collector announces nothing back.
-set protocols bgp neighbor fd00:b:0:121::2 remote-as 65000
-set protocols bgp neighbor fd00:b:0:121::2 description 'lg (BGP looking glass: route collector)'
-set protocols bgp neighbor fd00:b:0:121::2 capability extended-nexthop
-set protocols bgp neighbor fd00:b:0:121::2 address-family ipv4-vpn route-reflector-client
-set protocols bgp neighbor fd00:b:0:121::2 address-family ipv6-vpn route-reflector-client
+# ...and the reflector streams its tables to it over BMP (RFC 7854, to fd00:b:0:121::2 port 11019): its Loc-RIB
+# (the best paths it reflects) and each PE's Adj-RIB-In before policy, with every session's up / down.
+# Only FRR's BMP module is set here. The target itself lives in a commit hook (tools/bmp_hook.py): VyOS's
+# CLI offers only the unicast families to monitor, every commit re-renders bgpd without anything else, and a
+# BMP target committed before bgpd has restarted with the module fails the whole BGP commit.
+set system frr bmp

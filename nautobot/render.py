@@ -81,7 +81,7 @@ def inventory_from_nautobot():
     rrs = sorted(n["name"] for n in nodes if n["role"] == "p" and any(ep["role"] and ep["role"]["name"] == "rr" for ri in devs[n["name"]]["bgp_routing_instances"] for ep in ri["endpoints"]))
     core_as = next(n["asn"] for n in nodes if n["role"] == "pe")
     service = {"core_as": core_as, "rr": rrs[0], "rrs": rrs, "isis_area": ctx["isis"]["area"], "tenants": ctx["tenants"],
-               "srv6": {k: ctx["srv6"][k] for k in ("block", "format", "block_len", "node_len", "func_bits")}, **({"internet": inet} if inet else {})}
+               "srv6": {k: ctx["srv6"][k] for k in ("block", "format", "block_len", "node_len", "func_bits")}, **({"internet": inet} if inet else {}), **({"lg": ctx["lg"]} if ctx.get("lg") else {})}
     links, seen = [], set()
     for n in nodes:
         for pt in n["ports"]:

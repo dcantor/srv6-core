@@ -100,6 +100,8 @@ LGS = sorted(n for n, v in NODES.items() if v["role"] == "lg")
 LG = LGS[0] if LGS else None
 LG_PORT = int(subprocess.run(["bash", "-c", f"source {LAB_DIR}/lab.conf; echo ${{LG_PORT:-8080}}"], capture_output=True, text=True).stdout.strip() or 8080)
 LG_URL = f"http://{NODES[LG]['mgmt_ip']}:{LG_PORT}" if LG else None
+LG_FEED = (SERVICE.get("lg") or {}).get("feed") or "session"   # bmp: the reflectors stream over BMP; session: the iBGP fallback
+LG_VIA = "bmp-loc-rib" if LG_FEED == "bmp" else "rr-session"     # how the core's table says it arrived
 LG_PEERS = {}
 if LG:
     for p in NODES[LG]["ports"]:

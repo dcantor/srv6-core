@@ -185,6 +185,10 @@ class _Renderer:
                     f"set protocols bgp peer-group RR-CLIENTS remote-as {self.SVC['core_as']}", f"set protocols bgp peer-group RR-CLIENTS update-source {n['loopback6']}",
                     "set protocols bgp peer-group RR-CLIENTS capability extended-nexthop", "set protocols bgp peer-group RR-CLIENTS address-family ipv4-vpn route-reflector-client",
                     "set protocols bgp peer-group RR-CLIENTS address-family ipv6-vpn route-reflector-client"]
+            if self.collector_ports(n) and lg_feed(self.inv) == "bmp":
+                out += ["# keep each PE's Adj-RIB-In as received: BMP's pre-policy view replays it to the looking glass on every",
+                        "# (re)connect — without it the reflector has nothing to replay, only the updates that arrive afterwards"] + [
+                        f"set protocols bgp peer-group RR-CLIENTS address-family {af} soft-reconfiguration inbound" for af in ("ipv4-vpn", "ipv6-vpn")]
             for x in self.PES:
                 out += [f"set protocols bgp neighbor {x['loopback6']} peer-group RR-CLIENTS", f"set protocols bgp neighbor {x['loopback6']} description '{x['name']}'"]
         for c in self.collector_ports(n):
@@ -192,6 +196,14 @@ class _Renderer:
             out += [f"# {c['name']}: the BGP looking glass ({lg['name']}) hangs off this reflector on its own link — no IS-IS, no SRv6, no traffic",
                     f"set interfaces ethernet {c['name']} address {c['ip']}", f"set interfaces ethernet {c['name']} description 'looking glass: {lg['name']} {c['peer_port']}'"]
             if n["name"] not in self.SVC["rrs"]: continue   # only a reflector has the whole table to hand over
+            if lg_feed(self.inv) == "bmp":
+                out += [f"# ...and the reflector streams its tables to it over BMP (RFC 7854, to {lg_ip} port {lg_bmp_port(self.inv)}): its Loc-RIB",
+                        f"# (the best paths it reflects) and each PE's Adj-RIB-In before policy, with every session's up / down.",
+                        f"# Only FRR's BMP module is set here. The target itself lives in a commit hook (tools/bmp_hook.py): VyOS's",
+                        f"# CLI offers only the unicast families to monitor, every commit re-renders bgpd without anything else, and a",
+                        f"# BMP target committed before bgpd has restarted with the module fails the whole BGP commit.",
+                        "set system frr bmp"]
+                continue
             out += [f"# ...and takes the whole VPN table as a reflector client. `capability extended-nexthop` is what keeps the PE's",
                     f"# loopback as the next hop: without it FRR rewrites the IPv6 next hop of a VPNv4 route to its own address and the",
                     f"# looking glass would show every prefix as coming from the reflector. The collector announces nothing back.",
@@ -301,6 +313,16 @@ def lg_nodes(inv):
     return [n for n in inv["nodes"] if n["role"] == "lg"]
 
 
+def lg_feed(inv):
+    """How the core's VPN table reaches the looking glass: `bmp` (the reflectors stream it, RFC 7854) or `session` (an
+    iBGP session to each reflector, as a client — the original design, kept as the fallback)."""
+    return ((inv["service"].get("lg") or {}).get("feed")) or "session"
+
+
+def lg_bmp_port(inv):
+    return int((inv["service"].get("lg") or {}).get("bmp_port") or 11019)
+
+
 def render_lg(inv, name=None):
     """frr.conf of a looking-glass collector: one iBGP session per reflector, VPNv4 + VPNv6, announcing nothing."""
     N = {n["name"]: n for n in inv["nodes"]}; svc = inv["service"]
@@ -310,6 +332,12 @@ def render_lg(inv, name=None):
         if not p["peer"] or N[p["peer"]]["role"] != "p": continue
         me = ipaddress.ip_interface(p["ip"]); net = me.network.network_address
         peers.append((N[p["peer"]], str(net + 2 if me.ip == net + 1 else net + 1), p["name"]))
+    if lg_feed(inv) == "bmp":
+        return "\n".join([f"! {n['name']}: the lab's BGP looking glass, rendered by tools/render.py",
+                          f"! The reflectors stream their tables to lgd over BMP (port {lg_bmp_port(inv)}): FRR on this VM holds no BGP",
+                          "! session. Set LG_FEED=session in lab.conf to go back to the iBGP session.",
+                          "frr defaults traditional", f"hostname {n['name']}", "log file /var/log/frr/frr.log informational",
+                          "log syslog informational", "service integrated-vtysh-config", "!"]) + "\n"
     out = [f"! {n['name']}: the lab's BGP looking glass — a passive route collector, rendered by tools/render.py",
            "! It peers with every route reflector over its own point-to-point link and receives the whole VPN table with the",
            "! attributes the PEs originated (RD, route targets, SRv6 SID and label, originator, cluster list). It runs no IGP,",
@@ -380,6 +408,7 @@ def lg_app_config(inv, name=None, port=8080, poll_local=20, poll_devices=120, hi
                         "families": [list(f) for f in families], "collect": collect})
     devices.sort(key=lambda d: d["name"])      # two producers feed this (lab.conf and Nautobot): the order must not depend on them
     return {"lab": inv["lab"], "node": n["name"], "listen": {"host": "0.0.0.0", "port": port},
+            "feed": lg_feed(inv), "bmp": {"port": lg_bmp_port(inv)},
             "db": "/var/lib/lgd/lg.db", "history_days": history_days,
             "collector": {"asn": svc["core_as"], "router_id": n["router_id"], "peers": peers,
                           "families": [["ipv4", "vpn"], ["ipv6", "vpn"]]},
