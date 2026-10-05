@@ -243,6 +243,8 @@ A **Layer-3 VPN** gives each customer (a *tenant*) its own private routing domai
 | **RD / RT** | Route Distinguisher (keeps routes apart in BGP) / Route Target (decides which VRFs import a route) |
 | **RR** | Route Reflector — a BGP router that relays VPN routes so PEs need not all peer with each other |
 | **Encapsulation** | wrapping the customer's packet in a new IPv6 header (H.Encaps) |
+| **BMP** | BGP Monitoring Protocol (RFC 7854): a router streams copies of its BGP tables to a monitoring station, as they change |
+| **Loc-RIB / Adj-RIB-In** | a router's own best routes (what it uses and passes on) / the routes exactly as one neighbour sent them, before any policy |
 
 <div class="part-banner"><span>Part 2</span>A tour of the lab</div>
 
@@ -259,7 +261,7 @@ The lab is a small service-provider network, simulated on one Linux host with KV
 | CE routers | ce1 – ce4 | the customer side of each site: one VRF per tenant, a LAN per tenant, ten extra loopbacks for tenant-a |
 | Hosts | dc*n*-h1 (tenant-a), dc*n*-h2 (tenant-b) | Alpine Linux with ping, traceroute, iperf3, tcpdump — the "customers" |
 | fw-inet | one firewall on pe4 | a CE of every tenant that gives each site a NAT'd way out to the internet |
-| lg | the looking glass | a passive BGP route collector with history, packet capture and path tracing |
+| lg | the looking glass | a passive route collector, fed by the route reflectors over BMP, with history, packet capture and path tracing |
 | NMS | Prometheus, VictoriaMetrics, Grafana, Gitea | monitoring, alerting, the CI runner's Git mirror |
 
 pe1 and pe2 hang off p1 and p2; pe3 and pe4 off p2 and p3. So every west↔east path crosses **p2** by default — a fact the tests and the steering examples use.
@@ -325,9 +327,25 @@ The portal (`http://<lab-host>:8091`) is where tenants are created, changed and 
 
 ## 12. Stop 2 — the BGP looking glass
 
-The looking glass (`http://10.3.0.70:8080`) is a **passive route collector** inside the core. It peers with both route reflectors, receives every VPN route and announces nothing. It also reads each router's own tables over the router API. Everything it sees is kept as history, so you can ask what the network looked like at any moment.
+The looking glass (`http://10.3.0.70:8080`) is a **passive route collector** inside the core. It holds every VPN route with the attributes the PE gave it, and it also reads each router's own tables over the router API. Everything it sees is kept as history, so you can ask what the network looked like at any moment.
 
-**Overview.** The collector's sessions, the size of the VPN table, recent churn, and the topology — click any link to capture its packets.
+**How the routes get there: BMP.** The two route reflectors *push* their tables to the looking glass over **BMP**, the BGP Monitoring Protocol (RFC 7854). Each reflector opens a connection to it, replays its whole table once, and from then on sends a copy of every update as it happens, so the looking glass is never more than a moment behind. Two copies of the table come with each update:
+
+- the reflector's **Loc-RIB**: its own best routes, the ones it reflects to the PEs. This is "the core's VPN table".
+- its **Adj-RIB-In, before policy**: every route exactly as each PE sent it. The looking glass shows this as a separate view, **sent by the PEs**, so you can tell what a PE announced apart from what the reflector made of it.
+
+On p1 the connection looks like this. It monitors the VPNv4 and VPNv6 tables, both before policy and the Loc-RIB:
+
+```
+p1> show bmp
+{{p1-show-bmp}}
+```
+
+The looking glass decodes BMP itself, down to the SRv6 SID (Step 4 shows one route). Every row it shows says how it arrived: **BMP Loc-RIB**, **BMP pre-policy**, or the router's API or SSH.
+
+*Why not an ordinary BGP session?* Until version 1.7 the looking glass held one, as a client of each reflector. That works, but a client only ever receives the reflector's best route, never what each PE actually sent, and it gets nothing about the reflector's own sessions. BMP gives all three. (`LG_FEED=session` in `lab.conf` still switches back.)
+
+**Overview.** The BMP feeds from both reflectors, the size of the VPN table, recent churn, and the topology — click any link to capture its packets.
 
 ![The looking glass overview](screenshots/guide-lg-overview.png)
 
@@ -342,6 +360,14 @@ The looking glass (`http://10.3.0.70:8080`) is a **passive route collector** ins
 **History and Compare.** Every announce, change and withdraw, with a time slider that shows any table as it was. Compare lists every path that moved between two moments, down to a single next hop's SID.
 
 ![History: what changed, and when](screenshots/guide-lg-history.png)
+
+**Sent by the PEs.** Choose the view *sent by the PEs* on the Prefixes page: one row for each route each PE announced, once per reflector that heard it (*From* says `pe1 → p1`). Here are tenant-a's LANs as their PEs sent them. The SID column shows the full SID each route leads to, with the transposed function put back.
+
+![What each PE sent the reflectors, before any policy](screenshots/guide-lg-sent-by-pes.png)
+
+**Sessions.** The BMP feeds (connected, finished replaying, how many routes each holds) and, below them, every reflector's own BGP sessions to the PEs as the reflector reports them. A session that went down says why.
+
+![The BMP feeds, and the reflectors' own BGP sessions](screenshots/guide-lg-bmp.png)
 
 **Packet capture.** Click any link on the map to capture on it — live, streamed into the page — or capture along a prefix's whole path at once and watch each ping hop by hop: plain IPv4 on the access links, SRv6-encapsulated in the core.
 
@@ -444,6 +470,15 @@ pe1> show bgp ipv4 vpn 172.20.3.0/24
 
 The "Remote SID" line and the "Remote labels" value together make the full SID: BGP sends the locator part in the SID field and the function in the label field ("transposition"), which saves space when many routes share a locator.
 
+The looking glass receives the same route from the reflectors over BMP and does that sum for you. Here it is as it holds it:
+
+```
+GET http://10.3.0.70:8080/api/prefixes?source=collector&vrf=tenant-a&prefix=172.20.3.0/24&best_only=1
+{{lg-route-bmp}}
+```
+
+The SID field carries only `fd00:c:3::`, pe3's locator. The structure says 16 bits were moved out of it (`transpositionLen`), from bit 48 onwards (`transpositionOffset`). Those 16 bits travel at the top of the 24-bit label field, `0xE00100`. FRR prints that field as the 20-bit label value 917520, which is `0xE0010`. Put `e001` back at bit 48 and you get `fd00:c:3:e001::`: pe3's uDT46 instruction for tenant-a, the same SID Step 7 finds installed on pe3.
+
 ## 21. Step 5 — the VRF: where encapsulation is decided
 
 pe1's tenant-a table now says, for `172.20.3.0/24`: *wrap it in SRv6, one segment, pe3's tenant-a SID, out towards p2.* Local sites go straight to the CE; remote ones all have an `encap seg6` instruction:
@@ -528,4 +563,5 @@ Suite 08 (`./lab.sh test suites/08_failover.robot`) cuts the p2–pe3 link silen
 - **Exercises.** `docs/session/exercises.md` has break-and-fix exercises for the lab.
 - **The deep dive.** `docs/srv6-walkthrough.pdf` goes table by table through dual-stack (End.DT46 for IPv6), the internet breakout, the Linux quirk the PEs work around, and more.
 - **Add a tenant** from the portal and follow the run — then find its new SIDs on the PEs, its routes in the looking glass, and its sites in the SLA matrix.
+- **Watch BMP at work.** Shut a CE's BGP session for a minute: the looking glass's History shows the withdraw within a couple of seconds, *sent by the PEs* loses the route, and Sessions keeps showing every reflector-to-PE session up, because only the CE side went down.
 - **Standards.** RFC 8402 (Segment Routing architecture), RFC 8754 (the SRH), RFC 8986 (SRv6 network programming — the behaviours), RFC 9252 (BGP services over SRv6 — the L3VPN), RFC 9352 (IS-IS extensions for SRv6), RFC 9800 (compressed SIDs — uSID).

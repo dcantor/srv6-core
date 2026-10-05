@@ -1,0 +1,20 @@
+{
+  "rd": "65000:103",
+  "prefix": "172.20.3.0/24",
+  "nexthop": "fd00:a::3",
+  "peer_name": "p1",
+  "via": "bmp-loc-rib",
+  "ext_communities": "RT:65000:100",
+  "sid": "fd00:c:3::",
+  "label": 917520,
+  "sid_structure": {
+    "argumentLen": 0,
+    "functionLen": 16,
+    "locatorBlockLen": 32,
+    "locatorNodeLen": 16,
+    "transpositionLen": 16,
+    "transpositionOffset": 48
+  },
+  "transposed_sid": "fd00:c:3:e001::",
+  "behavior": "uDT46"
+}

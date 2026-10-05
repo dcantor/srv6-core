@@ -1,0 +1,16 @@
+BMP state for BGP VRF default:
+  Route Mirroring         0 bytes (0 messages) pending
+                          0 bytes maximum buffer used
+  Targets "lg":
+    Route Mirroring disabled
+    Route Monitoring IPv4 vpn pre-policy loc-rib
+    Route Monitoring IPv6 vpn pre-policy loc-rib
+    Listeners:
+    Outbound connections:
+ remote                  state                           timer      local      
+ ------------------------------------------------------------------------------
+ fd00:b:0:121::2:11019   Up      fd00:b:0:121::2:11019   00:24:49   (unspec)   
+    1 connected clients:
+ remote                  uptime     MonSent   MirrSent   MirrLost   ByteSent   ByteQ   ByteQKernel   
+ ----------------------------------------------------------------------------------------------------
+ fd00:b:0:121::2:11019   00:24:49   586       0          0          116860     0       0

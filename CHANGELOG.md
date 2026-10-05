@@ -10,6 +10,20 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 The current version is in [`VERSION`](VERSION), and in git as a `v<version>` tag.
 
+## [1.7.1] — 2026-10-05
+
+### Changed
+- **The SRv6 Lab Guide** (`docs/srv6-lab-guide.pdf`, 30 pages) covers the BMP looking glass: Stop 2 explains BMP for a
+  newcomer (Loc-RIB and Adj-RIB-In, why it replaced the session), with p1's live `show bmp`, and new screenshots of the
+  *sent by the PEs* view and the Sessions page; Step 4 shows a route as the looking glass decoded it, with the SID
+  transposition worked through; BMP, Loc-RIB and Adj-RIB-In in the glossary. `docs/walkthrough_capture.py` and
+  `docs/guide_screenshots.py` capture the new items.
+
+### Fixed
+- Looking glass: the Overview's and Sessions page's headings still described the iBGP session; *sent by the PEs* rows
+  now say which reflector heard them (`pe1 → p1`); the SID column shows the full SID (transposition undone) and its
+  behaviour, with the SID field itself in the tooltip.
+
 ## [1.7.0] — 2026-10-04
 
 ### Changed

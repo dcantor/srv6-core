@@ -71,4 +71,10 @@ with sync_playwright() as pw:
     shot(pg, "guide-lg-path")
     pg.goto(a.lg + "/#history", wait_until="networkidle"); pg.wait_for_timeout(2500)
     shot(pg, "guide-lg-history")
+    # the BMP feeds and the reflectors' own sessions, then what each PE sent (the pre-policy view), for one prefix
+    pg.goto(a.lg + "/#peers", wait_until="networkidle"); pg.wait_for_timeout(2500)
+    shot(pg, "guide-lg-bmp")
+    pg.goto(a.lg + "/#prefixes", wait_until="networkidle"); pg.reload(wait_until="networkidle"); pg.wait_for_timeout(2000)
+    pg.evaluate("$('#f-source').value = 'adj-in'; $('#f-q').value = '172.20.'; loadPrefixes()"); pg.wait_for_timeout(2500)
+    shot(pg, "guide-lg-sent-by-pes")
     b.close()

@@ -53,6 +53,16 @@ save("ce1-bgp", op("ce1", "show ip bgp vrf tenant-a"))
 save("ce1-route", op("ce1", "show ip route vrf tenant-a bgp"))
 save("p2-route-vrf", sh("p2", "ip route show vrf tenant-a 2>&1 | head -2; ip vrf show"))
 save("p2-routes-v4", sh("p2", "ip route show | head -5"))
+# the looking glass: the reflector's BMP feed, and one route as lgd decoded it from BMP (the SID with its transposed
+# function bits put back)
+save("p1-show-bmp", sh("p1", "sudo vtysh -c 'show bmp' | grep -v '^\\s*$'"))
+def _lg_route(prefix, vrf="tenant-a"):
+    import urllib.request
+    d = json.load(urllib.request.urlopen(f"http://{MGMT[next(n['name'] for n in INV['nodes'] if n['role'] == 'lg')]}:8080/api/prefixes?source=collector&vrf={vrf}&prefix={prefix}&best_only=1"))
+    p = d["paths"][0]; a = p["attrs"]
+    keep = ["rd", "prefix", "nexthop", "peer_name", "via"]
+    return json.dumps({**{k: p[k] for k in keep}, **{k: a.get(k) for k in ("ext_communities", "sid", "label", "sid_structure", "transposed_sid", "behavior")}}, indent=2)
+save("lg-route-bmp", _lg_route(HOST['dc3-h1']['ports'][0]['prefix']))
 # hosts
 save("dc1-h1-ip", hc("dc1-h1", "ip -br addr; ip route"))
 save("dc1-h1-ping-dc3-h1", hc("dc1-h1", f"ping -c 3 {lan('dc3-h1')}"))

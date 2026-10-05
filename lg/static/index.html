@@ -146,7 +146,7 @@
       <span style="float:right" class="hint" id="topo-legend"></span></h2>
     <div id="topo"></div></div>
   <div class="split">
-    <div class="card"><h2>Collector sessions <small>iBGP to every route reflector, one link each</small></h2>
+    <div class="card"><h2 id="ov-peers-title">Collector sessions <small>iBGP to every route reflector, one link each</small></h2>
       <table><thead><tr id="ov-peers-head"><th>Reflector</th><th>State</th><th>AS</th><th>VPNv4</th><th>VPNv6</th><th>Up since</th></tr></thead><tbody id="ov-peers"></tbody></table>
       <p class="hint" id="ov-peers-hint"></p></div>
     <div class="card"><h2>Paths over time <small>what the collector held, per address family</small></h2>
@@ -234,7 +234,7 @@
     <table><thead><tr id="pe-head"><th>Peer</th><th>Name</th><th>State</th><th>AS</th><th>Router-id</th><th>Accepted</th><th>Messages rx/tx</th><th>Established</th></tr></thead><tbody id="pe-rows"></tbody></table></div>
   <div class="card" id="pe-bgp-card" style="display:none"><h2>The reflectors’ own BGP sessions <small>as each reflector reports them over BMP (Peer Up / Peer Down), with the reason a session went down</small></h2>
     <table><thead><tr><th>Reflector</th><th>Peer</th><th>Address</th><th>AS</th><th>Router-id</th><th>State</th><th>Since</th><th>Why down</th></tr></thead><tbody id="pe-bgp"></tbody></table></div>
-  <div class="card"><h2>Collections <small>the collector's own table is read locally; the per-VRF views are polled over SSH</small></h2>
+  <div class="card"><h2 id="pe-polls-title">Collections <small>the collector's own table is read locally; the per-VRF views are polled over SSH</small></h2>
     <table><thead><tr><th>View</th><th>Last</th><th>Result</th><th>Paths</th><th>Took</th><th>Error</th></tr></thead><tbody id="pe-polls"></tbody></table></div>
 </section>
 
@@ -341,6 +341,7 @@ async function loadOverview() {
   $('#hdr-state').textContent = `${up}/${s.collector.peers.length} ${bmp ? 'BMP feeds' : 'sessions'} · ${prefixes} prefixes · AS ${s.collector.asn}`;
   $('#ov-peers-head').innerHTML = bmp ? '<th>Reflector</th><th>BMP</th><th>Its PE sessions</th><th>Loc-RIB</th><th>Pre-policy</th><th>Up since</th>'
     : '<th>Reflector</th><th>State</th><th>AS</th><th>VPNv4</th><th>VPNv6</th><th>Up since</th>';
+  if (bmp) $('#ov-peers-title').innerHTML = 'Reflector BMP feeds <small>each route reflector streams its tables over BMP, one link each</small>';
   if (bmp) $('#ov-peers').innerHTML = s.collector.peers.map(p => {
     const bgp = (p.bgp_peers || []).filter(b => b.type !== 'loc-rib'), v = p.views || {};
     return `<tr><td>${node(p.name || p.ip)}<div class="hint mono">${esc(p.ip)} · ${esc(p.sys_descr || '')}</div></td>
@@ -570,10 +571,10 @@ function pathRow(p) {
     <td>${prefixLink(p.prefix)}${p.best ? ' <span class="pill ok">best</span>' : ''}</td>
     <td>${esc(p.vrf || '—')}</td><td class="mono">${esc(p.rd || '—')}</td>
     <td class="mono">${esc(p.nexthop || '—')}${p.origin_node ? ' ' + node(p.origin_node) : ''}</td>
-    <td>${esc(p.peer_name || p.peer || 'local')}</td>
+    <td>${esc(p.peer_name || p.peer || 'local')}${a.reflector ? ` <span class="hint">→ ${esc(a.reflector)}</span>` : ''}</td>
     <td class="mono">${esc(a.as_path || 'i')}</td><td>${p.origin_as ?? '—'}</td>
     <td>${a.local_pref ?? '—'}</td><td>${a.med ?? '—'}</td>
-    <td class="mono">${esc(a.sid || '—')}</td><td class="mono">${esc(a.ext_communities || '—')}</td>
+    <td class="mono" title="${a.transposed_sid ? esc(`SID field ${a.sid} + function from the label (transposition)`) : ''}">${esc(a.transposed_sid || a.sid || '—')}${a.behavior ? ` <span class="hint">${esc(a.behavior)}</span>` : ''}</td><td class="mono">${esc(a.ext_communities || '—')}</td>
     <td class="hint">${fmtAgo(p.first_seen)}</td>
     <td>${srcPill(p.source)}</td>
     <td>${viaPill(p.via)}</td></tr>`;
@@ -708,6 +709,7 @@ async function loadPeers() {
   const bmp = d.peers.some(p => p.feed === 'bmp');
   $('#pe-bgp-card').style.display = bmp ? '' : 'none';
   if (bmp) {
+    $('#pe-polls-title').innerHTML = 'Collections <small>the core’s table is reconciled from the BMP feeds as they change; the routers are read through their API every poll, the per-VRF views over SSH</small>';
     $('#pe-title').innerHTML = 'BMP feeds <small>each route reflector connects to the looking glass and streams its tables as they change; nothing is polled</small>';
     $('#pe-head').innerHTML = '<th>Reflector</th><th>Address</th><th>State</th><th>Software</th><th>Loc-RIB / pre-policy</th><th>End-of-RIB</th><th>Messages</th><th>Connected</th>';
     $('#pe-rows').innerHTML = d.peers.map(p => `<tr><td>${node(p.name)}</td><td class="mono">${esc(p.ip)}</td>

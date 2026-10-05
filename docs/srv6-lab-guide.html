@@ -45,9 +45,9 @@ figure.shot img { max-width:100%; max-height:125mm; width:auto; margin:0 auto; b
 <div><b>Part 2</b><span>A tour of the lab</span><small>The topology and every tool around it: the portal, the looking glass, Nautobot, monitoring, tests.</small></div>
 <div><b>Part 3</b><span>Walk a packet through it</span><small>Hands-on: from a ping on a tenant host, through every table and header, to steering it by hand.</small></div>
 </div>
-<div class="meta">Lab version 1.6.0 · 29 September 2026 · outputs captured from the running lab</div>
+<div class="meta">Lab version 1.7.1 · 5 October 2026 · outputs captured from the running lab</div>
 </div>
-<div class="toc-page"><h2 class="notoc">Contents</h2><div id="toc"><div class="toc-part">Part 1 — SRv6 in plain terms</div><a class="toc-row" href="#s1" ><span>1. The problem SRv6 solves</span><i></i><b>3</b></a><a class="toc-row" href="#s2" ><span>2. Segment routing: put the route in the packet</span><i></i><b>3</b></a><a class="toc-row" href="#s3" ><span>3. The SID: an address that is an instruction</span><i></i><b>4</b></a><a class="toc-row" href="#s4" ><span>4. How the segments travel: the headers</span><i></i><b>5</b></a><a class="toc-row" href="#s5" ><span>5. Who tells whom: the control plane</span><i></i><b>5</b></a><a class="toc-row" href="#s6" ><span>6. uSID: many segments in one address</span><i></i><b>5</b></a><a class="toc-row" href="#s7" ><span>7. Putting it together: an SRv6 L3VPN</span><i></i><b>6</b></a><a class="toc-row" href="#s8" ><span>8. SRv6 compared with MPLS</span><i></i><b>7</b></a><a class="toc-row" href="#s9" ><span>9. Glossary</span><i></i><b>7</b></a><div class="toc-part">Part 2 — A tour of the lab</div><a class="toc-row" href="#s10" ><span>10. What is in the box</span><i></i><b>8</b></a><a class="toc-row" href="#s11" ><span>11. Stop 1 — the provisioning portal</span><i></i><b>9</b></a><a class="toc-row" href="#s12" ><span>12. Stop 2 — the BGP looking glass</span><i></i><b>15</b></a><a class="toc-row" href="#s13" ><span>13. Stop 3 — Nautobot, the source of truth</span><i></i><b>18</b></a><a class="toc-row" href="#s14" ><span>14. Stop 4 — monitoring and alerting</span><i></i><b>20</b></a><a class="toc-row" href="#s15" ><span>15. Stop 5 — tests and CI</span><i></i><b>20</b></a><div class="toc-part">Part 3 — Walk a packet through it</div><a class="toc-row" href="#s16" ><span>16. Before you start</span><i></i><b>21</b></a><a class="toc-row" href="#s17" ><span>17. Step 1 — the customer&#x27;s view</span><i></i><b>21</b></a><a class="toc-row" href="#s18" ><span>18. Step 2 — the underlay: IS-IS and the locators</span><i></i><b>22</b></a><a class="toc-row" href="#s19" ><span>19. Step 3 — the instructions pe1 will carry out</span><i></i><b>22</b></a><a class="toc-row" href="#s20" ><span>20. Step 4 — BGP: which SID leads to which customer</span><i></i><b>23</b></a><a class="toc-row" href="#s21" ><span>21. Step 5 — the VRF: where encapsulation is decided</span><i></i><b>23</b></a><a class="toc-row" href="#s22" ><span>22. Step 6 — on the wire in the core</span><i></i><b>24</b></a><a class="toc-row" href="#s23" ><span>23. Step 7 — delivery at pe3</span><i></i><b>25</b></a><a class="toc-row" href="#s24" ><span>24. Step 8 — choose the path yourself</span><i></i><b>25</b></a><a class="toc-row" href="#s25" ><span>25. Step 9 — break something</span><i></i><b>26</b></a><a class="toc-row" href="#s26" ><span>26. Where to go next</span><i></i><b>26</b></a></div>
+<div class="toc-page"><h2 class="notoc">Contents</h2><div id="toc"><div class="toc-part">Part 1 — SRv6 in plain terms</div><a class="toc-row" href="#s1" ><span>1. The problem SRv6 solves</span><i></i><b>3</b></a><a class="toc-row" href="#s2" ><span>2. Segment routing: put the route in the packet</span><i></i><b>3</b></a><a class="toc-row" href="#s3" ><span>3. The SID: an address that is an instruction</span><i></i><b>4</b></a><a class="toc-row" href="#s4" ><span>4. How the segments travel: the headers</span><i></i><b>5</b></a><a class="toc-row" href="#s5" ><span>5. Who tells whom: the control plane</span><i></i><b>5</b></a><a class="toc-row" href="#s6" ><span>6. uSID: many segments in one address</span><i></i><b>5</b></a><a class="toc-row" href="#s7" ><span>7. Putting it together: an SRv6 L3VPN</span><i></i><b>6</b></a><a class="toc-row" href="#s8" ><span>8. SRv6 compared with MPLS</span><i></i><b>7</b></a><a class="toc-row" href="#s9" ><span>9. Glossary</span><i></i><b>7</b></a><div class="toc-part">Part 2 — A tour of the lab</div><a class="toc-row" href="#s10" ><span>10. What is in the box</span><i></i><b>8</b></a><a class="toc-row" href="#s11" ><span>11. Stop 1 — the provisioning portal</span><i></i><b>9</b></a><a class="toc-row" href="#s12" ><span>12. Stop 2 — the BGP looking glass</span><i></i><b>15</b></a><a class="toc-row" href="#s13" ><span>13. Stop 3 — Nautobot, the source of truth</span><i></i><b>21</b></a><a class="toc-row" href="#s14" ><span>14. Stop 4 — monitoring and alerting</span><i></i><b>23</b></a><a class="toc-row" href="#s15" ><span>15. Stop 5 — tests and CI</span><i></i><b>23</b></a><div class="toc-part">Part 3 — Walk a packet through it</div><a class="toc-row" href="#s16" ><span>16. Before you start</span><i></i><b>24</b></a><a class="toc-row" href="#s17" ><span>17. Step 1 — the customer&#x27;s view</span><i></i><b>24</b></a><a class="toc-row" href="#s18" ><span>18. Step 2 — the underlay: IS-IS and the locators</span><i></i><b>25</b></a><a class="toc-row" href="#s19" ><span>19. Step 3 — the instructions pe1 will carry out</span><i></i><b>25</b></a><a class="toc-row" href="#s20" ><span>20. Step 4 — BGP: which SID leads to which customer</span><i></i><b>26</b></a><a class="toc-row" href="#s21" ><span>21. Step 5 — the VRF: where encapsulation is decided</span><i></i><b>27</b></a><a class="toc-row" href="#s22" ><span>22. Step 6 — on the wire in the core</span><i></i><b>27</b></a><a class="toc-row" href="#s23" ><span>23. Step 7 — delivery at pe3</span><i></i><b>28</b></a><a class="toc-row" href="#s24" ><span>24. Step 8 — choose the path yourself</span><i></i><b>28</b></a><a class="toc-row" href="#s25" ><span>25. Step 9 — break something</span><i></i><b>29</b></a><a class="toc-row" href="#s26" ><span>26. Where to go next</span><i></i><b>29</b></a></div>
 <div class="callout note"><b>How to read this guide.</b> Part 1 stands on its own: read it first if SRv6 is new to you. Part 2 is a tour you can follow with the lab open in a browser. Part 3 is a walkthrough to do at a terminal; every output in it was captured from the running lab when this guide was built, so what you see on your screen should look the same, apart from times, counters and the function part of a SID (which the routers choose for themselves). The deeper companion, <i>SRv6 L3VPN, shown on real boxes</i> (<code>docs/srv6-walkthrough.pdf</code>), goes further into every table.</div>
 </div>
 <div class="part-banner"><span>Part 1</span>SRv6 in plain terms</div>
@@ -378,6 +378,14 @@ figure.shot img { max-width:100%; max-height:125mm; width:auto; margin:0 auto; b
 <td><strong>Encapsulation</strong></td>
 <td>wrapping the customer's packet in a new IPv6 header (H.Encaps)</td>
 </tr>
+<tr>
+<td><strong>BMP</strong></td>
+<td>BGP Monitoring Protocol (RFC 7854): a router streams copies of its BGP tables to a monitoring station, as they change</td>
+</tr>
+<tr>
+<td><strong>Loc-RIB / Adj-RIB-In</strong></td>
+<td>a router's own best routes (what it uses and passes on) / the routes exactly as one neighbour sent them, before any policy</td>
+</tr>
 </tbody>
 </table>
 <div class="part-banner"><span>Part 2</span>A tour of the lab</div>
@@ -421,7 +429,7 @@ figure.shot img { max-width:100%; max-height:125mm; width:auto; margin:0 auto; b
 <tr>
 <td>lg</td>
 <td>the looking glass</td>
-<td>a passive BGP route collector with history, packet capture and path tracing</td>
+<td>a passive route collector, fed by the route reflectors over BMP, with history, packet capture and path tracing</td>
 </tr>
 <tr>
 <td>NMS</td>
@@ -505,8 +513,34 @@ figure.shot img { max-width:100%; max-height:125mm; width:auto; margin:0 auto; b
 <figure class="shot"><img src="screenshots/guide-portal-runs.png" alt="A run: steps, log and test results" /><figcaption>A run: steps, log and test results</figcaption></figure>
 <div class="callout tip"><b>Themes.</b> The picker in the portal's header switches between the default layout and an Apple-style theme; ☾ / ☀ switches dark and light in either. The looking glass has the same picker.</div>
 <h2 id="s12">12. Stop 2 — the BGP looking glass</h2>
-<p>The looking glass (<code>http://10.3.0.70:8080</code>) is a <strong>passive route collector</strong> inside the core. It peers with both route reflectors, receives every VPN route and announces nothing. It also reads each router's own tables over the router API. Everything it sees is kept as history, so you can ask what the network looked like at any moment.</p>
-<p><strong>Overview.</strong> The collector's sessions, the size of the VPN table, recent churn, and the topology — click any link to capture its packets.</p>
+<p>The looking glass (<code>http://10.3.0.70:8080</code>) is a <strong>passive route collector</strong> inside the core. It holds every VPN route with the attributes the PE gave it, and it also reads each router's own tables over the router API. Everything it sees is kept as history, so you can ask what the network looked like at any moment.</p>
+<p><strong>How the routes get there: BMP.</strong> The two route reflectors <em>push</em> their tables to the looking glass over <strong>BMP</strong>, the BGP Monitoring Protocol (RFC 7854). Each reflector opens a connection to it, replays its whole table once, and from then on sends a copy of every update as it happens, so the looking glass is never more than a moment behind. Two copies of the table come with each update:</p>
+<ul>
+<li>the reflector's <strong>Loc-RIB</strong>: its own best routes, the ones it reflects to the PEs. This is &quot;the core's VPN table&quot;.</li>
+<li>its <strong>Adj-RIB-In, before policy</strong>: every route exactly as each PE sent it. The looking glass shows this as a separate view, <strong>sent by the PEs</strong>, so you can tell what a PE announced apart from what the reflector made of it.</li>
+</ul>
+<p>On p1 the connection looks like this. It monitors the VPNv4 and VPNv6 tables, both before policy and the Loc-RIB:</p>
+<pre><code>p1&gt; show bmp
+BMP state for BGP VRF default:
+  Route Mirroring         0 bytes (0 messages) pending
+                          0 bytes maximum buffer used
+  Targets &quot;lg&quot;:
+    Route Mirroring disabled
+    Route Monitoring IPv4 vpn pre-policy loc-rib
+    Route Monitoring IPv6 vpn pre-policy loc-rib
+    Listeners:
+    Outbound connections:
+ remote                  state                           timer      local      
+ ------------------------------------------------------------------------------
+ fd00:b:0:121::2:11019   Up      fd00:b:0:121::2:11019   00:24:49   (unspec)   
+    1 connected clients:
+ remote                  uptime     MonSent   MirrSent   MirrLost   ByteSent   ByteQ   ByteQKernel   
+ ----------------------------------------------------------------------------------------------------
+ fd00:b:0:121::2:11019   00:24:49   586       0          0          116860     0       0
+</code></pre>
+<p>The looking glass decodes BMP itself, down to the SRv6 SID (Step 4 shows one route). Every row it shows says how it arrived: <strong>BMP Loc-RIB</strong>, <strong>BMP pre-policy</strong>, or the router's API or SSH.</p>
+<p><em>Why not an ordinary BGP session?</em> Until version 1.7 the looking glass held one, as a client of each reflector. That works, but a client only ever receives the reflector's best route, never what each PE actually sent, and it gets nothing about the reflector's own sessions. BMP gives all three. (<code>LG_FEED=session</code> in <code>lab.conf</code> still switches back.)</p>
+<p><strong>Overview.</strong> The BMP feeds from both reflectors, the size of the VPN table, recent churn, and the topology — click any link to capture its packets.</p>
 <figure class="shot"><img src="screenshots/guide-lg-overview.png" alt="The looking glass overview" /><figcaption>The looking glass overview</figcaption></figure>
 <p><strong>Prefixes.</strong> Every VPN prefix with its route distinguisher, route target, next hop and the SRv6 SID it points to, filterable by VRF, RD, origin AS or free text.</p>
 <figure class="shot"><img src="screenshots/guide-lg-prefixes.png" alt="Every VPN prefix and its SRv6 attributes" /><figcaption>Every VPN prefix and its SRv6 attributes</figcaption></figure>
@@ -514,6 +548,10 @@ figure.shot img { max-width:100%; max-height:125mm; width:auto; margin:0 auto; b
 <figure class="shot"><img src="screenshots/guide-lg-path.png" alt="The path to 172.20.3.0/24, hop by hop" /><figcaption>The path to 172.20.3.0/24, hop by hop</figcaption></figure>
 <p><strong>History and Compare.</strong> Every announce, change and withdraw, with a time slider that shows any table as it was. Compare lists every path that moved between two moments, down to a single next hop's SID.</p>
 <figure class="shot"><img src="screenshots/guide-lg-history.png" alt="History: what changed, and when" /><figcaption>History: what changed, and when</figcaption></figure>
+<p><strong>Sent by the PEs.</strong> Choose the view <em>sent by the PEs</em> on the Prefixes page: one row for each route each PE announced, once per reflector that heard it (<em>From</em> says <code>pe1 → p1</code>). Here are tenant-a's LANs as their PEs sent them. The SID column shows the full SID each route leads to, with the transposed function put back.</p>
+<figure class="shot"><img src="screenshots/guide-lg-sent-by-pes.png" alt="What each PE sent the reflectors, before any policy" /><figcaption>What each PE sent the reflectors, before any policy</figcaption></figure>
+<p><strong>Sessions.</strong> The BMP feeds (connected, finished replaying, how many routes each holds) and, below them, every reflector's own BGP sessions to the PEs as the reflector reports them. A session that went down says why.</p>
+<figure class="shot"><img src="screenshots/guide-lg-bmp.png" alt="The BMP feeds, and the reflectors' own BGP sessions" /><figcaption>The BMP feeds, and the reflectors' own BGP sessions</figcaption></figure>
 <p><strong>Packet capture.</strong> Click any link on the map to capture on it — live, streamed into the page — or capture along a prefix's whole path at once and watch each ping hop by hop: plain IPv4 on the access links, SRv6-encapsulated in the core.</p>
 <figure class="shot"><img src="screenshots/lg-path-capture.png" alt="A capture along a path: every ping at every hop" /><figcaption>A capture along a path: every ping at every hop</figcaption></figure>
 <h2 id="s13">13. Stop 3 — Nautobot, the source of truth</h2>
@@ -629,6 +667,30 @@ Paths: (2 available, best #1)
       Last update: Tue Sep 29 11:37:16 2026
 </code></pre>
 <p>The &quot;Remote SID&quot; line and the &quot;Remote labels&quot; value together make the full SID: BGP sends the locator part in the SID field and the function in the label field (&quot;transposition&quot;), which saves space when many routes share a locator.</p>
+<p>The looking glass receives the same route from the reflectors over BMP and does that sum for you. Here it is as it holds it:</p>
+<pre><code>GET http://10.3.0.70:8080/api/prefixes?source=collector&amp;vrf=tenant-a&amp;prefix=172.20.3.0/24&amp;best_only=1
+{
+  &quot;rd&quot;: &quot;65000:103&quot;,
+  &quot;prefix&quot;: &quot;172.20.3.0/24&quot;,
+  &quot;nexthop&quot;: &quot;fd00:a::3&quot;,
+  &quot;peer_name&quot;: &quot;p1&quot;,
+  &quot;via&quot;: &quot;bmp-loc-rib&quot;,
+  &quot;ext_communities&quot;: &quot;RT:65000:100&quot;,
+  &quot;sid&quot;: &quot;fd00:c:3::&quot;,
+  &quot;label&quot;: 917520,
+  &quot;sid_structure&quot;: {
+    &quot;argumentLen&quot;: 0,
+    &quot;functionLen&quot;: 16,
+    &quot;locatorBlockLen&quot;: 32,
+    &quot;locatorNodeLen&quot;: 16,
+    &quot;transpositionLen&quot;: 16,
+    &quot;transpositionOffset&quot;: 48
+  },
+  &quot;transposed_sid&quot;: &quot;fd00:c:3:e001::&quot;,
+  &quot;behavior&quot;: &quot;uDT46&quot;
+}
+</code></pre>
+<p>The SID field carries only <code>fd00:c:3::</code>, pe3's locator. The structure says 16 bits were moved out of it (<code>transpositionLen</code>), from bit 48 onwards (<code>transpositionOffset</code>). Those 16 bits travel at the top of the 24-bit label field, <code>0xE00100</code>. FRR prints that field as the 20-bit label value 917520, which is <code>0xE0010</code>. Put <code>e001</code> back at bit 48 and you get <code>fd00:c:3:e001::</code>: pe3's uDT46 instruction for tenant-a, the same SID Step 7 finds installed on pe3.</p>
 <h2 id="s21">21. Step 5 — the VRF: where encapsulation is decided</h2>
 <p>pe1's tenant-a table now says, for <code>172.20.3.0/24</code>: <em>wrap it in SRv6, one segment, pe3's tenant-a SID, out towards p2.</em> Local sites go straight to the CE; remote ones all have an <code>encap seg6</code> instruction:</p>
 <pre><code>pe1$ ip route show vrf tenant-a
@@ -726,6 +788,7 @@ SessionId  LocalAddress                             PeerAddress                 
 <li><strong>Exercises.</strong> <code>docs/session/exercises.md</code> has break-and-fix exercises for the lab.</li>
 <li><strong>The deep dive.</strong> <code>docs/srv6-walkthrough.pdf</code> goes table by table through dual-stack (End.DT46 for IPv6), the internet breakout, the Linux quirk the PEs work around, and more.</li>
 <li><strong>Add a tenant</strong> from the portal and follow the run — then find its new SIDs on the PEs, its routes in the looking glass, and its sites in the SLA matrix.</li>
+<li><strong>Watch BMP at work.</strong> Shut a CE's BGP session for a minute: the looking glass's History shows the withdraw within a couple of seconds, <em>sent by the PEs</em> loses the route, and Sessions keeps showing every reflector-to-PE session up, because only the CE side went down.</li>
 <li><strong>Standards.</strong> RFC 8402 (Segment Routing architecture), RFC 8754 (the SRH), RFC 8986 (SRv6 network programming — the behaviours), RFC 9252 (BGP services over SRv6 — the L3VPN), RFC 9352 (IS-IS extensions for SRv6), RFC 9800 (compressed SIDs — uSID).</li>
 </ul>
 </body></html>
