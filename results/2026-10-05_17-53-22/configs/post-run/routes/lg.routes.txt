@@ -1,0 +1,13 @@
+# lg (10.3.0.70) BGP looking glass captured 2026-10-05 18:44:03
+
+==== FRR configuration (rendered by tools/render.py): doas cat /etc/frr/frr.conf
+NoValidConnectionsError: [Errno None] Unable to connect to port 22 on 10.3.0.70
+
+==== collector sessions: doas vtysh -c 'show bgp summary'
+NoValidConnectionsError: [Errno None] Unable to connect to port 22 on 10.3.0.70
+
+==== BGP VPNv4 table (collected): doas vtysh -c 'show bgp ipv4 vpn'
+NoValidConnectionsError: [Errno None] Unable to connect to port 22 on 10.3.0.70
+
+==== BGP VPNv6 table (collected): doas vtysh -c 'show bgp ipv6 vpn'
+NoValidConnectionsError: [Errno None] Unable to connect to port 22 on 10.3.0.70

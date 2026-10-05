@@ -1,0 +1,10 @@
+# dc4-h1 (10.3.0.44) CirrOS host captured 2026-10-05 18:44:03
+
+==== addresses: ip -4 addr
+NoValidConnectionsError: [Errno None] Unable to connect to port 22 on 10.3.0.44
+
+==== IPv4 routing table: ip route
+NoValidConnectionsError: [Errno None] Unable to connect to port 22 on 10.3.0.44
+
+==== ARP: ip neigh
+NoValidConnectionsError: [Errno None] Unable to connect to port 22 on 10.3.0.44
