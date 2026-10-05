@@ -78,7 +78,7 @@
 </style></head>
 <body>
 <header><div><h1>SRv6 Tenant Provisioning Portal</h1><div class="sub">VyOS SRv6 core · IS-IS + BGP L3VPN (End.DT4) · Nautobot source of truth · Robot Framework validation</div></div>
-  <nav><a href="#tenants" class="on" data-view="tenants">Tenants</a><a href="#steering" data-view="steering">Steering</a><a href="#whatif" data-view="whatif">What-if</a><a href="#traffic" data-view="traffic">Traffic</a><a href="#sla" data-view="sla">SLA</a><a href="#capacity" data-view="capacity">Capacity</a><a href="#backups" data-view="backups">Backups</a><a href="#runs" data-view="runs">Runs</a><a href="/docs" target="_blank">API</a><a id="lg-link" href="#" target="_blank" title="the BGP looking glass: every VPN prefix in the core, its attributes and its history">Looking glass</a></nav>
+  <nav><a href="#tenants" class="on" data-view="tenants">Tenants</a><a href="#steering" data-view="steering">Steering</a><a href="#whatif" data-view="whatif">What-if</a><a href="#traffic" data-view="traffic">Traffic</a><a href="#health" data-view="health">Health</a><a href="#sla" data-view="sla">SLA</a><a href="#capacity" data-view="capacity">Capacity</a><a href="#backups" data-view="backups">Backups</a><a href="#runs" data-view="runs">Runs</a><a href="/docs" target="_blank">API</a><a id="lg-link" href="#" target="_blank" title="the BGP looking glass: every VPN prefix in the core, its attributes and its history">Looking glass</a></nav>
   <div class="right" id="hdr">Nautobot: <a id="nb-link" href="#" target="_blank">open</a> · <a href="#" id="theme-toggle" title="dark / light (follows the OS setting until chosen)">☾ dark</a> · <select id="skin" class="skin" title="the look of the portal"><option value="default">Default</option><option value="apple">Apple</option></select></div></header>
 <main>
 <section id="v-tenants" class="view on">
@@ -133,6 +133,18 @@
     <h2 style="margin-top:16px">Steering check <small>the links each policy's packets were really seen on — its segment list is in every packet's Segment Routing Header</small></h2>
     <table id="tf-pol"><thead><tr><th>PE</th><th>Tenant</th><th>Prefix</th><th>Policy path</th><th>Seen on</th><th></th></tr></thead><tbody></tbody></table>
     <p class="hint">Load is exact: the transmit counter of the port at the sending end (node-exporter → Prometheus). What it is made of comes from sFlow, 1 in 16 packets on every P router's core ports (hsflowd → goflow2 → VictoriaLogs): each direction of a link is read from one P router (the one sending it, or receiving it from a PE), so a share is of sampled bytes and a category's bits/s is an estimate. The SRv6 traffic is named from its Segment Routing Header (the ingress PE's segment list, unchanged at every hop): the egress PE and tenant from the End.DT46 SID (as the looking glass decoded it), a steered packet from the waypoints in it. IS-IS hellos are padded to the 9000-byte MTU, which is why they dominate an idle core; hsflowd records the hellos it receives without an interface, so the PE → P lanes show none.</p></div>
+</section>
+
+<section id="v-health" class="view">
+  <div class="card"><h2>Router health <small>a control-plane score per router, 0–100 — every point taken off has a reason</small></h2>
+    <div class="row" style="align-items:center"><div style="flex:0 0 auto"><label>Window</label><select id="hl-window" onchange="loadHealth()"><option selected>1h</option><option>6h</option><option>24h</option></select></div>
+      <div style="flex:0"><button onclick="loadHealth()">Refresh</button></div>
+      <div class="legend" style="flex:1"><span><i style="border-color:var(--ok)"></i>healthy (90+)</span><span><i style="border-color:var(--warn)"></i>degraded (70+)</span><span><i style="border-color:var(--bad)"></i>critical</span></div></div>
+    <p class="hint" id="hl-asof" style="margin:6px 0 0"></p>
+    <div class="grid" style="grid-template-columns:minmax(0,2fr) minmax(320px,1fr);margin-top:10px"><div id="hl-svg"></div><div id="hl-side"></div></div>
+    <h2 style="margin-top:16px">Every router <small>worst first; click one for its reasons and its routing events</small></h2>
+    <table id="hl-table"><thead><tr><th>Router</th><th>Score</th><th>Why</th><th>BGP</th><th>BFD</th><th>IS-IS</th><th>CPU</th><th>Memory</th><th>Commits</th></tr></thead><tbody></tbody></table>
+    <p class="hint">Now: −25 per IS-IS adjacency missing, −20 per BGP session not Established (−10 if it was shut down by configuration), −15 per BFD session down (frr-exporter and the portal's own counts), −5 / −15 for CPU at 75 / 90 % and −10 for memory at 90 % (node-exporter). Over the window, from the routers' syslog: −5 per BGP session drop and per IS-IS adjacency loss (at most −30 each) — <b>not counting what happened during a test run</b> (the suites cut links and restart daemons on purpose; those are listed apart and cost nothing). Commits and BMP reconnects are shown, not deducted: a change is not a fault, but it is the first thing to look at when one follows. Also on <code>/metrics</code> as <code>lab_router_health</code>.</p></div>
 </section>
 
 <section id="v-sla" class="view">
@@ -195,7 +207,7 @@ applyTheme(); document.getElementById('theme-toggle').onclick = e => { e.prevent
 const $ = id => document.getElementById(id); const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 let ST = null, wizSpec = null, wizMode = 'tenant', wizStep = 1, watching = null;
 document.querySelectorAll('nav a[data-view]').forEach(a => a.onclick = e => { e.preventDefault(); show(a.dataset.view); });
-function show(v) { document.querySelectorAll('.view').forEach(x => x.classList.toggle('on', x.id === 'v-' + v)); document.querySelectorAll('nav a[data-view]').forEach(a => a.classList.toggle('on', a.dataset.view === v)); location.hash = v; if (v === 'runs') loadRuns(); if (v === 'steering') loadSteering(); if (v === 'whatif') loadWhatif(); if (v === 'traffic') loadTraffic(); if (v !== 'traffic' && tfTimer) { clearInterval(tfTimer); tfTimer = null; } if (v === 'sla') loadSla(); if (v === 'capacity') loadCapacity(); if (v === 'backups') loadBackups(); if (v !== 'sla' && slaTimer) { clearInterval(slaTimer); slaTimer = null; } }
+function show(v) { document.querySelectorAll('.view').forEach(x => x.classList.toggle('on', x.id === 'v-' + v)); document.querySelectorAll('nav a[data-view]').forEach(a => a.classList.toggle('on', a.dataset.view === v)); location.hash = v; if (v === 'runs') loadRuns(); if (v === 'steering') loadSteering(); if (v === 'whatif') loadWhatif(); if (v === 'traffic') loadTraffic(); if (v === 'health') loadHealth(); if (v !== 'traffic' && tfTimer) { clearInterval(tfTimer); tfTimer = null; } if (v === 'sla') loadSla(); if (v === 'capacity') loadCapacity(); if (v === 'backups') loadBackups(); if (v !== 'sla' && slaTimer) { clearInterval(slaTimer); slaTimer = null; } }
 
 async function refresh(live) {
   const r = await fetch('/api/state' + (live ? '?refresh=1' : '?live=0')); ST = await r.json(); render();
@@ -518,6 +530,49 @@ function renderTraffic() {
     <td class="mono">${p.seen.length ? esc(p.seen.map(x => x.join('→')).join(', ')) : '<span class="hint">no packets sampled</span>'}</td>
     <td>${p.seen.length ? (p.matches && !p.missing.length ? '<span class="pill ok">as the policy says</span>' : `<span class="pill warn">${p.missing.length ? 'not seen on ' + esc(p.missing.map(x => x.join('→')).join(', ')) : 'seen off the path'}</span>`) : ''}
       <button onclick="tfPol=${tfPol === i ? 'null' : i}; drawTraffic()">${tfPol === i ? 'hide' : 'show on the map'}</button></td></tr>`).join('') || '<tr><td colspan="6" class="hint">no steering policies on the PEs</td></tr>';
+}
+
+/* ---- health ---------------------------------------------------------- */
+let HL = null, hlSel = null;
+const node = name => name ? `<span class="pill">${esc(name)}</span>` : '';
+const gradeColor = g => g === 'healthy' ? 'var(--ok)' : g === 'degraded' ? 'var(--warn)' : 'var(--bad)';
+const gradePill = r => `<span class="pill ${r.grade === 'healthy' ? 'ok' : r.grade === 'degraded' ? 'warn' : 'critical'}">${r.score}</span>`;
+async function loadHealth() {
+  const r = await fetch('/api/health?window=' + $('hl-window').value); const d = await r.json();
+  if (!r.ok) { $('hl-side').innerHTML = `<p class="msg">${esc(d.detail || 'failed')}</p>`; return; }
+  HL = d; drawHealth(); renderHealth();
+  $('hl-asof').textContent = `${d.routers.length} routers · window ${d.window}${d.test_runs.length ? ` · ${d.test_runs.length} test run(s) in it, their churn set apart` : ''} · ${new Date(d.as_of * 1000).toLocaleTimeString()}`;
+  if (hlSel) hlShow(hlSel);
+}
+function drawHealth() {
+  const { pos, W, H } = layout({ nodes: HL.nodes, links: HL.links }), by = Object.fromEntries(HL.routers.map(r => [r.node, r]));
+  let g = HL.links.map(l => `<path d="M${pos[l.a][0]},${pos[l.a][1]} L${pos[l.b][0]},${pos[l.b][1]}" stroke="var(--line)" stroke-width="5"/>`).join('');
+  g += HL.nodes.map(n => { const [x, y] = pos[n.name], r = by[n.name] || {}, c = gradeColor(r.grade), rad = n.role === 'p' ? 24 : 28;
+    return `<g style="cursor:pointer" onclick="hlShow('${n.name}')"><title>${n.name}: ${r.score} (${r.grade})</title>
+      <circle cx="${x}" cy="${y}" r="${rad}" fill="var(--card)" stroke="${c}" stroke-width="${hlSel === n.name ? 6 : 4}"/>
+      <text x="${x}" y="${y - 2}" text-anchor="middle" font-weight="600">${n.name}</text>
+      <text x="${x}" y="${y + 13}" text-anchor="middle" style="fill:${c};font-weight:700">${r.score ?? '?'}</text>
+      ${n.role === 'pe' ? `<text x="${x}" y="${y + 44}" text-anchor="middle" style="fill:var(--muted);font-size:11px">${n.dc}</text>` : ''}</g>`; }).join('');
+  $('hl-svg').innerHTML = `<svg class="smap" viewBox="0 0 ${W} ${H + 20}">${g}</svg>`;
+}
+function renderHealth() {
+  const why = r => r.deductions.length ? r.deductions.map(d => `−${d.points} ${esc(d.what)}`).join('<br>') : '<span class="hint">nothing</span>';
+  $('hl-table').querySelector('tbody').innerHTML = HL.routers.map(r => `<tr style="cursor:pointer" onclick="hlShow('${r.node}')"><td>${node(r.node)} <span class="hint">${esc(r.role)}</span></td>
+    <td>${gradePill(r)}</td><td style="font-size:12px">${why(r)}</td><td>${r.sessions.bgp - r.sessions.bgp_down}/${r.sessions.bgp}</td><td>${r.sessions.bfd - r.sessions.bfd_down}/${r.sessions.bfd}</td>
+    <td>${r.sessions.isis_expected != null ? `${r.sessions.isis}/${r.sessions.isis_expected}` : '—'}</td><td>${r.cpu ?? '—'} %</td><td>${r.memory ?? '—'} %</td><td>${r.commits}</td></tr>`).join('');
+  if (!hlSel) $('hl-side').innerHTML = `<p class="hint">Click a router — on the map or in the table — for what its score is made of and its routing events.</p>
+    <table>${HL.routers.slice(0, 5).map(r => `<tr><td>${node(r.node)}</td><td>${gradePill(r)}</td><td class="hint">${esc(r.deductions[0]?.what || 'nothing wrong')}</td></tr>`).join('')}</table>`;
+}
+async function hlShow(name) {
+  hlSel = name; drawHealth(); const r = HL.routers.find(x => x.node === name); if (!r) return;
+  $('hl-side').innerHTML = `<h3 style="margin:0 0 6px">${esc(name)} ${gradePill(r)} <span class="hint">${esc(r.grade)}</span></h3>
+    <table>${r.deductions.map(d => `<tr><td style="white-space:nowrap">−${d.points}</td><td>${esc(d.what)} ${d.now ? '<span class="pill warn">now</span>' : ''}</td></tr>`).join('') || '<tr><td class="hint">nothing taken off</td></tr>'}</table>
+    ${r.info.length ? `<p class="hint">${r.info.map(esc).join('<br>')}</p>` : ''}
+    <h4 style="margin:10px 0 4px">Routing events <span class="hint">(${esc(HL.window)}, newest first)</span></h4><div id="hl-ev" class="hint">reading the syslog…</div>
+    <p class="hint"><a href="#" onclick="event.preventDefault(); hlSel=null; drawHealth(); renderHealth()">back</a></p>`;
+  const d = await (await fetch(`/api/health/${encodeURIComponent(name)}/events?window=${HL.window}`)).json();
+  $('hl-ev').innerHTML = (d.events || []).length ? `<table>${d.events.map(e => `<tr><td style="white-space:nowrap">${new Date(e.time).toLocaleTimeString()}</td><td>${esc(e.daemon)}</td>
+    <td class="mono" style="font-size:11px">${esc(e.text.replace(/^\[[A-Z0-9-]+\] /, ''))}${e.during_test_run ? ' <span class="pill">test run</span>' : ''}</td></tr>`).join('')}</table>` : 'no routing events in the window';
 }
 
 let SLA = null, slaSel = null, slaTimer = null;

@@ -9,7 +9,7 @@ P router followed by the End.DT46 SID of the PE that owns the prefix (read live,
    steer.py del  <src-pe> <tenant> <prefix>
    steer.py show [<pe> ...]                                    the policies present on the PEs (kernel view)
    steer.py sid  <pe> <tenant>                                 print the End.DT46 SID of a tenant VRF on a PE"""
-import ipaddress, json, os, re, subprocess, sys
+import time, ipaddress, json, os, re, subprocess, sys
 from pathlib import Path
 from netmiko import ConnectHandler
 
@@ -97,11 +97,26 @@ if cmd == "add":
     sr = inv["service"]["srv6"]
     if sr["format"].startswith("usid") and not uncompressed:
         segs = [usid_carrier(sr, ps, sid)]
-    out = with_retry(src, lambda c: c.send_config_set(
-        [f"set {path(src, tenant, prefix)} interface {iface} vrf default",
-         f"set {path(src, tenant, prefix)} interface {iface} segments {'/'.join(segs)}", "commit", "save"],
-        exit_config_mode=True, cmd_verify=False, read_timeout=READ_TIMEOUT))
+    apply = [f"set {path(src, tenant, prefix)} interface {iface} vrf default",
+             f"set {path(src, tenant, prefix)} interface {iface} segments {'/'.join(segs)}", "commit", "save"]
+    out = with_retry(src, lambda c: c.send_config_set(apply, exit_config_mode=True, cmd_verify=False, read_timeout=READ_TIMEOUT))
     if re.search(r"Invalid|failed", out): sys.exit(out[-500:])
+
+    def installed(wait=15):
+        """The commit succeeding is not the route being there: now and then VyOS's FRR reload leaves the static route
+        out of the RIB (the running config prints it with its words in another order than VyOS renders it, so every
+        commit removes and re-adds it, and the removal can win). Look for it in the kernel VRF table."""
+        end = time.time() + wait
+        while True:
+            rt = with_retry(src, lambda c: c.send_command(f"sudo ip -c=never route show vrf {tenant} {prefix}", read_timeout=READ_TIMEOUT))
+            if "proto static" in rt and " ".join(segs) in rt: return True
+            if time.time() > end: return False
+            time.sleep(2)
+    if not installed():
+        print(f"{src}: the commit succeeded but {prefix} is not in the RIB as the policy — applying it again", file=sys.stderr)
+        with_retry(src, lambda c: c.send_config_set([f"delete {path(src, tenant, prefix)}", "commit"], exit_config_mode=True, cmd_verify=False, read_timeout=READ_TIMEOUT))
+        with_retry(src, lambda c: c.send_config_set(apply, exit_config_mode=True, cmd_verify=False, read_timeout=READ_TIMEOUT))
+        if not installed(): sys.exit(f"{src}: {tenant} {prefix}: committed twice, but the route is not in the RIB as the policy")
     print(f"{src}: {tenant} {prefix} -> {' -> '.join(ps)} -> {dst}  segments {' / '.join(segs)}  (out {iface})" + ("  [uSID: one compressed segment]" if len(segs) == 1 and len(ps) >= 1 and inv["service"]["srv6"]["format"].startswith("usid") and not uncompressed else ""))
     print(with_retry(src, lambda c: c.send_command(f"sudo ip -c=never route show vrf {tenant} {prefix}", read_timeout=READ_TIMEOUT)))
 elif cmd == "del":

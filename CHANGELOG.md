@@ -10,6 +10,25 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 The current version is in [`VERSION`](VERSION), and in git as a `v<version>` tag.
 
+## [1.9.0] — 2026-10-05
+
+### Added
+- **Router health** in the portal (`webapp/health.py`, `GET /api/health`, `GET /api/health/{node}/events`, a Health
+  view): a control-plane score per router, 0–100, on the map and in a table, with every deduction's reason — IS-IS
+  adjacencies missing, BGP sessions down or shut, BFD down, CPU and memory now; session drops and adjacency losses over
+  1 h / 6 h / 24 h from the routers' syslog, **not counting what happened during a test run**; commits and BMP reconnects
+  shown alongside. Each router's routing events are a click away. `lab_router_health` on `/metrics`.
+- **Tests:** two health cases in `16_operations` (one shuts a CE's BGP session and finds both ends docked until it is
+  back). 120 cases in all.
+
+### Fixed
+- **`tools/steer.py add` reported a policy it had not installed.** Now and then the commit succeeds but the static route
+  is not in the RIB (VyOS's FRR reload removes and re-adds it on every commit, because FRR prints it with its words in
+  another order; the removal can win). It now waits for the route, applies the policy once more if it is missing, and
+  fails if it still is (suite 07 failed this way once).
+- **Suite 07's "p2 never sees the steered flow"** caught the portal's SLA probes, which cross p2 as they should; its
+  capture now matches only the flow under test (from the source PE's loopback to the tenant's SID). CI run 18.
+
 ## [1.8.1] — 2026-10-05
 
 ### Fixed

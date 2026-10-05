@@ -38,7 +38,9 @@ Steered traffic transits p1 and p3 with the segment list in its SRH, and p2 neve
     ${loc2net}=    Set Variable    ${LOCATOR}[${VIA2}]
     ${cap1}=    Start Background    ${MGMT}[${VIA1}]    sudo timeout 20 tcpdump -c 3 -nni ${if_p1_to_p3} 'ip6 and dst net ${loc2net}'
     ${cap2}=    Start Background    ${MGMT}[${VIA2}]    sudo timeout 20 tcpdump -c 3 -nni ${if_p3_to_pe3} 'ip6 and dst net ${LOCATOR}[${DST}[pe]]'
-    ${cap3}=    Start Background    ${MGMT}[p2]    sudo timeout 12 tcpdump -c 1 -nni ${if_p2_to_pe3} 'ip6 and dst net ${LOCATOR}[${DST}[pe]]'
+    # only this flow: from ${SRC_PE}'s loopback (the encapsulation source) to the tenant's SID on the egress PE — other
+    # traffic to that PE (the portal's SLA probes of every tenant, every minute) crosses p2 as it should
+    ${cap3}=    Start Background    ${MGMT}[p2]    sudo timeout 12 tcpdump -c 1 -nni ${if_p2_to_pe3} 'ip6 and src host ${LOOPBACK}[${SRC_PE}] and dst host ${SID}'
     ${ping}=    Host    ${SRC}[host]    ping -c 10 -i 0.3 -W 2 ${DST}[host_ip]
     Should Contain    ${ping}    0% packet loss    msg=${SRC}[host] -> ${DST}[host] fails with the policy in place
     ${p1}=    Finish Background    ${cap1}

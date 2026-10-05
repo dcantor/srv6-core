@@ -27,6 +27,7 @@ import backup as BK
 import steermap as SM
 import whatif as WI
 import traffic as TF
+import health as HL
 
 LAB = Path(__file__).resolve().parents[1]; sys.path.insert(0, str(LAB / "tools")); from topology_svg import draw   # noqa: E402
 RUNS_DIR = Path(__file__).resolve().parent / "runs"; RUNS_DIR.mkdir(exist_ok=True); RESULTS = LAB / "results"
@@ -278,6 +279,10 @@ def prometheus_metrics():
     body += "# HELP lab_collector_last_refresh_seconds When the background refresh last succeeded (0 = never)\n# TYPE lab_collector_last_refresh_seconds gauge\n"
     body += M.line("lab_collector_last_refresh_seconds", {"lab": "srv6-core"}, int(collector.last or 0)) + "\n"
     body += prober.metrics(M.line)
+    hl = _health("1h")
+    if hl:
+        body += "# HELP lab_router_health Control-plane health score per router, 0-100 (see /api/health: every deduction has a reason)\n# TYPE lab_router_health gauge\n"
+        body += "".join(M.line("lab_router_health", {"lab": "srv6-core", "node": r["node"], "role": r["role"]}, r["score"]) + "\n" for r in hl["routers"])
     cap = _capacity(max_age=None)
     if cap:
         body += "# HELP lab_capacity_room_tenants How many more tenants fit (every data centre, or one)\n# TYPE lab_capacity_room_tenants gauge\n"
@@ -542,6 +547,31 @@ def traffic(window: str = Query("5m", pattern="^(1m|5m|15m|1h)$")):
     inv, pols, _ = _whatif_context()
     try: return TF.collect(inv, window, pols)
     except Exception as e: raise HTTPException(502, f"monitoring not reachable: {e.__class__.__name__}: {e}")   # noqa: BLE001
+
+
+_HL = {}
+
+
+def _health(window):
+    """Scores are cheap (a few Prometheus and LogsQL queries) but /metrics is scraped every 30 s: keep each for 30 s."""
+    c = _HL.get(window)
+    if c and time.time() - c[0] < 30: return c[1]
+    try: d = HL.collect(_whatif_context()[0], window)
+    except Exception: return c[1] if c else None              # noqa: BLE001 — a scrape must not fail because the NMS is slow
+    _HL[window] = (time.time(), d); return d
+
+
+@app.get("/api/health", tags=["health"], summary="A control-plane health score per router (0-100): every deduction with its reason — sessions and adjacencies down now, flaps outside test runs, CPU, memory")
+def health(window: str = Query("1h", pattern="^(1h|6h|24h)$")):
+    d = _health(window)
+    if d is None: raise HTTPException(502, "monitoring (Prometheus / VictoriaLogs) not reachable")
+    return d
+
+
+@app.get("/api/health/{node}/events", tags=["health"], summary="One router's routing-state syslog, newest first (marked when it happened during a test run)")
+def health_events(node: str = PathParam(..., pattern=r"^[\w-]{1,40}$"), window: str = Query("24h", pattern="^(1h|6h|24h)$")):
+    try: return {"node": node, "events": HL.events(node, window)}
+    except Exception as e: raise HTTPException(502, f"VictoriaLogs not reachable: {e}")   # noqa: BLE001
 
 
 install_runs_api(app, registry, resume_factory=lambda d: Run(d["mode"], d.get("spec"), d.get("options") or {}, resume_of=d))

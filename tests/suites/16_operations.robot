@@ -1,7 +1,7 @@
 *** Settings ***
 Documentation     Operations features of the portal: tenant SLA probes (every pair of a tenant's sites, host to host, delay and
 ...               loss against targets, exported to Prometheus with alert rules), the capacity view (what runs out first), steering
-...               on the map (a policy's path beside the IGP's, both measured), what-if failures on the model, traffic on the map (counters and sFlow), and backup / restore (the whole lab in one file; a
+...               on the map (a policy's path beside the IGP's, both measured), what-if failures on the model, traffic on the map (counters and sFlow), router health scores, and backup / restore (the whole lab in one file; a
 ...               restore puts the steering back as the backup had it). The restore run is skipped when this suite itself runs
 ...               inside a portal run (runs are one at a time); `./lab.sh test` from a shell runs it.
 Resource          ../resources/common.resource
@@ -165,6 +165,34 @@ The portal refuses to change the lab while a test run holds it, but not the suit
         IF    not ${busy}[test_run]    Terminate Process    lock
     END
 
+Health: every router is scored, and every point taken off has a reason
+    ${h}=    Http Get    ${PORTAL}/api/health    window=1h    timeout=60
+    ${routers}=    Evaluate    sorted(n for n, v in $NODES.items() if v["role"] in ("p", "pe", "ce", "fw"))
+    Should Be Equal    ${{sorted(r["node"] for r in $h["routers"])}}    ${routers}
+    FOR    ${r}    IN    @{h}[routers]
+        Should Be Equal As Integers    ${r}[score]    ${{max(0, 100 - sum(d["points"] for d in $r["deductions"]))}}    msg=${r}[node]: the score is not 100 minus its deductions
+        FOR    ${d}    IN    @{r}[deductions]
+            Should Be True    ${d}[points] > 0 and len("${d}[what]") > 5    msg=${r}[node]: a deduction without a reason: ${d}
+        END
+    END
+    ${text}=    Http Get    ${PORTAL}/metrics
+    ${g}=    Metric Samples    ${text}    lab_router_health
+    Length Should Be    ${g}    ${{len($routers)}}
+
+Health: a BGP session shut now costs both ends their points, with the reason, until it is back
+    [Documentation]    ce3's tenant-b session to its PE is shut for a minute (as suite 15 does): the PE and the CE each lose
+    ...                points for it — the PE 20 for a session not Established, the CE 10 for one it shut itself — as a fault
+    ...                *now*, whatever the window, and get them back.
+    ${pe}=    Set Variable    ${SITES}[tenant-b][${NODES}[ce3][dc]][pe]
+    ${peer}=    Set Variable    ${SITES}[tenant-b][${NODES}[ce3][dc]][pe_wan_ip]
+    TRY
+        Configure    ce3    set vrf name tenant-b protocols bgp neighbor ${peer} shutdown
+        Wait Until Keyword Succeeds    3 min    10 s    Session Down Should Cost Points    ${pe}    ce3
+    FINALLY
+        Configure    ce3    delete vrf name tenant-b protocols bgp neighbor ${peer} shutdown
+    END
+    Wait Until Keyword Succeeds    3 min    10 s    No Session Should Be Down    ${pe}    ce3
+
 A backup holds the lab and checks itself: the plan against the running lab is empty, a damaged file is refused
     ${b}=    Http Post    ${PORTAL}/api/backups    timeout=300
     Should Be Equal As Integers    ${b}[status]    200
@@ -213,6 +241,24 @@ Steered Traffic Should Be Seen
 Lab Should Be Busy
     ${b}=    Http Get    ${PORTAL}/api/lab/busy
     Should Be True    ${b}[test_run]
+
+Session Down Should Cost Points
+    [Arguments]    @{nodes}
+    ${h}=    Http Get    ${PORTAL}/api/health    window=1h    timeout=60
+    FOR    ${n}    IN    @{nodes}
+        ${r}=    Evaluate    [r for r in $h["routers"] if r["node"] == "${n}"][0]
+        ${d}=    Evaluate    [d for d in $r["deductions"] if d.get("now") and d["what"].startswith(("BGP not Established", "BGP shut down"))]
+        Should Not Be Empty    ${d}    msg=${n}: no deduction for the shut session yet: ${r}[deductions]
+        Should Be True    ${r}[score] <= 90
+    END
+
+No Session Should Be Down
+    [Arguments]    @{nodes}
+    ${h}=    Http Get    ${PORTAL}/api/health    window=1h    timeout=60
+    FOR    ${n}    IN    @{nodes}
+        ${r}=    Evaluate    [r for r in $h["routers"] if r["node"] == "${n}"][0]
+        Should Be Equal As Integers    ${r}[sessions][bgp_down]    0    msg=${n}: still a session down: ${r}[deductions]
+    END
 
 Remove The Policy And Close Connections
     IF    $DST_LAN is not None    Run Keyword And Ignore Error    Steer    del    ${SRC_PE}    ${TENANT}    ${DST_LAN}
