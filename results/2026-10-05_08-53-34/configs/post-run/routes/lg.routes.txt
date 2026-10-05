@@ -1,0 +1,21 @@
+# lg (10.3.0.70) BGP looking glass captured 2026-10-05 09:51:11
+
+==== FRR configuration (rendered by tools/render.py): doas cat /etc/frr/frr.conf
+! lg: the lab's BGP looking glass, rendered by tools/render.py
+! The reflectors stream their tables to lgd over BMP (port 11019): FRR on this VM holds no BGP
+! session. Set LG_FEED=session in lab.conf to go back to the iBGP session.
+frr defaults traditional
+hostname lg
+log file /var/log/frr/frr.log informational
+log syslog informational
+service integrated-vtysh-config
+!
+
+==== collector sessions: doas vtysh -c 'show bgp summary'
+% BGP instance not found
+
+==== BGP VPNv4 table (collected): doas vtysh -c 'show bgp ipv4 vpn'
+Default BGP instance not found
+
+==== BGP VPNv6 table (collected): doas vtysh -c 'show bgp ipv6 vpn'
+Default BGP instance not found
