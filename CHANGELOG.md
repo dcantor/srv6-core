@@ -10,6 +10,28 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 The current version is in [`VERSION`](VERSION), and in git as a `v<version>` tag.
 
+## [1.8.0] — 2026-10-05
+
+### Added
+- **What-if** in the portal (`webapp/whatif.py`, `GET /api/whatif`): fail links and routers on the model — click them on
+  the map or pick a scenario — and see every tenant site pair and every site's path to the internet breakout judged
+  (unaffected, equal-cost path left, longer by N hops, cut off), each steering policy's fate (rerouted, or black-holed
+  when its first hop or a waypoint dies — the policy is a static route pinned to a link that never loses carrier), and
+  what the control plane loses (one or both reflectors, the breakout PE). Nothing on the routers changes; the
+  inventory and the policies are cached for a minute, so a click is answered in milliseconds.
+- **Traffic** in the portal (`webapp/traffic.py`, `GET /api/traffic`): every core link as two lanes as wide as their
+  load (the sender's interface counters, exact) with what they carry (the P routers' sFlow from VictoriaLogs: tenant →
+  egress PE from the Segment Routing Header's End.DT46 SID, steered traffic from its waypoints, IS-IS / BFD / BGP);
+  the tenant traffic matrix (ingress → egress PE); and the steering check — the links each policy's packets were seen on.
+- **Tests:** five new cases in `16_operations` (three what-if, two traffic — one sends iperf through a steering policy
+  and finds it on exactly the policy's path). 117 cases in all.
+
+### Known
+- A PE's End.DT46 SIDs are renumbered whenever its BGP configuration is committed (a steering change does it); traffic
+  carries on, the looking glass records the change, and the traffic map labels the old SIDs "no longer current".
+- IS-IS hellos are padded to the 9000-byte MTU and are ~90 % of an idle core; hsflowd records received hellos without an
+  interface, so the PE → P lanes show none.
+
 ## [1.7.1] — 2026-10-05
 
 ### Changed

@@ -25,6 +25,8 @@ import sla as SLA
 import capacity as CAP
 import backup as BK
 import steermap as SM
+import whatif as WI
+import traffic as TF
 
 LAB = Path(__file__).resolve().parents[1]; sys.path.insert(0, str(LAB / "tools")); from topology_svg import draw   # noqa: E402
 RUNS_DIR = Path(__file__).resolve().parent / "runs"; RUNS_DIR.mkdir(exist_ok=True); RESULTS = LAB / "results"
@@ -468,6 +470,46 @@ def steering_plan(pe: str, tenant: str, prefix: str, via: str = Query(..., descr
 def steering_measure(pe: str, tenant: str, prefix: str):
     try: return SM.measure(T.inventory(), pe, tenant, prefix, _router_run)
     except ValueError as e: raise HTTPException(422, str(e))
+
+
+_WI = {"ts": 0, "inv": None, "pols": None, "lock": threading.Lock()}
+
+
+def _whatif_context(refresh=False):
+    """The inventory and the live steering policies, kept for a minute: reading the policies means asking every PE
+    (~10 s), and the What-if view asks again on every click — the failures themselves are computed in no time."""
+    with _WI["lock"]:
+        if refresh or not _WI["inv"] or time.time() - _WI["ts"] > 60:
+            inv = T.inventory(); pols = []; read = state.steering()
+            if any("error" in p for p in read) and _WI["pols"] is not None:   # a failed read is not "no policies": keep the last good one
+                _WI.update(ts=time.time(), inv=inv); return _WI["inv"], _WI["pols"], _WI["ts"]
+            for p in read:
+                if "pe" not in p: continue
+                try: pols.append({**p, **SM.paths_for(inv, p["pe"], p["tenant"], p["prefix"], segments=p.get("segments"))})
+                except ValueError: pass
+            _WI.update(ts=time.time(), inv=inv, pols=pols)
+        return _WI["inv"], _WI["pols"], _WI["ts"]
+
+
+@app.get("/api/whatif", tags=["what-if"], summary="Fail links or routers on the model: what each tenant pair, the internet breakout and every steering policy would see (nothing is changed)")
+def whatif(fail: list[str] = Query([], description="a router (p2) or a link (p1~p2); repeat for several"),
+           refresh: bool = Query(False, description="re-read the inventory and the steering policies now (otherwise up to a minute old)")):
+    inv, pols, ts = _whatif_context(refresh)
+    try: out = WI.analyse(inv, fail, pols)
+    except ValueError as e: raise HTTPException(422, str(e))
+    role = {n["name"]: n["role"] for n in inv["nodes"]}
+    out["nodes"] = [{"name": n["name"], "role": n["role"], "dc": n.get("dc")} for n in inv["nodes"] if n["role"] in SM.CORE]
+    out["links"] = [{"a": l["a"], "b": l["b"]} for l in inv["links"] if role.get(l["a"]) in SM.CORE and role.get(l["b"]) in SM.CORE]
+    out["rrs"] = inv["service"]["rrs"]; out["internet_pe"] = (inv["service"].get("internet") or {}).get("pe")
+    out["as_of"] = ts
+    return out
+
+
+@app.get("/api/traffic", tags=["traffic"], summary="Load on every core link in each direction (interface counters) and what it is made of (sFlow): tenants, egress PEs, steered traffic, IS-IS / BFD / BGP; the tenant traffic matrix; where each steering policy's traffic was seen")
+def traffic(window: str = Query("5m", pattern="^(1m|5m|15m|1h)$")):
+    inv, pols, _ = _whatif_context()
+    try: return TF.collect(inv, window, pols)
+    except Exception as e: raise HTTPException(502, f"monitoring not reachable: {e.__class__.__name__}: {e}")   # noqa: BLE001
 
 
 install_runs_api(app, registry, resume_factory=lambda d: Run(d["mode"], d.get("spec"), d.get("options") or {}, resume_of=d))

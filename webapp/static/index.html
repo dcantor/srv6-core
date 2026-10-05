@@ -78,7 +78,7 @@
 </style></head>
 <body>
 <header><div><h1>SRv6 Tenant Provisioning Portal</h1><div class="sub">VyOS SRv6 core · IS-IS + BGP L3VPN (End.DT4) · Nautobot source of truth · Robot Framework validation</div></div>
-  <nav><a href="#tenants" class="on" data-view="tenants">Tenants</a><a href="#steering" data-view="steering">Steering</a><a href="#sla" data-view="sla">SLA</a><a href="#capacity" data-view="capacity">Capacity</a><a href="#backups" data-view="backups">Backups</a><a href="#runs" data-view="runs">Runs</a><a href="/docs" target="_blank">API</a><a id="lg-link" href="#" target="_blank" title="the BGP looking glass: every VPN prefix in the core, its attributes and its history">Looking glass</a></nav>
+  <nav><a href="#tenants" class="on" data-view="tenants">Tenants</a><a href="#steering" data-view="steering">Steering</a><a href="#whatif" data-view="whatif">What-if</a><a href="#traffic" data-view="traffic">Traffic</a><a href="#sla" data-view="sla">SLA</a><a href="#capacity" data-view="capacity">Capacity</a><a href="#backups" data-view="backups">Backups</a><a href="#runs" data-view="runs">Runs</a><a href="/docs" target="_blank">API</a><a id="lg-link" href="#" target="_blank" title="the BGP looking glass: every VPN prefix in the core, its attributes and its history">Looking glass</a></nav>
   <div class="right" id="hdr">Nautobot: <a id="nb-link" href="#" target="_blank">open</a> · <a href="#" id="theme-toggle" title="dark / light (follows the OS setting until chosen)">☾ dark</a> · <select id="skin" class="skin" title="the look of the portal"><option value="default">Default</option><option value="apple">Apple</option></select></div></header>
 <main>
 <section id="v-tenants" class="view on">
@@ -104,6 +104,35 @@
     <div class="grid" style="grid-template-columns:minmax(0,2fr) minmax(260px,1fr);margin-top:10px"><div id="sm-svg"></div><div id="sm-info" class="hint"></div></div>
     <p class="hint">Paths come from the model (every IS-IS metric is the default, so the IGP takes the fewest hops; equal-cost paths are all dashed). Delay: ten echo requests 0.2 s apart from the PE, inside the tenant's VRF — to the host on the steered prefix (the policy's path) and to the same site's CE on its attachment circuit (a prefix no policy steers: the IGP path to the same PE).</p>
     <p class="hint">The segment list is the End SID of every listed P router followed by the End.DT4 SID of the PE that owns the prefix (read live). Return traffic keeps the IGP shortest path. Suite 07 shows the SRH on the wire.</p></div>
+</section>
+
+<section id="v-whatif" class="view">
+  <div class="card"><h2>What if… <small>fail links or routers on the model and see what every tenant would feel — nothing on the routers changes</small></h2>
+    <div class="row" style="align-items:center"><div style="flex:0 0 auto"><label>Scenario</label><select id="wi-preset" onchange="wiPreset(this.value)"><option value="">click the map to fail links and routers…</option></select></div>
+      <div style="flex:0"><button onclick="wiSet([])">Clear</button></div>
+      <div class="legend" style="flex:1"><span><i style="border-color:var(--bad)"></i>failed</span><span><i style="border-color:var(--warn)"></i>carries rerouted traffic</span></div></div>
+    <p class="hint" id="wi-asof" style="margin:6px 0 0"></p>
+    <div class="grid" style="grid-template-columns:minmax(0,2fr) minmax(280px,1fr);margin-top:10px"><div id="wi-svg"></div><div id="wi-sum"></div></div>
+    <div id="wi-control"></div>
+    <h2 style="margin-top:16px">Tenant site pairs <small>the IGP's shortest paths between their PEs, before and after</small></h2>
+    <table id="wi-pairs"><thead><tr><th>Tenant</th><th>Sites</th><th>Verdict</th><th>Before</th><th>After</th></tr></thead><tbody></tbody></table>
+    <h2 style="margin-top:16px">To the internet breakout <small>each site's path to the PE with the firewall</small></h2>
+    <table id="wi-inet"><thead><tr><th>Tenant</th><th>Site</th><th>Verdict</th><th>Before</th><th>After</th></tr></thead><tbody></tbody></table>
+    <h2 style="margin-top:16px">Steering policies</h2>
+    <table id="wi-pol"><thead><tr><th>PE</th><th>Tenant</th><th>Prefix</th><th>Via</th><th>Verdict</th><th>Why</th></tr></thead><tbody></tbody></table>
+    <p class="hint">A model, not a measurement: every IS-IS metric is the default, so the IGP takes the fewest hops, and IS-IS reconverges in about a second (BFD 300 ms × 3; suite 08 measures it). A steering policy is a static route pinned to its first P router's link, and the core links never lose carrier, so a dead first hop or waypoint black-holes the prefix until the policy is removed. With every route reflector down, the PEs keep their VPN routes until the BGP hold time (180 s) runs out. Suite 08 breaks the core for real.</p></div>
+</section>
+
+<section id="v-traffic" class="view">
+  <div class="card"><h2>Traffic in the core <small>every link in each direction: how much (the sender's interface counters) and what it is (the P routers' sFlow samples)</small></h2>
+    <div class="row" style="align-items:center"><div style="flex:0 0 auto"><label>Window</label><select id="tf-window" onchange="loadTraffic()"><option>1m</option><option selected>5m</option><option>15m</option><option>1h</option></select></div>
+      <div style="flex:0"><button onclick="loadTraffic()">Refresh</button></div><div class="hint" id="tf-asof" style="flex:1"></div></div>
+    <div class="grid" style="grid-template-columns:minmax(0,2fr) minmax(300px,1fr);margin-top:10px"><div id="tf-svg"></div><div id="tf-side"></div></div>
+    <h2 style="margin-top:16px">Tenant traffic matrix <small>SRv6 traffic entering the core: the PE it entered at, the PE its SID names — share of the sampled bytes</small></h2>
+    <table id="tf-matrix"><thead><tr><th>Tenant</th><th>From</th><th>To</th><th>Share</th></tr></thead><tbody></tbody></table>
+    <h2 style="margin-top:16px">Steering check <small>the links each policy's packets were really seen on — its segment list is in every packet's Segment Routing Header</small></h2>
+    <table id="tf-pol"><thead><tr><th>PE</th><th>Tenant</th><th>Prefix</th><th>Policy path</th><th>Seen on</th><th></th></tr></thead><tbody></tbody></table>
+    <p class="hint">Load is exact: the transmit counter of the port at the sending end (node-exporter → Prometheus). What it is made of comes from sFlow, 1 in 16 packets on every P router's core ports (hsflowd → goflow2 → VictoriaLogs): each direction of a link is read from one P router (the one sending it, or receiving it from a PE), so a share is of sampled bytes and a category's bits/s is an estimate. The SRv6 traffic is named from its Segment Routing Header (the ingress PE's segment list, unchanged at every hop): the egress PE and tenant from the End.DT46 SID (as the looking glass decoded it), a steered packet from the waypoints in it. IS-IS hellos are padded to the 9000-byte MTU, which is why they dominate an idle core; hsflowd records the hellos it receives without an interface, so the PE → P lanes show none.</p></div>
 </section>
 
 <section id="v-sla" class="view">
@@ -166,7 +195,7 @@ applyTheme(); document.getElementById('theme-toggle').onclick = e => { e.prevent
 const $ = id => document.getElementById(id); const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 let ST = null, wizSpec = null, wizMode = 'tenant', wizStep = 1, watching = null;
 document.querySelectorAll('nav a[data-view]').forEach(a => a.onclick = e => { e.preventDefault(); show(a.dataset.view); });
-function show(v) { document.querySelectorAll('.view').forEach(x => x.classList.toggle('on', x.id === 'v-' + v)); document.querySelectorAll('nav a[data-view]').forEach(a => a.classList.toggle('on', a.dataset.view === v)); location.hash = v; if (v === 'runs') loadRuns(); if (v === 'steering') loadSteering(); if (v === 'sla') loadSla(); if (v === 'capacity') loadCapacity(); if (v === 'backups') loadBackups(); if (v !== 'sla' && slaTimer) { clearInterval(slaTimer); slaTimer = null; } }
+function show(v) { document.querySelectorAll('.view').forEach(x => x.classList.toggle('on', x.id === 'v-' + v)); document.querySelectorAll('nav a[data-view]').forEach(a => a.classList.toggle('on', a.dataset.view === v)); location.hash = v; if (v === 'runs') loadRuns(); if (v === 'steering') loadSteering(); if (v === 'whatif') loadWhatif(); if (v === 'traffic') loadTraffic(); if (v !== 'traffic' && tfTimer) { clearInterval(tfTimer); tfTimer = null; } if (v === 'sla') loadSla(); if (v === 'capacity') loadCapacity(); if (v === 'backups') loadBackups(); if (v !== 'sla' && slaTimer) { clearInterval(slaTimer); slaTimer = null; } }
 
 async function refresh(live) {
   const r = await fetch('/api/state' + (live ? '?refresh=1' : '?live=0')); ST = await r.json(); render();
@@ -331,11 +360,11 @@ async function steerPreview() {
   const r = await fetch('/api/steering/plan?' + q); const d = await r.json(); if (!r.ok) return $('st-msg').textContent = typeof d.detail === 'string' ? d.detail : JSON.stringify(d.detail);
   PREVIEW = { ...d, preview: true }; if (!SMAP) await loadMap(); fillPick('preview'); drawMap();
 }
-function layout() {
-  const P = SMAP.nodes.filter(n => n.role === 'p'), E = SMAP.nodes.filter(n => n.role === 'pe'), pos = {}, W = 640, H = 420, cx = W / 2, cy = H / 2;
+function layout(M = SMAP) {
+  const P = M.nodes.filter(n => n.role === 'p'), E = M.nodes.filter(n => n.role === 'pe'), pos = {}, W = 640, H = 420, cx = W / 2, cy = H / 2;
   P.forEach((n, i) => { const a = -Math.PI / 2 + 2 * Math.PI * i / P.length; pos[n.name] = [cx + 95 * Math.cos(a), cy + 95 * Math.sin(a)]; });
   const ang = E.map((n, i) => {
-    const ps = SMAP.links.filter(l => l.a === n.name || l.b === n.name).map(l => l.a === n.name ? l.b : l.a).filter(x => pos[x]);
+    const ps = M.links.filter(l => l.a === n.name || l.b === n.name).map(l => l.a === n.name ? l.b : l.a).filter(x => pos[x]);
     const ax = ps.reduce((s, x) => s + pos[x][0] - cx, 0), ay = ps.reduce((s, x) => s + pos[x][1] - cy, 0);
     return Math.hypot(ax, ay) < 1 ? 2 * Math.PI * i / E.length : Math.atan2(ay, ax);
   });
@@ -375,6 +404,121 @@ async function steerMeasure() {
 }
 
 // ---- tenant SLA ----------------------------------------------------------------------------------------------------
+/* ---- what-if -------------------------------------------------------- */
+let WI = null, WIFAIL = [];
+const wiKey = (a, b) => [a, b].sort().join('~');
+const VERDICT = { unaffected: ['unaffected', 'ok'], ecmp: ['equal-cost path left', 'ok'], longer: ['longer', 'warn'], cut: ['cut off', 'critical'],
+                  rerouted: ['rerouted', 'warn'], blackhole: ['black hole', 'critical'] };
+const vPill = (v, extra) => { const x = VERDICT[v] || [v, '']; return `<span class="pill ${x[1]}">${esc(x[0])}${extra ? ' ' + esc(extra) : ''}</span>`; };
+async function loadWhatif() {
+  const q = new URLSearchParams(); WIFAIL.forEach(f => q.append('fail', f));
+  if (!WI) $('wi-sum').innerHTML = '<p class="hint">reading the model and the steering policies on the PEs…</p>';
+  const r = await fetch('/api/whatif?' + q); const d = await r.json();
+  if (!r.ok) { $('wi-sum').innerHTML = `<p class="msg">${esc(typeof d.detail === 'string' ? d.detail : JSON.stringify(d.detail))}</p>`; return; }
+  WI = d; wiPresets(); drawWhatif(); renderWhatif();
+  $('wi-asof').innerHTML = `model and policies as of ${new Date(d.as_of * 1000).toLocaleTimeString()} · <a href="#" onclick="event.preventDefault(); wiRefresh()">re-read</a>`;
+}
+async function wiRefresh() { await fetch('/api/whatif?refresh=1'); loadWhatif(); }
+function wiSet(list) { WIFAIL = list; $('wi-preset').value = ''; loadWhatif(); }
+function wiToggle(x) { WIFAIL = WIFAIL.includes(x) ? WIFAIL.filter(y => y !== x) : [...WIFAIL, x]; loadWhatif(); }
+function wiPreset(v) { if (v) { WIFAIL = JSON.parse(v); loadWhatif(); } }
+function wiPresets() {
+  if ($('wi-preset').options.length > 1) return;
+  const ps = WI.nodes.filter(n => n.role === 'p').map(n => [`${n.name} down${WI.rrs.includes(n.name) ? ' (a route reflector)' : ''}`, [n.name]]);
+  if (WI.rrs.length > 1) ps.push([`every route reflector down (${WI.rrs.join(' + ')})`, WI.rrs]);
+  if (WI.internet_pe) ps.push([`${WI.internet_pe} down (the internet breakout)`, [WI.internet_pe]]);
+  $('wi-preset').innerHTML += ps.map(([t, f]) => `<option value='${JSON.stringify(f)}'>${esc(t)}</option>`).join('');
+}
+function drawWhatif() {
+  const { pos, W, H } = layout(WI), failedN = new Set(WI.failed.nodes), failedL = new Set(WI.failed.links);
+  const busy = new Set();                                    // links the rerouted traffic now uses
+  [...WI.pairs, ...WI.internet].filter(p => p.verdict === 'longer' || p.verdict === 'ecmp').forEach(p => (p.after || []).forEach(path => path.slice(1).forEach((b, i) => busy.add(wiKey(path[i], b)))));
+  let g = WI.links.map(l => { const k = wiKey(l.a, l.b), [x1, y1] = pos[l.a], [x2, y2] = pos[l.b], dead = failedL.has(k) || failedN.has(l.a) || failedN.has(l.b);
+    const c = dead ? 'var(--bad)' : busy.has(k) ? 'var(--warn)' : 'var(--line)';
+    const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
+    return `<g style="cursor:pointer" onclick="wiToggle('${k}')"><title>${dead ? 'restore' : 'fail'} the link ${l.a} – ${l.b}</title>
+      <path d="M${x1},${y1} L${x2},${y2}" stroke="transparent" stroke-width="18"/>
+      <path d="M${x1},${y1} L${x2},${y2}" stroke="${c}" stroke-width="7" stroke-linecap="round" ${dead ? 'stroke-dasharray="4 7"' : ''}/>
+      ${failedL.has(k) ? `<text x="${mx}" y="${my + 5}" text-anchor="middle" style="fill:var(--bad);font-size:18px;font-weight:700">✕</text>` : ''}</g>`; }).join('');
+  g += WI.nodes.map(n => { const [x, y] = pos[n.name], dead = failedN.has(n.name);
+    const tag = [WI.rrs.includes(n.name) ? 'RR' : '', n.name === WI.internet_pe ? 'internet' : ''].filter(Boolean).join(' · ');
+    return `<g style="cursor:pointer" onclick="wiToggle('${n.name}')"><title>${dead ? 'restore' : 'fail'} ${n.name}</title>
+      <circle cx="${x}" cy="${y}" r="${n.role === 'p' ? 22 : 26}" fill="${dead ? 'var(--bad)' : n.role === 'p' ? 'var(--card)' : 'var(--bg)'}" stroke="${dead ? 'var(--bad)' : 'var(--line)'}" stroke-width="2"/>
+      <text x="${x}" y="${y + 4}" text-anchor="middle" font-weight="600" ${dead ? 'style="fill:#fff"' : ''}>${n.name}</text>
+      ${n.role === 'pe' || tag ? `<text x="${x}" y="${y + (n.role === 'pe' ? 42 : 36)}" text-anchor="middle" style="fill:var(--muted);font-size:11px">${[n.role === 'pe' ? n.dc : '', tag].filter(Boolean).join(' · ')}</text>` : ''}</g>`; }).join('');
+  $('wi-svg').innerHTML = `<svg class="smap" viewBox="0 0 ${W} ${H + 20}">${g}</svg>`;
+}
+function renderWhatif() {
+  const s = WI.summary, nothing = !WI.failed.nodes.length && !WI.failed.links.length;
+  const line = (label, c) => `<tr><td>${label}</td><td>${Object.entries(c).filter(([, n]) => n).map(([v, n]) => `${vPill(v)} ${n}`).join(' &nbsp;') || '—'}</td></tr>`;
+  $('wi-sum').innerHTML = nothing ? '<p class="hint">Nothing has failed. Click a router or a link on the map, or pick a scenario, to fail it — click it again to bring it back.</p>'
+    : `<p><b>Failed:</b> ${[...WI.failed.nodes, ...WI.failed.links.map(k => k.replace('~', ' – '))].map(esc).join(', ')}</p>
+       <table>${line('Tenant site pairs', s.pairs)}${line('To the internet', s.internet)}${WI.policies.length ? line('Steering policies', s.policies) : ''}</table>`;
+  $('wi-control').innerHTML = WI.control.map(c => `<div class="msg" style="border-left:4px solid var(--${c.severity === 'critical' ? 'bad' : 'warn'});padding:8px 12px;margin-top:10px">${esc(c.text)}</div>`).join('');
+  const path = ps => (ps || []).map(p => p.join(' → ')).join('<br>') || '—';
+  const after = p => p.verdict === 'cut' ? `<span class="hint">${esc(p.why || '')}</span>` : p.verdict === 'unaffected' ? '<span class="hint">as before</span>' : path(p.after);
+  const ord = { cut: 0, blackhole: 0, longer: 1, rerouted: 1, ecmp: 2, unaffected: 3 }, sort = xs => [...xs].sort((a, b) => ord[a.verdict] - ord[b.verdict]);
+  $('wi-pairs').querySelector('tbody').innerHTML = sort(WI.pairs).map(p => `<tr><td>${esc(p.tenant)}</td><td>${esc(p.a)} ↔ ${esc(p.b)}</td>
+    <td>${vPill(p.verdict, p.verdict === 'longer' ? `+${p.extra_hops} hop${p.extra_hops > 1 ? 's' : ''}` : '')}</td><td class="mono">${path(p.before)}</td><td class="mono">${after(p)}</td></tr>`).join('');
+  $('wi-inet').querySelector('tbody').innerHTML = sort(WI.internet).map(p => `<tr><td>${esc(p.tenant)}</td><td>${esc(p.dc)}</td>
+    <td>${vPill(p.verdict, p.verdict === 'longer' ? `+${p.extra_hops}` : '')}</td><td class="mono">${path(p.before)}</td><td class="mono">${after(p)}</td></tr>`).join('') || '<tr><td colspan="5" class="hint">no internet breakout in this lab</td></tr>';
+  $('wi-pol').querySelector('tbody').innerHTML = WI.policies.map(p => `<tr><td>${esc(p.pe)}</td><td>${esc(p.tenant)}</td><td class="mono">${esc(p.prefix)}</td>
+    <td class="mono">${esc((p.via || []).join(' → '))}</td><td>${vPill(p.fate.verdict, p.fate.extra_hops ? `+${p.fate.extra_hops}` : '')}</td><td class="hint">${esc(p.fate.why || '')}${p.fate.path && p.fate.verdict === 'rerouted' ? `<br><span class="mono">${esc(p.fate.path.join(' → '))}</span>` : ''}</td></tr>`).join('')
+    || '<tr><td colspan="6" class="hint">no steering policies on the PEs</td></tr>';
+}
+
+/* ---- traffic -------------------------------------------------------- */
+let TF = null, tfTimer = null, tfSel = null, tfPol = null;
+const fmtBps = b => b == null ? '—' : b >= 1e9 ? (b / 1e9).toFixed(2) + ' Gb/s' : b >= 1e6 ? (b / 1e6).toFixed(1) + ' Mb/s' : b >= 1e3 ? (b / 1e3).toFixed(1) + ' kb/s' : Math.round(b) + ' b/s';
+async function loadTraffic() {
+  const r = await fetch('/api/traffic?window=' + $('tf-window').value); const d = await r.json();
+  if (!r.ok) { $('tf-side').innerHTML = `<p class="msg">${esc(d.detail || 'failed')}</p>`; return; }
+  TF = d; drawTraffic(); renderTraffic();
+  $('tf-asof').textContent = `${d.samples} samples in the last ${d.window} · ${new Date(d.as_of * 1000).toLocaleTimeString()} · refreshes every 30 s`;
+  if (!tfTimer) tfTimer = setInterval(() => { if (document.getElementById('v-traffic').classList.contains('on')) loadTraffic(); }, 30000);
+}
+function laneColor(l) {                         // tenant traffic in blue, the control plane in grey: the hue says which dominates
+  const t = (l.parts || []).filter(p => p.what.includes('→')).reduce((a, p) => a + p.share, 0);
+  return t >= 0.5 ? 'var(--blue)' : t >= 0.1 ? 'var(--accent)' : 'var(--muted)';
+}
+function drawTraffic() {
+  const { pos, W, H } = layout({ nodes: TF.nodes, links: TF.links.map(l => ({ a: l.a, b: l.b })) });
+  const max = Math.max(1, ...TF.links.flatMap(l => l.lanes.map(x => x.bps || 0)));
+  const pol = tfPol != null ? TF.policies[tfPol] : null, polLinks = new Set((pol?.path || []).slice(1).map((b, i) => pol.path[i] + '>' + b)), seen = new Set((pol?.seen || []).map(x => x[0] + '>' + x[1]));
+  let g = '';
+  TF.links.forEach((l, li) => l.lanes.forEach((ln, k) => {
+    const [x1, y1] = pos[ln.from], [x2, y2] = pos[ln.to], L = Math.hypot(x2 - x1, y2 - y1) || 1, dx = -(y2 - y1) / L * 6, dy = (x2 - x1) / L * 6;
+    const sx = x1 + (x2 - x1) * 0.18 + dx, sy = y1 + (y2 - y1) * 0.18 + dy, ex = x1 + (x2 - x1) * 0.82 + dx, ey = y1 + (y2 - y1) * 0.82 + dy;
+    const w = 2 + 10 * Math.sqrt((ln.bps || 0) / max), key = ln.from + '>' + ln.to, onPol = polLinks.has(key);
+    const c = pol ? (onPol ? (seen.has(key) ? 'var(--ok)' : 'var(--bad)') : 'var(--line)') : laneColor(ln), sel = tfSel && tfSel[0] === li && tfSel[1] === k;
+    g += `<g style="cursor:pointer" onclick="tfSel=[${li},${k}]; drawTraffic(); renderTraffic()"><title>${esc(ln.from)} → ${esc(ln.to)}: ${fmtBps(ln.bps)}</title>
+      <path d="M${sx},${sy} L${ex},${ey}" stroke="transparent" stroke-width="16"/>
+      <path d="M${sx},${sy} L${ex},${ey}" stroke="${c}" stroke-width="${w.toFixed(1)}" stroke-linecap="round" opacity="${sel || onPol ? 1 : 0.85}" marker-end="url(#tf-ah)"/>
+      ${sel ? `<path d="M${sx},${sy} L${ex},${ey}" stroke="var(--ink)" stroke-width="1.5" fill="none" stroke-dasharray="3 3"/>` : ''}</g>`;
+  }));
+  g += TF.nodes.map(n => { const [x, y] = pos[n.name];
+    return `<g><circle cx="${x}" cy="${y}" r="${n.role === 'p' ? 22 : 26}" fill="${n.role === 'p' ? 'var(--card)' : 'var(--bg)'}" stroke="var(--line)" stroke-width="2"/>
+      <text x="${x}" y="${y + 4}" text-anchor="middle" font-weight="600">${n.name}</text>${n.role === 'pe' ? `<text x="${x}" y="${y + 42}" text-anchor="middle" style="fill:var(--muted);font-size:11px">${n.dc}</text>` : ''}</g>`; }).join('');
+  $('tf-svg').innerHTML = `<svg class="smap" viewBox="0 0 ${W} ${H + 20}"><defs><marker id="tf-ah" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="3" markerHeight="3" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="context-stroke"/></marker></defs>${g}</svg>`;
+}
+function renderTraffic() {
+  const ln = tfSel ? TF.links[tfSel[0]].lanes[tfSel[1]] : null;
+  $('tf-side').innerHTML = ln ? `<h3 style="margin:0 0 6px">${esc(ln.from)} → ${esc(ln.to)} <span class="hint">${esc(ln.port)}</span></h3><p><b>${fmtBps(ln.bps)}</b> <span class="hint">(${esc(ln.from)}'s transmit counter, ${TF.window})</span></p>
+      <table><tr><th>What</th><th>Share</th><th>≈</th></tr>${ln.parts.map(p => `<tr><td>${esc(p.what)}</td><td>${(p.share * 100).toFixed(1)} %</td><td>${fmtBps(p.bps)}</td></tr>`).join('') || '<tr><td colspan="3" class="hint">no samples on this direction in the window</td></tr>'}</table>
+      <p class="hint"><a href="#" onclick="event.preventDefault(); tfSel=null; drawTraffic(); renderTraffic()">back to the legend</a></p>`
+    : `<p class="hint">Each link is two lanes, one per direction, as wide as its load. <span style="color:var(--blue)">■</span> mostly tenant traffic, <span style="color:var(--accent)">■</span> some, <span style="color:var(--muted)">■</span> the control plane (IS-IS, BFD, BGP). Click a lane for what it carries.</p>
+       <table>${TF.links.flatMap(l => l.lanes).sort((a, b) => (b.bps || 0) - (a.bps || 0)).slice(0, 6).map(x => `<tr><td>${esc(x.from)} → ${esc(x.to)}</td><td>${fmtBps(x.bps)}</td><td class="hint">${esc(x.parts[0]?.what || '')}</td></tr>`).join('')}</table>`;
+  const big = TF.matrix.filter(m => m.share >= 0.005), small = TF.matrix.length - big.length;
+  $('tf-matrix').querySelector('tbody').innerHTML = big.map(m => `<tr><td>${esc(m.tenant)}</td><td>${esc(m.ingress)}</td><td>${esc(m.egress)}</td>
+    <td><span style="display:inline-block;height:9px;width:${Math.max(2, m.share * 220)}px;background:var(--blue);border-radius:3px;vertical-align:middle"></span> ${(m.share * 100).toFixed(1)} %</td></tr>`).join('')
+    + (small ? `<tr><td colspan="4" class="hint">and ${small} more pair${small > 1 ? 's' : ''} under 0.5 % each (the SLA probes, mostly)</td></tr>` : '')
+    || '<tr><td colspan="4" class="hint">no SRv6 traffic sampled in the window</td></tr>';
+  $('tf-pol').querySelector('tbody').innerHTML = TF.policies.map((p, i) => `<tr><td>${esc(p.pe)}</td><td>${esc(p.tenant)}</td><td class="mono">${esc(p.prefix)}</td><td class="mono">${esc(p.path.join(' → '))}</td>
+    <td class="mono">${p.seen.length ? esc(p.seen.map(x => x.join('→')).join(', ')) : '<span class="hint">no packets sampled</span>'}</td>
+    <td>${p.seen.length ? (p.matches && !p.missing.length ? '<span class="pill ok">as the policy says</span>' : `<span class="pill warn">${p.missing.length ? 'not seen on ' + esc(p.missing.map(x => x.join('→')).join(', ')) : 'seen off the path'}</span>`) : ''}
+      <button onclick="tfPol=${tfPol === i ? 'null' : i}; drawTraffic()">${tfPol === i ? 'hide' : 'show on the map'}</button></td></tr>`).join('') || '<tr><td colspan="6" class="hint">no steering policies on the PEs</td></tr>';
+}
+
 let SLA = null, slaSel = null, slaTimer = null;
 async function loadSla() {
   const r = await fetch('/api/sla'); SLA = await r.json(); renderSla(); if (slaSel) slaChart(...slaSel);

@@ -1,7 +1,7 @@
 *** Settings ***
 Documentation     Operations features of the portal: tenant SLA probes (every pair of a tenant's sites, host to host, delay and
 ...               loss against targets, exported to Prometheus with alert rules), the capacity view (what runs out first), steering
-...               on the map (a policy's path beside the IGP's, both measured), and backup / restore (the whole lab in one file; a
+...               on the map (a policy's path beside the IGP's, both measured), what-if failures on the model, traffic on the map (counters and sFlow), and backup / restore (the whole lab in one file; a
 ...               restore puts the steering back as the backup had it). The restore run is skipped when this suite itself runs
 ...               inside a portal run (runs are one at a time); `./lab.sh test` from a shell runs it.
 Resource          ../resources/common.resource
@@ -82,6 +82,65 @@ The map draws a policy's steered path beside the IGP shortest path, and both are
         Should Be True    ${meas}[${k}][loss] < 0.2    msg=${k}: ${meas}[${k}]
     END
 
+What-if: with nothing failed nothing is affected, and the triangle survives any one P router
+    [Documentation]    The model's baseline, then each P router failed in turn: a pair may get longer or lose an
+    ...                equal-cost path, but none is cut off — every PE has two P routers.
+    ${w}=    Http Get    ${PORTAL}/api/whatif    refresh=true    timeout=120
+    ${pairs}=    Evaluate    sum(len(s) * (len(s) - 1) // 2 for s in $SITES.values())
+    Length Should Be    ${w}[pairs]    ${pairs}    msg=every unordered pair of a tenant's sites is judged
+    Should Be Equal As Integers    ${w}[summary][pairs][unaffected]    ${pairs}
+    Should Be Empty    ${w}[control]
+    FOR    ${p}    IN    @{PS}
+        ${f}=    Http Get    ${PORTAL}/api/whatif    fail=${p}
+        Should Be Equal As Integers    ${f}[summary][pairs][cut]    0    msg=${p} down should cut no pair off
+        Should Be Equal As Integers    ${f}[summary][internet][cut]    0    msg=${p} down should keep the internet reachable
+    END
+
+What-if judges a steering policy the way the lab builds it
+    [Documentation]    The policy from the test above (${SRC_PE} → ${TENANT} at dc3 via ${VIA1} ${VIA2}) is a static route pinned to
+    ...                ${SRC_PE}'s link to ${VIA1}: losing that link or a waypoint black-holes it; losing the link between the
+    ...                waypoints only reroutes that leg along the IGP.
+    Http Get    ${PORTAL}/api/whatif    refresh=true    timeout=120
+    ${link}=    Evaluate    "~".join(sorted(["${SRC_PE}", "${VIA1}"]))
+    ${legs}=    Evaluate    "~".join(sorted(["${VIA1}", "${VIA2}"]))
+    FOR    ${fail}    ${want}    IN    ${link}    blackhole    ${VIA2}    blackhole    ${legs}    rerouted
+        ${w}=    Http Get    ${PORTAL}/api/whatif    fail=${fail}
+        ${p}=    Evaluate    [p for p in $w["policies"] if p["pe"] == "${SRC_PE}" and p["prefix"] == "${DST_LAN}"][0]
+        Should Be Equal    ${p}[fate][verdict]    ${want}    msg=${fail} down: ${p}[fate]
+    END
+    Should Be Equal    ${p}[fate][path][0]    ${SRC_PE}
+    Should Be Equal    ${p}[fate][path][-1]    pe3
+    Should Be True    ${p}[fate][extra_hops] > 0    msg=the rerouted leg should be longer: ${p}[fate]
+
+What-if: losing every route reflector cuts everything off, and losing the breakout PE takes the internet away
+    ${w}=    Http Get    ${PORTAL}/api/whatif    fail=${RRS}
+    Should Be Equal As Integers    ${w}[summary][pairs][cut]    ${{len($w["pairs"])}}    msg=with no reflector every VPN route expires
+    Should Be Equal    ${w}[control][0][severity]    critical
+    ${inet}=    Http Get    ${PORTAL}/api/whatif    fail=${SERVICE}[internet][pe]
+    Should Be Equal As Integers    ${inet}[summary][internet][cut]    ${{len($inet["internet"])}}
+    ${err}=    Run Keyword And Expect Error    *422*    Http Get    ${PORTAL}/api/whatif    fail=p9
+
+Traffic: every direction of every core link has its load, and a share for what it carries
+    ${t}=    Http Get    ${PORTAL}/api/traffic    window=5m    timeout=60
+    ${core}=    Evaluate    [l for l in $LINKS if $NODES[l["a"]]["role"] in ("p", "pe") and $NODES[l["b"]]["role"] in ("p", "pe")]
+    Length Should Be    ${t}[links]    ${{len($core)}}
+    FOR    ${l}    IN    @{t}[links]
+        FOR    ${lane}    IN    @{l}[lanes]
+            Should Be True    ${lane}[bps] is not None and ${lane}[bps] > 0    msg=${lane}[from] → ${lane}[to]: no load from its counter
+            Should Not Be Empty    ${lane}[parts]    msg=${lane}[from] → ${lane}[to]: no sFlow samples in 5 minutes
+        END
+    END
+
+Traffic: a steered tenant's packets are named on every link of the policy's path
+    [Documentation]    iperf from the tenant's dc1 host to its dc3 host, while the policy from the steering test above pins
+    ...                ${SRC_PE} → dc3 to ${VIA1} ${VIA2}: the traffic map must name it on the first lane, put it in the matrix
+    ...                between the right PEs, and see the policy's packets on exactly the policy's path.
+    ${a}=    Set Variable    ${SITES}[${TENANT}][dc1]
+    ${z}=    Set Variable    ${SITES}[${TENANT}][dc3]
+    Http Get    ${PORTAL}/api/whatif    refresh=true    timeout=120
+    Http Get    ${PORTAL}/api/iperf    src=${a}[host]    dst=${z}[host]    seconds=15    timeout=120
+    Wait Until Keyword Succeeds    90 s    10 s    Steered Traffic Should Be Seen    ${a}[pe]    ${z}[pe]
+
 A backup holds the lab and checks itself: the plan against the running lab is empty, a damaged file is refused
     ${b}=    Http Post    ${PORTAL}/api/backups    timeout=300
     Should Be Equal As Integers    ${b}[status]    200
@@ -117,6 +176,16 @@ A restore puts the steering back as the backup had it
     Should Contain    ${show}    ${DST_LAN}    msg=the restore put the policy back
 
 *** Keywords ***
+Steered Traffic Should Be Seen
+    [Arguments]    ${ingress}    ${egress}
+    ${t}=    Http Get    ${PORTAL}/api/traffic    window=1m    timeout=60
+    ${p}=    Evaluate    [p for p in $t["policies"] if p["pe"] == "${SRC_PE}" and p["prefix"] == "${DST_LAN}"][0]
+    Should Be True    ${p}[matches] and not ${p}[missing]    msg=the policy's packets: seen on ${p}[seen], missing on ${p}[missing]
+    ${m}=    Evaluate    [m for m in $t["matrix"] if m["tenant"] == "${TENANT}" and m["ingress"] == "${ingress}" and m["egress"] == "${egress}"]
+    Should Not Be Empty    ${m}    msg=no ${TENANT} ${ingress} → ${egress} in the matrix: ${t}[matrix]
+    ${lane}=    Evaluate    [x for l in $t["links"] for x in l["lanes"] if x["from"] == "${SRC_PE}" and x["to"] == "${VIA1}"][0]
+    Should Be Equal    ${lane}[parts][0][what]    ${TENANT} → ${egress} (steered)    msg=${SRC_PE} → ${VIA1} carries ${lane}[parts]
+
 Remove The Policy And Close Connections
     IF    $DST_LAN is not None    Run Keyword And Ignore Error    Steer    del    ${SRC_PE}    ${TENANT}    ${DST_LAN}
     Close All Connections
