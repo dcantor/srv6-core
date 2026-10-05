@@ -334,11 +334,16 @@ class Collector:
         from a zeroed position and steps to the *next* node, so depending on how the tree was built it can skip a
         0.0.0.0/0 at the top of an RD's table — p3 consistently left out pe4's two defaults while p1 sent them. Updates
         that arrive later are monitored normally; only the replay misses them. The reflector's own VPN table, read
-        through its API every poll, fills such a hole — marked `via: router-api` and `bmp_gap`, so the row says
+        through its API every poll, fills such a hole — but never a route the reflector has announced or withdrawn over
+        BMP since it connected (that table lags by up to a poll, and would bring a withdrawn route back) — marked `via: router-api` and `bmp_gap`, so the row says
         exactly how the looking glass knows it (and it carries what that table has: no SID, no route targets)."""
         if not self.cfg.get("devices") or not any(d["name"] == rr for d in self.cfg["devices"]): return []
         have = {(p["afi"], p["rd"], p["prefix"]) for p in mine}
         if view == "pre-policy": have = {(p["afi"], p["rd"], p["prefix"], p["peer"]) for p in mine}
+        # a route the reflector announced or withdrawn over BMP since it connected is not a replay gap: withdrawn is
+        # withdrawn, even while the reflector's own table (polled every couple of minutes) still lists it
+        for afi, safi, rd, prefix, peer in self.feed.mentioned_keys(rr, view):
+            have.add((afi, rd, prefix) + ((peer,) if view == "pre-policy" else ()))
         rr_ip = {p["name"]: p["ip"] for p in self.cfg["collector"]["peers"]}
         _, own = self.store.paths(alive=True, limit=20000, source=rr, safi="vpn")
         out = []

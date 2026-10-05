@@ -258,6 +258,7 @@ class Feed:
         self.by_ip = {p["ip"]: p for p in cfg.get("collector", {}).get("peers", [])}   # the reflectors' link addresses
         self.lock = threading.Lock()
         self.rib, self.conns, self.peers = {}, {}, {}
+        self.mentioned = {}                                    # rr -> {(view, key)}: every route announced or withdrawn since it connected
         self.version = 0                                       # bumped on every change: the collector reconciles on it
         self.stop = threading.Event()
 
@@ -280,7 +281,7 @@ class Feed:
         addr = addr.removeprefix("::ffff:"); rr = self.rr_of(addr)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
         with self.lock:
-            self.rib[rr] = {}; self.conns[rr] = {"name": rr, "address": addr, "state": "up", "since": time.time(),
+            self.rib[rr] = {}; self.mentioned[rr] = set(); self.conns[rr] = {"name": rr, "address": addr, "state": "up", "since": time.time(),
                                                  "messages": 0, "routes": 0, "last": None, "eor": [], "synced": False,
                                                  "sys_name": None, "sys_descr": None}
             self.peers[rr] = {}; self.version += 1
@@ -329,13 +330,16 @@ class Feed:
             view = self.rib[rr].setdefault(self._view(peer), {})
             if m["eor"]:
                 c["eor"] = sorted(set(c["eor"]) | {f"{self._view(peer)} {AFI.get(m['eor'][0])} {SAFI.get(m['eor'][1])}"})
+            vname = self._view(peer)
             for afi, safi, rd, prefix, _ in m["withdraw"]:
-                view.pop((AFI.get(afi), SAFI.get(safi), rd, prefix, peer.get("address")), None)
+                k = (AFI.get(afi), SAFI.get(safi), rd, prefix, peer.get("address"))
+                view.pop(k, None); self.mentioned[rr].add((vname, k))
             for afi, safi, rd, prefix, label in m["announce"]:
                 a = route_attrs(m["attrs"], label)
                 a["peer_router_id"] = peer["bgp_id"]; a["peer_asn"] = peer["asn"]
                 a["last_update"] = int(peer["ts"] or time.time())   # volatile in the store: a replay is not a change
-                view[(AFI.get(afi), SAFI.get(safi), rd, prefix, peer.get("address"))] = a
+                k = (AFI.get(afi), SAFI.get(safi), rd, prefix, peer.get("address"))
+                view[k] = a; self.mentioned[rr].add((vname, k))
             c["routes"] = sum(len(v) for v in self.rib[rr].values())
             if m["announce"] or m["withdraw"]: self.version += 1
 
@@ -356,6 +360,12 @@ class Feed:
             for rr in self.conns:
                 out[rr] = list(self.rib.get(rr, {}).get(view, {}).items()) if self.synced(rr) else None
             return out
+
+    def mentioned_keys(self, rr, view):
+        """Every route of one view this reflector has announced or withdrawn since it connected: a route among them that
+        it does not hold now was withdrawn, and must not be filled back in from anywhere else."""
+        with self.lock:
+            return {k for v, k in self.mentioned.get(rr, set()) if v == view}
 
     def status(self):
         with self.lock:

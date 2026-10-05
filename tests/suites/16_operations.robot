@@ -5,6 +5,7 @@ Documentation     Operations features of the portal: tenant SLA probes (every pa
 ...               restore puts the steering back as the backup had it). The restore run is skipped when this suite itself runs
 ...               inside a portal run (runs are one at a time); `./lab.sh test` from a shell runs it.
 Resource          ../resources/common.resource
+Library           Process
 Suite Teardown    Remove The Policy And Close Connections
 
 *** Variables ***
@@ -141,6 +142,29 @@ Traffic: a steered tenant's packets are named on every link of the policy's path
     Http Get    ${PORTAL}/api/iperf    src=${a}[host]    dst=${z}[host]    seconds=15    timeout=120
     Wait Until Keyword Succeeds    90 s    10 s    Steered Traffic Should Be Seen    ${a}[pe]    ${z}[pe]
 
+The portal refuses to change the lab while a test run holds it, but not the suites' own requests
+    [Documentation]    A steering change or a tenant run from the portal during a test run fails tests that are not broken
+    ...                (CI run 16 lost seven cases to one), so the portal answers 409 while /tmp/srv6-core-test.lock is held.
+    ...                Run by tests/run.sh, this suite holds it already; run on its own, it takes it for a moment.
+    ${busy}=    Http Get    ${PORTAL}/api/lab/busy
+    IF    not ${busy}[test_run]
+        Start Process    flock    /tmp/srv6-core-test.lock    sleep    20    alias=lock
+        Wait Until Keyword Succeeds    10 s    1 s    Lab Should Be Busy
+    END
+    TRY
+        ${add}=    Evaluate    requests.post("${PORTAL}/api/steering", json={"pe": "${SRC_PE}", "tenant": "${TENANT}", "prefix": "192.0.2.0/24", "via": ["${VIA1}"]}, timeout=30).status_code    modules=requests
+        Should Be Equal As Integers    ${add}    409    msg=adding a policy during a test run should be refused
+        ${del}=    Evaluate    requests.delete("${PORTAL}/api/steering", params={"pe": "${SRC_PE}", "tenant": "${TENANT}", "prefix": "192.0.2.0/24"}, timeout=30).status_code    modules=requests
+        Should Be Equal As Integers    ${del}    409    msg=removing a policy during a test run should be refused
+        ${run}=    Evaluate    requests.post("${PORTAL}/api/runs", json={"mode": "remove", "name": "no-such-tenant"}, timeout=30).status_code    modules=requests
+        Should Be Equal As Integers    ${run}    409    msg=a remove run during a test run should be refused
+        # the suites mark their own requests: the guard steps aside and the request reaches validation
+        ${own}=    Http Post    ${PORTAL}/api/runs    mode=remove    name=no-such-tenant
+        Should Be Equal As Integers    ${own}[status]    422    msg=the suites' own request should get past the guard: ${own}
+    FINALLY
+        IF    not ${busy}[test_run]    Terminate Process    lock
+    END
+
 A backup holds the lab and checks itself: the plan against the running lab is empty, a damaged file is refused
     ${b}=    Http Post    ${PORTAL}/api/backups    timeout=300
     Should Be Equal As Integers    ${b}[status]    200
@@ -185,6 +209,10 @@ Steered Traffic Should Be Seen
     Should Not Be Empty    ${m}    msg=no ${TENANT} ${ingress} → ${egress} in the matrix: ${t}[matrix]
     ${lane}=    Evaluate    [x for l in $t["links"] for x in l["lanes"] if x["from"] == "${SRC_PE}" and x["to"] == "${VIA1}"][0]
     Should Be Equal    ${lane}[parts][0][what]    ${TENANT} → ${egress} (steered)    msg=${SRC_PE} → ${VIA1} carries ${lane}[parts]
+
+Lab Should Be Busy
+    ${b}=    Http Get    ${PORTAL}/api/lab/busy
+    Should Be True    ${b}[test_run]
 
 Remove The Policy And Close Connections
     IF    $DST_LAN is not None    Run Keyword And Ignore Error    Steer    del    ${SRC_PE}    ${TENANT}    ${DST_LAN}

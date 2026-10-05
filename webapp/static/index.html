@@ -333,11 +333,12 @@ async function loadSteering() {
   const fill = () => { const t = ST.tenants.find(x => x.name === $('st-tenant').value); const pe = $('st-pe').value; $('st-prefix').innerHTML = t.sites.filter(s => s.pe !== pe && s.lan).map(s => `<option value="${s.lan}">${s.lan} (${s.dc}, behind ${s.pe})</option>`).join(''); };
   $('st-pe').onchange = fill; $('st-tenant').onchange = fill; fill();
   $('st-table').querySelector('tbody').innerHTML = '<tr><td colspan="6" class="hint">reading the PEs…</td></tr>';
+  try { const b = await (await fetch('/api/lab/busy')).json(); if (b.test_run) $('st-msg').textContent = 'A test run is using the lab: steering changes are refused until it finishes (they would fail its tests).'; } catch (e) { }
   await loadMap(); const pol = SMAP.policies;
   $('st-table').querySelector('tbody').innerHTML = pol.map(p => `<tr><td>${p.pe}</td><td>${p.tenant}</td><td class="mono">${p.prefix}</td><td class="mono">${(p.segments || []).join(' → ')}</td><td>${p.interface}</td><td><button class="danger" onclick="steerDel('${p.pe}','${p.tenant}','${p.prefix}')">Remove</button></td></tr>`).join('') || '<tr><td colspan="6" class="hint">no policies — every prefix follows the IGP shortest path</td></tr>';
 }
 async function steerAdd() { $('st-msg').textContent = ''; const r = await fetch('/api/steering', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pe: $('st-pe').value, tenant: $('st-tenant').value, prefix: $('st-prefix').value, via: $('st-via').value.trim().split(/\s+/) }) }); const d = await r.json(); if (!r.ok) return $('st-msg').textContent = typeof d.detail === 'string' ? d.detail : JSON.stringify(d.detail); $('st-msg').textContent = ''; PREVIEW = null; loadSteering(); }
-async function steerDel(pe, tenant, prefix) { await fetch(`/api/steering?pe=${pe}&tenant=${tenant}&prefix=${encodeURIComponent(prefix)}`, { method: 'DELETE' }); loadSteering(); }
+async function steerDel(pe, tenant, prefix) { const r = await fetch(`/api/steering?pe=${pe}&tenant=${tenant}&prefix=${encodeURIComponent(prefix)}`, { method: 'DELETE' }); if (!r.ok) { const d = await r.json(); $('st-msg').textContent = typeof d.detail === 'string' ? d.detail : JSON.stringify(d.detail); return; } loadSteering(); }
 
 // ---- steering on the map -------------------------------------------------------------------------------------------
 let SMAP = null, PREVIEW = null, MEAS = {};

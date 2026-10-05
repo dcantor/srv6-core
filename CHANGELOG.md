@@ -10,6 +10,21 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 The current version is in [`VERSION`](VERSION), and in git as a `v<version>` tag.
 
+## [1.8.1] — 2026-10-05
+
+### Fixed
+- **The looking glass could show a withdrawn route for up to two minutes.** The BMP replay-gap filler (1.7.0) took any
+  route in a reflector's own VPN table that BMP did not hold, and that table is polled every couple of minutes — so a
+  route the reflector had just withdrawn over BMP came back from the stale poll. It now fills only routes the reflector
+  has neither announced nor withdrawn since it connected (CI run 16, suite 15).
+
+### Added
+- **The portal refuses to change the lab while a test run holds it** (`/tmp/srv6-core-test.lock`, taken by
+  `tests/run.sh` for a shell, portal or CI run): adding or removing a steering policy and tenant / site / remove /
+  restore runs answer 409, and the Steering view says why. Two steering policies applied from the portal during CI run 16
+  cost it seven test cases. The suites mark their own requests (`X-Srv6-Test-Run`) and pass. `GET /api/lab/busy`.
+- **Tests:** a new case in `16_operations` for the guard. 118 cases in all.
+
 ## [1.8.0] — 2026-10-05
 
 ### Added

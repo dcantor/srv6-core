@@ -306,27 +306,59 @@ def iperf(src: str = Query(..., examples=["dc1-h1"]), dst: str = Query(..., exam
 def steering_list(): return state.steering()
 
 
-@app.post("/api/steering", tags=["steering"], summary="Add an explicit-path policy (applied now)")
-def steering_add(spec: SteerSpec):
+TEST_LOCK = "/tmp/srv6-core-test.lock"      # held by tests/run.sh for a whole test run (shell, portal or CI)
+
+
+def test_run_active():
+    """True while a test run holds the lab: the suites change the routers and assert on what they find, so anything
+    else changing them at the same time fails tests that are not broken (CI run 16 lost 7 cases that way)."""
+    import fcntl
+    try:
+        with open(TEST_LOCK, "a") as f:
+            try: fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError: return True
+            fcntl.flock(f, fcntl.LOCK_UN); return False
+    except OSError:
+        return False
+
+
+def refuse_while_testing(request: Request, what):
+    """409 while a test run holds the lab — unless the request comes from the suites themselves (they say so in a
+    header: a guard against accidents, not an access control)."""
+    if request.headers.get("x-srv6-test-run") == "1": return
+    if test_run_active():
+        raise HTTPException(409, f"a test run is using the lab right now (it holds {TEST_LOCK}): {what} would change the routers "
+                                 f"under the suites and fail them. Try again when it has finished (see Runs, or CI).")
+
+
+@app.get("/api/lab/busy", tags=["state"], summary="Whether a test run holds the lab (the portal then refuses changes)")
+def lab_busy(): return {"test_run": test_run_active()}
+
+
+@app.post("/api/steering", tags=["steering"], summary="Add an explicit-path policy (applied now)", responses={409: {"description": "a test run holds the lab"}})
+def steering_add(spec: SteerSpec, request: Request):
+    refuse_while_testing(request, "adding a steering policy")
     r = subprocess.run([PY, str(LAB / "tools" / "steer.py"), "add", spec.pe, spec.tenant, spec.prefix, *spec.via], capture_output=True, text=True, timeout=300)
     if r.returncode != 0: raise HTTPException(422, (r.stderr or r.stdout).strip()[-500:])
     grafana.annotate(f"srv6-core: steering {spec.tenant} {spec.prefix} on {spec.pe} via {' > '.join(spec.via)}", tags=["srv6-core", "steering", spec.tenant])
     state._cache = None; return {"output": r.stdout}
 
 
-@app.delete("/api/steering", tags=["steering"], summary="Remove a policy (applied now)")
-def steering_del(pe: str, tenant: str, prefix: str):
+@app.delete("/api/steering", tags=["steering"], summary="Remove a policy (applied now)", responses={409: {"description": "a test run holds the lab"}})
+def steering_del(pe: str, tenant: str, prefix: str, request: Request):
+    refuse_while_testing(request, "removing a steering policy")
     r = subprocess.run([PY, str(LAB / "tools" / "steer.py"), "del", pe, tenant, prefix], capture_output=True, text=True, timeout=300)
     if r.returncode != 0: raise HTTPException(422, (r.stderr or r.stdout).strip()[-500:])
     grafana.annotate(f"srv6-core: steering removed for {tenant} {prefix} on {pe}", tags=["srv6-core", "steering", tenant])
     state._cache = None; return {"output": r.stdout}
 
 
-@app.post("/api/runs", tags=["runs"], summary="Start a pipeline run", responses={409: {"description": "a run is already in progress"}, 422: {"description": "validation problems"}})
-def start_run(body: RunRequest):
+@app.post("/api/runs", tags=["runs"], summary="Start a pipeline run", responses={409: {"description": "a run is already in progress, or a test run holds the lab"}, 422: {"description": "validation problems"}})
+def start_run(body: RunRequest, request: Request):
     """Modes: **tenant** (a TenantSpec: new tenant with its sites), **site** (a TenantSpec naming an existing tenant with the new site(s)),
     **remove** (`name`), **restore** (`name`: a backup file; see /api/backups/{file}/plan), **test** (Robot suites; `options.suites`, default the VPN / end-to-end / Nautobot suites, `["all"]` for everything)."""
     mode = body.mode; spec = None
+    if mode != "test": refuse_while_testing(request, f"a {mode} run")
     if mode in ("tenant", "site"):
         if body.tenant is None: raise HTTPException(422, {"problems": ["tenant spec required"]})
         spec = body.tenant.model_dump(); problems = T.validate(spec, new_tenant=mode == "tenant")

@@ -11,6 +11,7 @@ from pathlib import Path
 
 import paramiko
 import requests
+TEST_HEADERS = {"X-Srv6-Test-Run": "1"}   # the portal refuses changes during a test run, except the suites' own
 from netmiko import ConnectHandler
 from robot.api import logger
 from robot.api.deco import keyword, library
@@ -205,7 +206,7 @@ class LabLib:
     @keyword
     def http_post(self, url, timeout=60, **body):
         """POST a JSON body; returns {status, json} so a suite can assert on a rejection as well as on the answer."""
-        r = requests.post(url, json=body, timeout=timeout)
+        r = requests.post(url, json=body, timeout=timeout, headers=TEST_HEADERS)
         try: return {"status": r.status_code, "json": r.json()}
         except ValueError: return {"status": r.status_code, "json": {"text": r.text}}
 
