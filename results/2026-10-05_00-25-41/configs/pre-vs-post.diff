@@ -1,0 +1,12 @@
+diff -ru -x routes -I '^# .* captured ' /home/dcantor/.local/share/gitea-runner/work/272dac6c544bc7a1/hostexecutor/results/2026-10-05_00-25-41/configs/pre-run/pe1.config.txt /home/dcantor/.local/share/gitea-runner/work/272dac6c544bc7a1/hostexecutor/results/2026-10-05_00-25-41/configs/post-run/pe1.config.txt
+--- /home/dcantor/.local/share/gitea-runner/work/272dac6c544bc7a1/hostexecutor/results/2026-10-05_00-25-41/configs/pre-run/pe1.config.txt	2026-10-05 00:25:53.537612707 -0400
++++ /home/dcantor/.local/share/gitea-runner/work/272dac6c544bc7a1/hostexecutor/results/2026-10-05_00-25-41/configs/post-run/pe1.config.txt	2026-10-05 01:22:03.782001088 -0400
+@@ -113,6 +113,8 @@
+ set vrf name tenant-a protocols bgp parameters router-id '10.255.0.1'
+ set vrf name tenant-a protocols bgp sid vpn per-vrf export 'auto'
+ set vrf name tenant-a protocols bgp system-as '65000'
++set vrf name tenant-a protocols static route 172.20.2.0/24 interface eth1 segments 'fd00:c:11:12:2:e001::'
++set vrf name tenant-a protocols static route 172.20.2.0/24 interface eth1 vrf 'default'
+ set vrf name tenant-a protocols static route6 fd00:c:2::/48 next-hop fd00:a::11 vrf 'default'
+ set vrf name tenant-a protocols static route6 fd00:c:2::/48 next-hop fd00:a::12 vrf 'default'
+ set vrf name tenant-a protocols static route6 fd00:c:3::/48 next-hop fd00:a::12 vrf 'default'
