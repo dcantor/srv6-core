@@ -10,6 +10,25 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 The current version is in [`VERSION`](VERSION), and in git as a `v<version>` tag.
 
+## [1.10.0] — 2026-10-10
+
+### Added
+- Two more P routers, **p4** and **p5** (VyOS, 1 GiB each, IS-IS level-2, SRv6 locators `fd00:c:14::/48` and
+  `fd00:c:15::/48`, no BGP — forwarding only, like p2), forming an outer path **p1 – p5 – p4 – p3** around the triangle
+  (`fd00:b:0:15::/64`, `fd00:b:0:45::/64`, `fd00:b:0:34::/64`). p1 and p3 use their last spare port (eth6) as the first end
+  of their new links, so their NICs keep the UDP ports they had unwired: only their configuration changed, no rebuild.
+  The outer path is three hops longer than the triangle, so no shortest path changes; it is a second way round p2 for
+  failures and steering. In Nautobot (seeded), in the portal's maps and Prometheus discovery, in the looking glass.
+- `lab.sh verify` expects the new adjacency counts (PEs 2, p1 5, p2 6, p3 5, p4 2, p5 2).
+
+### Known issue
+- Re-applying a PE's configuration (`lab.sh configure peN`, as adding the P routers did — every PE gains static routes
+  for the new locators) can make BGP renumber the PE's SRv6 functions: pe2's tenant-a End.DT46 moved from `…:2:e001::`
+  to `…:2:e003::`, and `e001` became an End.X SID. A steering policy pinned to the old SID (pe1 → dc2 tenant-a via p1 p3)
+  then sent its traffic out of pe2 towards p2 instead of into the VRF: dc1-h1 and dc2-h1 lost each other. Re-adding the
+  policy (`steer del` + `steer add`) reads the live SID and restores it. After any `configure` of a PE, re-apply the
+  steering policies that end at it.
+
 ## [1.9.0] — 2026-10-05
 
 ### Added

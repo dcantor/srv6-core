@@ -1,0 +1,73 @@
+# p4: P in core — day-0 pushed over the serial console by lab.sh bootstrap; rendered by tools/render.py
+set system host-name p4
+set system domain-name lab.local
+set system login user vyos authentication plaintext-password vyos
+set service ssh port 22
+set service lldp interface all
+set interfaces ethernet eth0 address 10.3.0.24/24
+set interfaces ethernet eth0 description 'OOB management'
+set protocols static route 10.0.0.0/8 next-hop 10.3.0.1
+# monitoring: Prometheus exporters on the OOB address (node-exporter :9100, frr-exporter :9342), scraped from the NMS
+set service monitoring prometheus node-exporter listen-address 10.3.0.24
+set service monitoring prometheus frr-exporter listen-address 10.3.0.24
+# telemetry pushed by the node itself: VyOS Telegraf -> VictoriaMetrics on the NMS over the InfluxDB v2 write API (host
+# metrics, VyOS service state, kernel nstat counters), every series tagged lab / role / dc; syslog -> VictoriaLogs (UDP 5514)
+set service monitoring telegraf influxdb url http://10.3.0.10
+set service monitoring telegraf influxdb port 8428
+set service monitoring telegraf influxdb bucket srv6-core
+set service monitoring telegraf influxdb authentication organization lab
+set service monitoring telegraf influxdb authentication token srv6core-lab-telegraf_________________________________________________________________==
+set system syslog remote 10.3.0.10 port 5514
+set system syslog remote 10.3.0.10 protocol udp
+set system syslog remote 10.3.0.10 facility all level info
+set service monitoring telegraf global-tag lab value srv6-core
+set service monitoring telegraf global-tag role value p
+set service monitoring telegraf global-tag dc value core
+# the router's own HTTPS API (/show, /retrieve, /ping, /traceroute): what the BGP looking glass reads the
+# RIB, the per-VRF BGP tables and the IS-IS adjacencies through — a supported interface rather than a
+# scraped terminal, and every answer already JSON. Only the looking glass and the host may call it.
+set service https api rest
+set service https api keys id lg key srv6core-lab-looking-glass
+set service https allow-client address 10.3.0.70
+set service https allow-client address 10.3.0.1
+# sFlow from the core-facing ports to the NMS collector (goflow2 -> VictoriaLogs): the outer IPv6 flows = SRv6 paths in use
+set system sflow agent-address 10.3.0.24
+set system sflow server 10.3.0.10 port 6343
+set system sflow sampling-rate 16
+set system sflow polling 20
+set system sflow interface eth1
+set system sflow interface eth2
+# underlay: IPv6-only core, IS-IS level-2 point-to-point, jumbo frames leave headroom for the SRv6 encapsulation
+set interfaces loopback lo address fd00:a::14/128
+set interfaces ethernet eth1 address fd00:b:0:34::2/64
+set interfaces ethernet eth1 description 'core: p3 eth6'
+set interfaces ethernet eth1 mtu 9000
+set interfaces ethernet eth2 address fd00:b:0:45::1/64
+set interfaces ethernet eth2 description 'core: p5 eth2'
+set interfaces ethernet eth2 mtu 9000
+# SRv6: the locator (usid-f3216: block 32 / node 16 / function 16 bits); dum0 is where FRR installs
+# the local SIDs — addressed with a /128 so the connected route never outranks the locator's own End SID in zebra
+set interfaces dummy dum0 address fd00:c:14::1/128
+set interfaces dummy dum0 description 'SRv6 locator fd00:c:14::/48 (local SIDs)'
+set protocols segment-routing srv6 locator main prefix fd00:c:14::/48
+set protocols segment-routing srv6 locator main block-len 32
+set protocols segment-routing srv6 locator main node-len 16
+set protocols segment-routing srv6 locator main func-bits 16
+set protocols segment-routing srv6 locator main format usid-f3216
+set protocols segment-routing srv6 locator main behavior-usid
+set protocols segment-routing srv6 encapsulation source-address fd00:a::14
+set protocols segment-routing interface eth1 srv6
+set protocols segment-routing interface eth2 srv6
+set system sysctl parameter net.ipv6.conf.all.seg6_enabled value 1
+set protocols isis net 49.0001.0000.0000.0014.00
+set protocols isis level level-2
+set protocols isis metric-style wide
+set protocols isis log-adjacency-changes
+set protocols isis interface eth1 network point-to-point
+set protocols isis interface eth2 network point-to-point
+set protocols isis interface eth1 bfd
+set protocols isis interface eth2 bfd
+set protocols isis interface lo passive
+set protocols isis interface dum0 passive
+set protocols isis segment-routing srv6 locator main
+set protocols isis segment-routing srv6 interface dum0

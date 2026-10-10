@@ -39,6 +39,7 @@ set system sflow interface eth1
 set system sflow interface eth2
 set system sflow interface eth3
 set system sflow interface eth4
+set system sflow interface eth6
 # underlay: IPv6-only core, IS-IS level-2 point-to-point, jumbo frames leave headroom for the SRv6 encapsulation
 set interfaces loopback lo address fd00:a::11/128
 set interfaces ethernet eth1 address fd00:b:0:12::1/64
@@ -53,6 +54,9 @@ set interfaces ethernet eth3 mtu 9000
 set interfaces ethernet eth4 address fd00:b:0:102::1/64
 set interfaces ethernet eth4 description 'core: pe2 eth1'
 set interfaces ethernet eth4 mtu 9000
+set interfaces ethernet eth6 address fd00:b:0:15::1/64
+set interfaces ethernet eth6 description 'core: p5 eth1'
+set interfaces ethernet eth6 mtu 9000
 # SRv6: the locator (usid-f3216: block 32 / node 16 / function 16 bits); dum0 is where FRR installs
 # the local SIDs — addressed with a /128 so the connected route never outranks the locator's own End SID in zebra
 set interfaces dummy dum0 address fd00:c:11::1/128
@@ -68,6 +72,7 @@ set protocols segment-routing interface eth1 srv6
 set protocols segment-routing interface eth2 srv6
 set protocols segment-routing interface eth3 srv6
 set protocols segment-routing interface eth4 srv6
+set protocols segment-routing interface eth6 srv6
 set system sysctl parameter net.ipv6.conf.all.seg6_enabled value 1
 set protocols isis net 49.0001.0000.0000.0011.00
 set protocols isis level level-2
@@ -77,10 +82,12 @@ set protocols isis interface eth1 network point-to-point
 set protocols isis interface eth2 network point-to-point
 set protocols isis interface eth3 network point-to-point
 set protocols isis interface eth4 network point-to-point
+set protocols isis interface eth6 network point-to-point
 set protocols isis interface eth1 bfd
 set protocols isis interface eth2 bfd
 set protocols isis interface eth3 bfd
 set protocols isis interface eth4 bfd
+set protocols isis interface eth6 bfd
 set protocols isis interface lo passive
 set protocols isis interface dum0 passive
 set protocols isis segment-routing srv6 locator main

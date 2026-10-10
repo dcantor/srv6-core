@@ -30,7 +30,7 @@ page = f"""<!doctype html><html><head><meta charset="utf-8"><title>SRv6 core lab
  .foot {{ font-size: 11px; color: #64748b; margin-top: 10px }}
 </style></head><body>
 <h1>SRv6 WAN core lab — topology</h1>
-<p class="sub">Four VyOS PEs (one per data centre) dual-homed to a VyOS P-router triangle; IS-IS level-2 IPv6-only underlay carrying the SRv6 locators;
+<p class="sub">Four VyOS PEs (one per data centre) dual-homed to a five-router VyOS P core (a triangle and an outer path p1–p5–p4–p3); IS-IS level-2 IPv6-only underlay carrying the SRv6 locators;
 BGP VPNv4 over SRv6 (End.DT4) reflected by p1; a VyOS CE per data centre with one VRF per tenant ({", ".join(sorted(S["tenants"]))}), each tenant on its own attachment circuit into its own VRF on the PE and with its own host per site. Tenants never meet. {len(inv["nodes"])} VMs on one libvirt/KVM host.
 <span class="legend" style="margin-left:14px"><span><i style="background:#c2410c"></i>core link (IPv6 /64, IS-IS, SRv6)</span>{legend}</span></p>
 {diagram}

@@ -94,6 +94,9 @@ set vrf name tenant-a protocols static route6 fd00:c:11::/48 next-hop fd00:a::11
 set vrf name tenant-a protocols static route6 fd00:c:12::/48 next-hop fd00:a::12 vrf default
 set vrf name tenant-a protocols static route6 fd00:c:13::/48 next-hop fd00:a::11 vrf default
 set vrf name tenant-a protocols static route6 fd00:c:13::/48 next-hop fd00:a::12 vrf default
+set vrf name tenant-a protocols static route6 fd00:c:14::/48 next-hop fd00:a::11 vrf default
+set vrf name tenant-a protocols static route6 fd00:c:14::/48 next-hop fd00:a::12 vrf default
+set vrf name tenant-a protocols static route6 fd00:c:15::/48 next-hop fd00:a::11 vrf default
 set vrf name tenant-a protocols static route6 fd00:c:1::/48 next-hop fd00:a::11 vrf default
 set vrf name tenant-a protocols static route6 fd00:c:1::/48 next-hop fd00:a::12 vrf default
 set vrf name tenant-a protocols static route6 fd00:c:3::/48 next-hop fd00:a::12 vrf default
@@ -134,6 +137,9 @@ set vrf name tenant-b protocols static route6 fd00:c:11::/48 next-hop fd00:a::11
 set vrf name tenant-b protocols static route6 fd00:c:12::/48 next-hop fd00:a::12 vrf default
 set vrf name tenant-b protocols static route6 fd00:c:13::/48 next-hop fd00:a::11 vrf default
 set vrf name tenant-b protocols static route6 fd00:c:13::/48 next-hop fd00:a::12 vrf default
+set vrf name tenant-b protocols static route6 fd00:c:14::/48 next-hop fd00:a::11 vrf default
+set vrf name tenant-b protocols static route6 fd00:c:14::/48 next-hop fd00:a::12 vrf default
+set vrf name tenant-b protocols static route6 fd00:c:15::/48 next-hop fd00:a::11 vrf default
 set vrf name tenant-b protocols static route6 fd00:c:1::/48 next-hop fd00:a::11 vrf default
 set vrf name tenant-b protocols static route6 fd00:c:1::/48 next-hop fd00:a::12 vrf default
 set vrf name tenant-b protocols static route6 fd00:c:3::/48 next-hop fd00:a::12 vrf default

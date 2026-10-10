@@ -567,7 +567,7 @@ vy() { "$PY" "$LAB_DIR/tools/vyos_cmd.py" "${MGMT_IP[$1]}" "${@:2}"; }
 cmd_verify() {     # a quick look at the control plane and the data plane end to end
   need_python
   local n
-  echo "== IS-IS adjacencies (PEs: 2, p1: 4, p2: 6, p3: 4)"
+  echo "== IS-IS adjacencies (PEs: 2, p1: 5, p2: 6, p3: 5, p4: 2, p5: 2)"
   for n in "${PES[@]}" "${PS[@]}"; do echo "-- $n"; vy "$n" "show isis neighbor" | grep -E 'Up|Init|Down' || echo "   (none)"; done
   echo; echo "== SRv6 locators (IS-IS view on $RR)"; vy "$RR" "show isis segment-routing srv6 node"
   local r; for r in "${RRS[@]}"; do echo; echo "== VPNv4 at the route reflector $r"; vy "$r" "show bgp ipv4 vpn summary" | grep -E '^fd00|Neighbor'; done

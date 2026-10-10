@@ -1,14 +1,15 @@
-# SRv6 WAN core lab — VyOS PEs, a P-router triangle and BGP L3VPN over SRv6
+# SRv6 WAN core lab — VyOS PEs, a five-router P core and BGP L3VPN over SRv6
 
 A segment-routing-over-IPv6 service-provider core simulated on one Linux host with libvirt/KVM: four **VyOS PEs**
-(one per data centre), three **VyOS P routers** in a triangle (p1 and p3 are also VPNv4 route reflectors), a **VyOS CE**
+(one per data centre), five **VyOS P routers** — a triangle p1–p2–p3 (p1 and p3 are also VPNv4 route reflectors) and an
+outer path p1–p5–p4–p3 around it — a **VyOS CE**
 per data centre serving **two tenants** — `tenant-a` (host h1) and `tenant-b` (host h2) — each in its own VRF on the
 CE and over its own attachment circuit into its own VRF on the PE, and an **Alpine Linux host** (iperf3, tcpdump, mtr)
 per tenant per site. The core is IPv6-only with IS-IS level-2 carrying the SRv6 locators; each tenant's IPv4 prefixes travel
 as BGP VPNv4 routes whose next hop is that tenant's **SRv6 End.DT46 SID** on the remote PE, so every h1 reaches every
 other h1, every h2 every other h2, and the two never meet — not even at the same site. A small **VyOS firewall** (`fw-inet`)
-is a CE of both tenants on pe4 and gives every site a NATed way out to the internet through the host's own uplink. A **BGP looking glass** (`lg`) — a passive route collector with a history — watches the whole VPN table from inside the core. Twenty-one VMs
-(plus one CirrOS host per site per extra tenant), about 15 GiB of RAM, all VyOS nodes 1 vCPU / 1 GiB.
+is a CE of both tenants on pe4 and gives every site a NATed way out to the internet through the host's own uplink. A **BGP looking glass** (`lg`) — a passive route collector with a history — watches the whole VPN table from inside the core. Twenty-three VMs
+(plus one CirrOS host per site per extra tenant), about 17 GiB of RAM, all VyOS nodes 1 vCPU / 1 GiB.
 
 ```
  hosts (Alpine)   dc1-h1 172.20.1.2  dc1-h2 172.21.1.2   … the same in dc2, dc3, dc4 (172.20.n / 172.21.n)
@@ -19,9 +20,14 @@ is a CE of both tenants on pe4 and gives every site a NATed way out to the inter
  PEs   (VyOS)     pe1 fd00:c:1::/64     pe2 fd00:c:2::/64              pe3 fd00:c:3::/64     pe4 fd00:c:4::/64
                    |    \      /    |                                   |    \      /    |
  P core (VyOS)    p1 (RR) ---------- p2 ------------------------------ p3 (RR)  IS-IS L2, IPv6-only, MTU 9000
-                  fd00:a::11         fd00:a::12                        fd00:a::13
+                  fd00:a::11  \      fd00:a::12                     /  fd00:a::13
+                               \                                    /
+                                p5 fd00:a::15 ------------------ p4 fd00:a::14     the outer path (no BGP, forwarding only)
 ```
-pe1/pe2 are dual-homed to p1+p2, pe3/pe4 to p2+p3, so every west↔east path crosses p2 (the tests use that).
+pe1/pe2 are dual-homed to p1+p2, pe3/pe4 to p2+p3, so every west↔east **shortest** path crosses p2 (the tests use that).
+The outer path p1–p5–p4–p3 (added in 1.10) is three hops longer than the triangle, so it changes no shortest path: it is a
+second way round p2 for failures (losing p2 *and* the p1–p3 link still leaves west and east connected) and for steering
+(`steer add pe1 tenant-a 172.20.3.0/24 p5 p4` sends pe1 → dc3 the long way, still one uSID carrier).
 
 ![SRv6 core lab topology](docs/topology.png)
 
@@ -32,7 +38,7 @@ names. Generated from `lab.conf` by `docs/topology.py`; the same drawing with th
 
 ## Quick start
 ```bash
-./lab.sh up            # define the OOB network, build the overlay disks / cloud-init seeds, start 21 VMs
+./lab.sh up            # define the OOB network, build the overlay disks / cloud-init seeds, start 23 VMs
 ./lab.sh bootstrap     # first boot only: push nodes/<n>/vyos_config.txt over the serial consoles (all in parallel, ~4 min)
 ./lab.sh wait          # SSH on every node
 ./lab.sh lg deploy     # the looking glass VM: render its FRR config, copy the service over, start it
